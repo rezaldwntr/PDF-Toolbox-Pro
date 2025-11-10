@@ -1,0 +1,10 @@
+
+export enum Tool {
+  LANDING,
+  MERGE,
+  SPLIT,
+  COMPRESS,
+  ADD_TEXT,
+  ADD_SIGNATURE,
+  ORGANIZE,
+}
