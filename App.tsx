@@ -42,7 +42,7 @@ function App() {
       </main>
        <footer className="text-center py-6 text-slate-500 text-sm">
         <p>
-            Dibuat dengan ❤️ oleh{' '}
+            Created By{' '}
             <a
               href="https://instagram.com/rezaldwntr"
               target="_blank"
