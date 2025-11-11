@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
-import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, TextColorIcon, AddIcon, RotateIcon, ZoomInIcon, ZoomOutIcon, TextBoxBackgroundIcon } from '../icons';
+import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, TextColorIcon, AddIcon, RotateIcon, ZoomInIcon, ZoomOutIcon, TextBoxBackgroundIcon, TextIcon } from '../icons';
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 
 declare const pdfjsLib: any;
@@ -80,6 +80,15 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorPagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- State for smooth dragging ---
+  const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const textElementsRef = useRef(textElements);
+  useEffect(() => {
+    textElementsRef.current = textElements;
+  }, [textElements]);
+
 
   const resetState = useCallback(() => {
     setFile(null);
@@ -182,31 +191,103 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       })));
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-      e.dataTransfer.setData('elementId', id);
-      const target = e.currentTarget as HTMLDivElement;
-      const rect = target.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
-      e.dataTransfer.setData('offsetX', String(offsetX));
-      e.dataTransfer.setData('offsetY', String(offsetY));
-      e.dataTransfer.effectAllowed = 'move';
+  const handleMouseDownOnText = (e: React.MouseEvent<HTMLTextAreaElement>, text: TextElement) => {
+    const target = e.currentTarget;
+    // Jangan mulai seret jika pengguna mengklik pegangan pengubah ukuran
+    if (e.nativeEvent.offsetX > target.offsetWidth - 15 && e.nativeEvent.offsetY > target.offsetHeight - 15) {
+        return;
+    }
+    
+    e.stopPropagation();
+    setSelectedElementId(text.id);
+    
+    const rect = target.getBoundingClientRect();
+    const offsetX = (e.clientX - rect.left) / zoom;
+    const offsetY = (e.clientY - rect.top) / zoom;
+
+    setDragState({ id: text.id, offsetX, offsetY });
   };
 
-  const handleDrop = (e: React.DragEvent, pageIndex: number) => {
-      e.preventDefault();
-      const id = e.dataTransfer.getData('elementId');
-      const offsetX = parseFloat(e.dataTransfer.getData('offsetX'));
-      const offsetY = parseFloat(e.dataTransfer.getData('offsetY'));
-      
-      const pageElement = e.currentTarget as HTMLElement;
-      const pageBounds = pageElement.getBoundingClientRect();
+  useEffect(() => {
+    if (!dragState) return;
 
-      const newX = (e.clientX - pageBounds.left) / zoom - offsetX;
-      const newY = (e.clientY - pageBounds.top) / zoom - offsetY;
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!editorPagesContainerRef.current) return;
+        
+        e.preventDefault();
 
-      setTextElements(prev => prev.map(el => el.id === id ? { ...el, x: newX, y: newY, pageIndex } : el));
-  };
+        const pageElements = Array.from(editorPagesContainerRef.current.children) as HTMLElement[];
+        let targetPageIndex = -1;
+        let targetPageBounds: DOMRect | null = null;
+        
+        for (let i = 0; i < pageElements.length; i++) {
+            const pageEl = pageElements[i];
+            const bounds = pageEl.getBoundingClientRect();
+            if (e.clientX >= bounds.left && e.clientX <= bounds.right && e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
+                targetPageIndex = i;
+                targetPageBounds = bounds;
+                break;
+            }
+        }
+        
+        const currentElement = textElementsRef.current.find(el => el.id === dragState.id);
+        if (!currentElement) return;
+
+        if (targetPageIndex === -1) {
+            targetPageIndex = currentElement.pageIndex;
+            targetPageBounds = pageElements[targetPageIndex]?.getBoundingClientRect() ?? null;
+        }
+        
+        if (targetPageBounds) {
+            const newX = (e.clientX - targetPageBounds.left) / zoom - dragState.offsetX;
+            const newY = (e.clientY - targetPageBounds.top) / zoom - dragState.offsetY;
+            
+            setTextElements(prev =>
+                prev.map(el =>
+                    el.id === dragState.id
+                        ? { ...el, x: newX, y: newY, pageIndex: targetPageIndex }
+                        : el
+                )
+            );
+        }
+    };
+
+    const handleMouseUp = () => {
+        setDragState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp, { once: true });
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, zoom]);
+
+  // Effect to handle keyboard delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedElementId && (e.key === 'Delete' || e.key === 'Backspace')) {
+        const activeEl = document.activeElement;
+        // Don't delete element if user is typing in a textarea or input.
+        if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
+          return;
+        }
+        
+        e.preventDefault(); // Prevents browser back navigation on backspace.
+        
+        handleDeleteElement();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedElementId]);
+
 
   const handleSave = async () => {
       if (!file) return;
@@ -418,23 +499,20 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         {/* PDF Editor */}
         <div className="relative">
             <div className="bg-slate-900 rounded-lg p-4 overflow-auto max-h-[70vh] flex justify-center items-start">
-            <div className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
+            <div ref={editorPagesContainerRef} className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
                 {pagePreviews.map((page, index) => (
                 <div
                     key={index}
                     data-page-index={index}
                     className="relative shadow-lg"
                     style={{ width: page.width, height: page.height, transform: `rotate(${page.rotation}deg)` }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, index)}
                     onClick={() => setSelectedElementId(null)}
                 >
                     <img src={page.url} alt={`Page ${index + 1}`} width={page.width} height={page.height} />
                     {textElements.filter(t => t.pageIndex === index).map(text => (
                     <textarea
                         key={text.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, text.id)}
+                        onMouseDown={(e) => handleMouseDownOnText(e, text)}
                         onClick={(e) => { e.stopPropagation(); setSelectedElementId(text.id); }}
                         value={text.text}
                         onChange={(e) => {
@@ -446,7 +524,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             
                             setTextElements(prev => prev.map(el => el.id === text.id ? {...el, text: e.target.value, height: newHeight / zoom} : el));
                         }}
-                        className={`absolute bg-transparent focus:outline-none p-0 border-2 resize-x overflow-hidden whitespace-pre-wrap ${selectedElementId === text.id ? 'border-blue-500 border-dashed' : 'border-transparent hover:border-blue-500/50'}`}
+                        className={`absolute bg-transparent focus:outline-none p-0 border-2 resize-x overflow-hidden whitespace-pre-wrap cursor-move ${selectedElementId === text.id ? 'border-blue-500 border-dashed' : 'border-transparent hover:border-blue-500/50'}`}
                         style={{
                         left: text.x, top: text.y,
                         width: text.width,
@@ -478,7 +556,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
   
   return (
-    <ToolContainer title="Tambahkan Teks" onBack={onBack}>
+    <ToolContainer title="Tambahkan Teks" onBack={onBack} maxWidth="max-w-7xl">
       <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
       {renderContent()}
     </ToolContainer>
