@@ -6,6 +6,7 @@ import { PDFDocument } from 'pdf-lib';
 declare const pdfjsLib: any;
 
 type CompressionMode = 'recommended' | 'advanced';
+type PageContentType = 'text-vector' | 'mixed-content' | 'full-image';
 
 interface CompressResult {
   url: string;
@@ -26,6 +27,29 @@ const formatBytes = (bytes: number, decimals = 2) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
+
+// Helper untuk menganalisis konten halaman secara lebih mendalam
+const analyzePageContent = async (page: any): Promise<PageContentType> => {
+    const operatorList = await page.getOperatorList();
+    let imageOperators = 0;
+    
+    // Periksa operator untuk menemukan operasi penggambaran gambar
+    for (const op of operatorList.fnArray) {
+        if (op === pdfjsLib.OPS.paintImageXObject) {
+            imageOperators++;
+        }
+    }
+
+    // Heuristik yang disempurnakan:
+    if (imageOperators === 0) {
+        return 'text-vector'; // Tidak ada gambar, kemungkinan besar teks/vektor murni.
+    }
+    if (imageOperators > 0 && imageOperators <= 3) {
+        return 'mixed-content'; // Beberapa gambar, kemungkinan konten campuran.
+    }
+    return 'full-image'; // Banyak gambar, kemungkinan halaman pindaian atau foto.
+};
+
 
 // Helper function to create a compressed PDF with a specific quality
 const createPdfWithQuality = async (pdfjsDoc: any, jpegQuality: number): Promise<Uint8Array> => {
@@ -93,14 +117,54 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
         const arrayBuffer = fileWithBuffer.buffer;
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
         let finalPdfBytes: Uint8Array;
 
         if (compressionMode === 'recommended') {
-            setProcessingMessage('Menerapkan kompresi standar...');
-            finalPdfBytes = await createPdfWithQuality(pdfjsDoc, 0.75); // Kualitas yang direkomendasikan
-        } else {
-            // Kompresi Lanjutan
+            setProcessingMessage('Menganalisis konten PDF...');
+            // Muat PDF sumber ke pdf-lib untuk menyalin halaman
+            const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
+            const newPdfDoc = await PDFDocument.create();
+
+            for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+                setProcessingMessage(`Memproses halaman ${i} dari ${pdfjsDoc.numPages}...`);
+                const page = await pdfjsDoc.getPage(i);
+                const pageType = await analyzePageContent(page);
+                
+                if (pageType === 'text-vector') {
+                    // Salin halaman secara langsung tanpa rasterisasi untuk menjaga kualitas
+                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
+                    newPdfDoc.addPage(copiedPage);
+                } else {
+                    // Terapkan kualitas berbeda berdasarkan konten halaman
+                    let jpegQuality: number;
+                    let scale: number;
+                    if (pageType === 'mixed-content') {
+                        jpegQuality = 0.92; // Kualitas tinggi untuk menjaga teks tetap jelas
+                        scale = 2.0; // Skala lebih tinggi untuk detail
+                    } else { // full-image
+                        jpegQuality = 0.75; // Kompresi lebih agresif untuk gambar
+                        scale = 1.5;
+                    }
+
+                    const viewport = page.getViewport({ scale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: context, viewport }).promise;
+
+                    const jpegDataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
+                    const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
+                    const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
+                    
+                    const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
+                    newPage.drawImage(jpegImage, { x: 0, y: 0, width: newPage.getWidth(), height: newPage.getHeight() });
+                }
+            }
+            finalPdfBytes = await newPdfDoc.save();
+
+        } else { // Mode Lanjutan (tidak berubah)
             const targetSizeBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
             if (targetSizeBytes >= fileWithBuffer.file.size) {
                 alert("Ukuran target harus lebih kecil dari ukuran file asli.");
@@ -112,7 +176,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             let bestPdfBytes: Uint8Array | null = null;
             let minDiff = Infinity;
             
-            // Binary search untuk menemukan kualitas terbaik
+            // Pencarian biner untuk menemukan kualitas terbaik
             let minQuality = 0.01;
             let maxQuality = 1.0;
 
@@ -173,7 +237,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
             <div>
               <p className="text-sm text-slate-500">Hemat</p>
-              <p className="text-lg font-bold text-green-400">{savings.toFixed(1)}%</p>
+              <p className="text-lg font-bold text-green-400">{savings > 0 ? `${savings.toFixed(1)}%` : 'N/A'}</p>
             </div>
           </div>
           <a href={result.url} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-dikompres.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
