@@ -41,7 +41,6 @@ const analyzePageContent = async (page: any): Promise<PageContentType> => {
         }
     }
 
-    // Heuristik yang disempurnakan:
     if (imageOperators === 0) {
         return 'text-vector'; // Tidak ada gambar, kemungkinan besar teks/vektor murni.
     }
@@ -142,21 +141,11 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const page = await pdfjsDoc.getPage(i);
                 const pageType = await analyzePageContent(page);
                 
-                if (pageType === 'text-vector') {
-                    // Salin halaman secara langsung tanpa rasterisasi untuk menjaga kualitas
-                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
-                    newPdfDoc.addPage(copiedPage);
-                } else {
-                    // Terapkan kualitas berbeda berdasarkan konten halaman
-                    let jpegQuality: number;
-                    let scale: number;
-                    if (pageType === 'mixed-content') {
-                        jpegQuality = 0.92; // Kualitas tinggi untuk menjaga teks tetap jelas
-                        scale = 2.0; // Skala lebih tinggi untuk detail
-                    } else { // full-image
-                        jpegQuality = 0.75; // Kompresi lebih agresif untuk gambar
-                        scale = 1.5;
-                    }
+                // FIX: Only rasterize pages that are clearly full images (scans, photos).
+                // Copy all other pages directly to preserve quality and prevent size inflation.
+                if (pageType === 'full-image') {
+                    const jpegQuality = 0.75; // Agresif untuk gambar penuh
+                    const scale = 1.5;
 
                     const viewport = page.getViewport({ scale });
                     const canvas = document.createElement('canvas');
@@ -171,6 +160,10 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     
                     const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
                     newPage.drawImage(jpegImage, { x: 0, y: 0, width: newPage.getWidth(), height: newPage.getHeight() });
+                } else { // This now correctly handles 'text-vector' AND 'mixed-content'
+                    // Salin halaman secara langsung tanpa rasterisasi
+                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
+                    newPdfDoc.addPage(copiedPage);
                 }
             }
             finalPdfBytes = await newPdfDoc.save();
@@ -248,8 +241,10 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <p className="text-lg font-semibold text-slate-200">{formatBytes(result.newSize)}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-500">Hemat</p>
-              <p className="text-lg font-bold text-green-400">{savings > 0 ? `${savings.toFixed(1)}%` : 'N/A'}</p>
+              <p className="text-sm text-slate-500">{savings >= 0 ? 'Hemat' : 'Bertambah'}</p>
+              <p className={`text-lg font-bold ${savings >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {Math.abs(savings).toFixed(1)}%
+              </p>
             </div>
           </div>
           <a href={result.url} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-dikompres.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
