@@ -7,7 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 declare const pdfjsLib: any;
 
 type CompressionMode = 'recommended' | 'advanced';
-type PageContentType = 'text-vector' | 'mixed-content' | 'full-image';
+type PageContentType = 'text-vector' | 'has-images';
 
 interface CompressResult {
   url: string;
@@ -29,25 +29,18 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-// Helper untuk menganalisis konten halaman secara lebih mendalam
+// Helper to analyze page content, simplified to a binary outcome.
 const analyzePageContent = async (page: any): Promise<PageContentType> => {
     const operatorList = await page.getOperatorList();
-    let imageOperators = 0;
     
-    // Periksa operator untuk menemukan operasi penggambaran gambar
+    // Check for any image drawing operations.
     for (const op of operatorList.fnArray) {
         if (op === pdfjsLib.OPS.paintImageXObject) {
-            imageOperators++;
+            return 'has-images'; // Found at least one image.
         }
     }
 
-    if (imageOperators === 0) {
-        return 'text-vector'; // Tidak ada gambar, kemungkinan besar teks/vektor murni.
-    }
-    if (imageOperators > 0 && imageOperators <= 3) {
-        return 'mixed-content'; // Beberapa gambar, kemungkinan konten campuran.
-    }
-    return 'full-image'; // Banyak gambar, kemungkinan halaman pindaian atau foto.
+    return 'text-vector'; // No images found.
 };
 
 
@@ -132,7 +125,6 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         if (compressionMode === 'recommended') {
             setProcessingMessage('Menganalisis konten PDF...');
-            // Muat PDF sumber ke pdf-lib untuk menyalin halaman
             const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
             const newPdfDoc = await PDFDocument.create();
 
@@ -141,10 +133,13 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const page = await pdfjsDoc.getPage(i);
                 const pageType = await analyzePageContent(page);
                 
-                // FIX: Only rasterize pages that are clearly full images (scans, photos).
-                // Copy all other pages directly to preserve quality and prevent size inflation.
-                if (pageType === 'full-image') {
-                    const jpegQuality = 0.75; // Agresif untuk gambar penuh
+                if (pageType === 'text-vector') {
+                    // Salin halaman secara langsung untuk menjaga kualitas dan mencegah pembengkakan ukuran.
+                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
+                    newPdfDoc.addPage(copiedPage);
+                } else { // 'has-images'
+                    // Rasterisasi dan kompres halaman yang mengandung gambar apa pun.
+                    const jpegQuality = 0.75;
                     const scale = 1.5;
 
                     const viewport = page.getViewport({ scale });
@@ -160,10 +155,6 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     
                     const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
                     newPage.drawImage(jpegImage, { x: 0, y: 0, width: newPage.getWidth(), height: newPage.getHeight() });
-                } else { // This now correctly handles 'text-vector' AND 'mixed-content'
-                    // Salin halaman secara langsung tanpa rasterisasi
-                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
-                    newPdfDoc.addPage(copiedPage);
                 }
             }
             finalPdfBytes = await newPdfDoc.save();
@@ -261,7 +252,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (isProcessing) {
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center">
-              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <p className="text-lg text-slate-300 font-semibold">{processingMessage}</p>
             </div>
         );
@@ -334,7 +325,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={handleCompress} disabled={isProcessing} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center min-w-[200px]">
               {isProcessing ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   <span>{processingMessage}</span>
                 </>
               ) : 'Kompres PDF'}
