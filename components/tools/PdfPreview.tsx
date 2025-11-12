@@ -4,15 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 declare const pdfjsLib: any;
 
 interface PdfPreviewProps {
-  file: File;
+  buffer: ArrayBuffer;
 }
 
-const PdfPreview: React.FC<PdfPreviewProps> = ({ file }) => {
+const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
-    if (!file || typeof pdfjsLib === 'undefined') {
+    if (!buffer || typeof pdfjsLib === 'undefined') {
         setStatus('error');
         return;
     };
@@ -22,10 +22,11 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ file }) => {
 
     const renderPdf = async () => {
       try {
-        const arrayBuffer = await file.arrayBuffer();
         if (isCancelled) return;
         
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+        // Use a copy of the buffer for rendering so the original is not detached
+        const bufferCopy = buffer.slice(0);
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(bufferCopy) }).promise;
         if (isCancelled) return;
 
         const page = await pdf.getPage(1);
@@ -57,7 +58,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ file }) => {
           setStatus('success');
         }
       } catch (err) {
-        console.error(`Gagal merender pratinjau PDF untuk ${file.name}:`, err);
+        console.error(`Gagal merender pratinjau PDF:`, err);
         if (!isCancelled) {
           setStatus('error');
         }
@@ -69,7 +70,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ file }) => {
     return () => {
       isCancelled = true;
     };
-  }, [file]);
+  }, [buffer]);
 
   return (
     <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">

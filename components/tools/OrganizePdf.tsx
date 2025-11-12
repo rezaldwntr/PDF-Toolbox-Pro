@@ -5,6 +5,11 @@ import { PDFDocument, degrees } from 'pdf-lib';
 
 declare const pdfjsLib: any;
 
+interface PdfFileWithBuffer {
+  file: File;
+  buffer: ArrayBuffer;
+}
+
 interface PageInfo {
   id: string; // Unique ID, e.g., `${fileIndex}-${originalPageIndex}`
   fileIndex: number;
@@ -16,7 +21,7 @@ interface PageInfo {
 }
 
 const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [files, setFiles] = useState<File[]>([]);
+  const [filesWithBuffer, setFilesWithBuffer] = useState<PdfFileWithBuffer[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
@@ -29,7 +34,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const dragOverItemIndex = useRef<number | null>(null);
 
   const resetState = useCallback(() => {
-    setFiles([]);
+    setFilesWithBuffer([]);
     setPages([]);
     setIsProcessing(false);
     setProcessingMessage('');
@@ -46,16 +51,20 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsProcessing(true);
     setProcessingMessage('Merender pratinjau halaman...');
 
-    const currentFileCount = files.length;
+    const currentFileCount = filesWithBuffer.length;
     
     try {
         const newPages: PageInfo[] = [];
+        const newFilesWithBuffer: PdfFileWithBuffer[] = [];
+
         for(let i = 0; i < newFiles.length; i++) {
             const file = newFiles[i];
             const fileIndex = currentFileCount + i;
 
             const arrayBuffer = await file.arrayBuffer();
-            const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+            newFilesWithBuffer.push({ file, buffer: arrayBuffer });
+
+            const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
             
             for (let j = 1; j <= pdfDoc.numPages; j++) {
                 setProcessingMessage(`Memuat halaman ${j} dari ${pdfDoc.numPages} (${file.name})...`);
@@ -84,7 +93,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             }
         }
         setPages(prev => [...prev, ...newPages]);
-        setFiles(prev => [...prev, ...newFiles]);
+        setFilesWithBuffer(prev => [...prev, ...newFilesWithBuffer]);
     } catch (error) {
         console.error("Gagal memuat PDF:", error);
         alert("Gagal memuat file PDF. Pastikan file tidak rusak.");
@@ -131,13 +140,13 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const handleSave = async () => {
-    if (files.length === 0 || pages.length === 0) return;
+    if (filesWithBuffer.length === 0 || pages.length === 0) return;
     setIsProcessing(true);
     setProcessingMessage('Menyusun PDF...');
 
     try {
         const sourcePdfDocs = await Promise.all(
-            files.map(file => file.arrayBuffer().then(bytes => PDFDocument.load(bytes)))
+            filesWithBuffer.map(({ buffer }) => PDFDocument.load(buffer))
         );
         const newPdfDoc = await PDFDocument.create();
 
@@ -172,7 +181,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <CheckCircleIcon />
           <h3 className="text-2xl font-bold text-slate-100">PDF Berhasil Diatur!</h3>
           <p className="text-lg">File Anda telah berhasil disusun ulang.</p>
-          <a href={outputUrl} download={`${files[0]?.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
+          <a href={outputUrl} download={`${filesWithBuffer[0]?.file.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
             <DownloadIcon /> Unduh PDF
           </a>
           <button onClick={resetState} className="font-medium text-slate-400 hover:text-blue-400 transition-colors">
@@ -191,7 +200,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
-    if (files.length === 0) {
+    if (filesWithBuffer.length === 0) {
       return (
         <div
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500'}`}
@@ -213,7 +222,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700 flex-wrap gap-4">
             <div className="text-slate-300">
-                <p className="font-semibold">{files.length} file dimuat</p>
+                <p className="font-semibold">{filesWithBuffer.length} file dimuat</p>
                 <p className="text-sm text-slate-400">{pages.length} halaman - Seret untuk mengurutkan</p>
             </div>
             <div className="flex items-center gap-2">

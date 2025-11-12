@@ -13,6 +13,11 @@ interface CompressResult {
   newSize: number;
 }
 
+interface PdfFileWithBuffer {
+  file: File;
+  buffer: ArrayBuffer;
+}
+
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -53,7 +58,7 @@ const createPdfWithQuality = async (pdfjsDoc: any, jpegQuality: number): Promise
 
 
 const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [file, setFile] = useState<File | null>(null);
+  const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [compressionMode, setCompressionMode] = useState<CompressionMode>('recommended');
   const [targetSize, setTargetSize] = useState<number>(1024);
   const [targetUnit, setTargetUnit] = useState<'KB' | 'MB'>('KB');
@@ -64,7 +69,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = useCallback(() => {
-    setFile(null);
+    setFileWithBuffer(null);
     setIsProcessing(false);
     setProcessingMessage('Mengompres...');
     if (result) {
@@ -73,20 +78,21 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResult(null);
   }, [result]);
 
-  const handleFileChange = (selectedFile: File | null) => {
+  const handleFileChange = async (selectedFile: File | null) => {
     if (selectedFile && selectedFile.type === 'application/pdf') {
       resetState();
-      setFile(selectedFile);
+      const buffer = await selectedFile.arrayBuffer();
+      setFileWithBuffer({ file: selectedFile, buffer });
     }
   };
   
   const handleCompress = async () => {
-    if (!file) return;
+    if (!fileWithBuffer) return;
 
     setIsProcessing(true);
 
     try {
-        const arrayBuffer = await file.arrayBuffer();
+        const arrayBuffer = fileWithBuffer.buffer;
         const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
         let finalPdfBytes: Uint8Array;
 
@@ -96,7 +102,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         } else {
             // Kompresi Lanjutan
             const targetSizeBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
-            if (targetSizeBytes >= file.size) {
+            if (targetSizeBytes >= fileWithBuffer.file.size) {
                 alert("Ukuran target harus lebih kecil dari ukuran file asli.");
                 setIsProcessing(false);
                 return;
@@ -137,7 +143,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         setResult({
             url,
-            originalSize: file.size,
+            originalSize: fileWithBuffer.file.size,
             newSize: blob.size,
         });
 
@@ -170,7 +176,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <p className="text-lg font-bold text-green-400">{savings.toFixed(1)}%</p>
             </div>
           </div>
-          <a href={result.url} download={`${file?.name.replace('.pdf', '')}-dikompres.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
+          <a href={result.url} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-dikompres.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
             <DownloadIcon />
             Unduh PDF
           </a>
@@ -181,15 +187,15 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
-    if (file) {
+    if (fileWithBuffer) {
       return (
         <div className="animate-fade-in">
           <div className="bg-slate-700/50 p-4 rounded-lg flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <FilePdfIcon />
               <div className="text-left">
-                <p className="text-slate-200 font-medium truncate max-w-[200px] md:max-w-xs" title={file.name}>{file.name}</p>
-                <p className="text-slate-400 text-sm">{formatBytes(file.size)}</p>
+                <p className="text-slate-200 font-medium truncate max-w-[200px] md:max-w-xs" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</p>
+                <p className="text-slate-400 text-sm">{formatBytes(fileWithBuffer.file.size)}</p>
               </div>
             </div>
             <button onClick={resetState} className="p-1 text-slate-500 hover:text-red-400 rounded-full transition-colors">
@@ -248,7 +254,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={handleCompress} disabled={isProcessing} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center min-w-[200px]">
               {isProcessing ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   <span>{processingMessage}</span>
                 </>
               ) : 'Kompres PDF'}

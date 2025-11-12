@@ -8,6 +8,11 @@ import { PDFDocument } from 'pdf-lib';
 declare const pdfjsLib: any;
 declare const JSZip: any;
 
+interface PdfFileWithBuffer {
+  file: File;
+  buffer: ArrayBuffer;
+}
+
 // Fungsi utilitas untuk mem-parsing rentang halaman
 const parsePageRanges = (rangeStr: string, maxPage: number): Set<number> => {
     const pages = new Set<number>();
@@ -52,7 +57,7 @@ const pagesToRangeString = (pages: Set<number>): string => {
 };
 
 const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const [file, setFile] = useState<File | null>(null);
+    const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
     const [pdfDoc, setPdfDoc] = useState<any | null>(null);
     const [numPages, setNumPages] = useState(0);
     const [splitMode, setSplitMode] = useState<'all' | 'extract'>('extract');
@@ -64,7 +69,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const resetState = useCallback(() => {
-        setFile(null);
+        setFileWithBuffer(null);
         setPdfDoc(null);
         setNumPages(0);
         setSelectedPages(new Set());
@@ -79,11 +84,11 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handleFileChange = async (selectedFile: File | null) => {
         if (!selectedFile || selectedFile.type !== 'application/pdf') return;
         resetState();
-        setFile(selectedFile);
         
         try {
-            const arrayBuffer = await selectedFile.arrayBuffer();
-            const doc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+            const buffer = await selectedFile.arrayBuffer();
+            setFileWithBuffer({ file: selectedFile, buffer });
+            const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
             setPdfDoc(doc);
             setNumPages(doc.numPages);
         } catch (error) {
@@ -112,13 +117,13 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
 
     const handleProcess = async () => {
-        if (!file) return;
+        if (!fileWithBuffer) return;
         
         setIsProcessing(true);
         try {
             if (splitMode === 'all') {
                 const zip = new JSZip();
-                const pdfBytes = await file.arrayBuffer();
+                const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 
                 for (let i = 0; i < originalPdf.getPageCount(); i++) {
@@ -131,7 +136,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                 const zipBlob = await zip.generateAsync({ type: 'blob' });
                 const url = URL.createObjectURL(zipBlob);
-                setOutput({ url, filename: `${file.name.replace('.pdf', '')}-dipisah.zip`, isZip: true });
+                setOutput({ url, filename: `${fileWithBuffer.file.name.replace('.pdf', '')}-dipisah.zip`, isZip: true });
 
             } else { // extract mode
                 if (selectedPages.size === 0) {
@@ -139,7 +144,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     setIsProcessing(false);
                     return;
                 }
-                const pdfBytes = await file.arrayBuffer();
+                const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 const newPdf = await PDFDocument.create();
                 const pageIndices = Array.from(selectedPages).map(p => p - 1).sort((a,b) => a - b);
@@ -150,7 +155,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const newPdfBytes = await newPdf.save();
                 const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
-                setOutput({ url, filename: `${file.name.replace('.pdf', '')}-diekstrak.pdf`, isZip: false });
+                setOutput({ url, filename: `${fileWithBuffer.file.name.replace('.pdf', '')}-diekstrak.pdf`, isZip: false });
             }
         } catch (error) {
             console.error("Gagal memisahkan PDF:", error);
@@ -181,7 +186,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <ToolContainer title="Pisahkan PDF" onBack={onBack}>
             <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
             
-            {!file ? (
+            {!fileWithBuffer ? (
                 <div
                     className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500'}`}
                     onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -233,7 +238,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     {/* Panel Pratinjau */}
                     <div className="w-full md:w-2/3 lg:w-3/4 bg-slate-900/50 p-4 rounded-lg max-h-[60vh] overflow-y-auto">
                         <div className="flex items-center justify-center gap-2 text-sm text-slate-400 mb-4">
-                            <span className="truncate" title={file.name}>{file.name}</span>
+                            <span className="truncate" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</span>
                             <span>- {numPages} Halaman</span>
                             <button
                                 onClick={resetState}

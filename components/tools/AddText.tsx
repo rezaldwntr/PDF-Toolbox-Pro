@@ -6,6 +6,11 @@ import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 declare const pdfjsLib: any;
 
 // --- TYPES AND CONSTANTS ---
+interface PdfFileWithBuffer {
+  file: File;
+  buffer: ArrayBuffer;
+}
+
 interface TextElement {
   id: string;
   pageIndex: number;
@@ -68,7 +73,7 @@ const hexToRgb = (hex: string) => {
 
 // --- Main Component ---
 const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [file, setFile] = useState<File | null>(null);
+  const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [textElements, setTextElements] = useState<TextElement[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -91,7 +96,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 
   const resetState = useCallback(() => {
-    setFile(null);
+    setFileWithBuffer(null);
     setPagePreviews([]);
     setTextElements([]);
     setSelectedElementId(null);
@@ -105,13 +110,13 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleFileChange = async (selectedFile: File | null) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
-    setFile(selectedFile);
     setIsProcessing(true);
     setProcessingMessage('Membaca PDF...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
-      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+      setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
+      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
       
       const previews: PagePreview[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -290,11 +295,11 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 
   const handleSave = async () => {
-      if (!file) return;
+      if (!fileWithBuffer) return;
       setIsProcessing(true);
       setProcessingMessage('Mempersiapkan dokumen...');
       try {
-          const pdfBytes = await file.arrayBuffer();
+          const pdfBytes = fileWithBuffer.buffer;
           const pdfDoc = await PDFDocument.load(pdfBytes);
           const pages = pdfDoc.getPages();
 
@@ -423,7 +428,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="text-center text-slate-400 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
           <h3 className="text-2xl font-bold text-slate-100">PDF Berhasil Disimpan!</h3>
-          <a href={outputUrl} download={`${file?.name.replace('.pdf', '')}-diedit.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
+          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-diedit.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
             <DownloadIcon /> Unduh PDF
           </a>
           <button onClick={resetState} className="font-medium text-slate-400 hover:text-blue-400 transition-colors">
@@ -443,7 +448,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
-    if (!file) {
+    if (!fileWithBuffer) {
       return (
         <div
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500'}`}
@@ -468,7 +473,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="bg-slate-900/70 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-slate-700 flex-wrap">
           <div className="flex items-center gap-2">
             <FilePdfIcon />
-            <span className="text-sm text-slate-300 truncate max-w-[150px]">{file.name}</span>
+            <span className="text-sm text-slate-300 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
             <button onClick={resetState} title="Hapus PDF" className="p-1 text-slate-400 hover:text-red-400"><TrashIcon /></button>
             <button onClick={handleRotateAllPages} title="Putar PDF" className="p-1 text-slate-400 hover:text-blue-400"><RotateIcon /></button>
           </div>

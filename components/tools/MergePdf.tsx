@@ -8,8 +8,13 @@ interface MergePdfProps {
   onBack: () => void;
 }
 
+interface PdfFile {
+  file: File;
+  buffer: ArrayBuffer;
+}
+
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -19,10 +24,16 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
 
-  const handleFileChange = (selectedFiles: FileList | null) => {
+  const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
       const newFiles = Array.from(selectedFiles).filter(file => file.type === 'application/pdf');
-      setFiles(prevFiles => [...prevFiles, ...newFiles]);
+      const processedFiles: PdfFile[] = await Promise.all(
+        newFiles.map(async (file) => ({
+          file,
+          buffer: await file.arrayBuffer(),
+        }))
+      );
+      setFiles(prevFiles => [...prevFiles, ...processedFiles]);
     }
   };
   
@@ -38,11 +49,11 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setIsDragOver(false);
   }, []);
 
-  const handleDropOnUploader = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDropOnUploader = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    handleFileChange(e.dataTransfer.files);
+    await handleFileChange(e.dataTransfer.files);
   }, []);
 
   const removeFile = (indexToRemove: number) => {
@@ -87,9 +98,9 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
     try {
       const mergedPdf = await PDFDocument.create();
-      for (const file of files) {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await PDFDocument.load(arrayBuffer);
+      for (const { buffer } of files) {
+        // Use a copy of the buffer for loading into pdf-lib, just in case
+        const pdf = await PDFDocument.load(buffer.slice(0));
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
@@ -184,7 +195,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                 <h3 className="text-lg font-semibold text-slate-300 mb-2">File yang akan digabungkan ({files.length}):</h3>
                 <p className="text-sm text-slate-500 mb-4">Seret dan lepas untuk mengatur urutan file.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {files.map((file, index) => (
+                    {files.map(({ file, buffer }, index) => (
                     <div
                         key={`${file.lastModified}-${file.name}`}
                         draggable
@@ -200,7 +211,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                             <TrashIcon />
                         </button>
                         </div>
-                        <PdfPreview file={file} />
+                        <PdfPreview buffer={buffer} />
                         <div className="text-center">
                         <p className="text-slate-300 truncate text-xs" title={file.name}>{file.name}</p>
                         <p className="text-slate-500 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
