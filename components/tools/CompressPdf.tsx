@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } from '../icons';
 import { PDFDocument } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
 
 declare const pdfjsLib: any;
 
@@ -91,6 +92,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [result, setResult] = useState<CompressResult | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
@@ -105,8 +107,17 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleFileChange = async (selectedFile: File | null) => {
     if (selectedFile && selectedFile.type === 'application/pdf') {
       resetState();
-      const buffer = await selectedFile.arrayBuffer();
-      setFileWithBuffer({ file: selectedFile, buffer });
+      setIsProcessing(true);
+      setProcessingMessage('Membaca file besar, mohon tunggu...');
+      try {
+        const buffer = await selectedFile.arrayBuffer();
+        setFileWithBuffer({ file: selectedFile, buffer });
+      } catch (e) {
+        addToast('Gagal membaca file.', 'error');
+        resetState();
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
   
@@ -167,7 +178,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         } else { // Mode Lanjutan (tidak berubah)
             const targetSizeBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
             if (targetSizeBytes >= fileWithBuffer.file.size) {
-                alert("Ukuran target harus lebih kecil dari ukuran file asli.");
+                addToast("Ukuran target harus lebih kecil dari ukuran file asli.", 'warning');
                 setIsProcessing(false);
                 return;
             }
@@ -210,10 +221,11 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             originalSize: fileWithBuffer.file.size,
             newSize: blob.size,
         });
+        addToast('Kompresi PDF berhasil!', 'success');
 
     } catch (error) {
         console.error("Gagal mengkompres PDF:", error);
-        alert("Terjadi kesalahan saat mengkompres PDF. File mungkin rusak atau terlalu kompleks.");
+        addToast("Gagal mengompres PDF. File mungkin rusak atau terlalu kompleks.", 'error');
     } finally {
         setIsProcessing(false);
     }
@@ -249,6 +261,15 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </button>
         </div>
       );
+    }
+
+    if (isProcessing) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <p className="text-lg text-slate-300 font-semibold">{processingMessage}</p>
+            </div>
+        );
     }
 
     if (fileWithBuffer) {

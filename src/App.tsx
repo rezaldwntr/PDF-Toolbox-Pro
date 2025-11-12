@@ -8,6 +8,7 @@ import CompressPdf from './components/tools/CompressPdf';
 import AddText from './components/tools/AddText';
 import AddSignature from './components/tools/AddSignature';
 import OrganizePdf from './components/tools/OrganizePdf';
+// Fix: Remove unused import of ToastContainer
 import { ToastProvider } from './contexts/ToastContext';
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
               </a>
             </p>
         </footer>
+        {/* Fix: Removed redundant ToastContainer as ToastProvider already renders it. */}
       </div>
     </ToastProvider>
   );

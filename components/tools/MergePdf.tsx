@@ -3,12 +3,14 @@ import ToolContainer from '../common/ToolContainer';
 import { PDFDocument } from 'pdf-lib';
 import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
+import { useToast } from '../../contexts/ToastContext';
 
 interface MergePdfProps {
   onBack: () => void;
 }
 
 interface PdfFile {
+  id: string;
   file: File;
   buffer: ArrayBuffer;
 }
@@ -19,16 +21,19 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   // Refs for drag and drop
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
       const newFiles = Array.from(selectedFiles).filter(file => file.type === 'application/pdf');
       const processedFiles: PdfFile[] = await Promise.all(
         newFiles.map(async (file) => ({
+          id: `${file.name}-${file.lastModified}-${file.size}`,
           file,
           buffer: await file.arrayBuffer(),
         }))
@@ -60,20 +65,40 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleDragStart = (index: number) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
+    setDragging(true);
+
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+    ghost.classList.add('drag-ghost');
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, e.currentTarget.clientWidth / 2, e.currentTarget.clientHeight / 2);
+
+    // Hapus elemen hantu setelah seret selesai
+    setTimeout(() => document.body.removeChild(ghost), 0);
   };
 
-  const handleDragEnter = (index: number) => {
-    dragOverItemIndex.current = index;
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+     e.preventDefault();
+     dragOverItemIndex.current = index;
+     const draggedOverEl = e.currentTarget;
+     draggedOverEl.classList.add('drag-over-indicator');
   };
+  
+  const handleDragLeaveList = (e: React.DragEvent<HTMLDivElement>) => {
+      e.currentTarget.classList.remove('drag-over-indicator');
+  };
+
 
   const handleDropOnList = () => {
     if (draggedItemIndex.current === null || dragOverItemIndex.current === null) return;
     
+    document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
+    
     if (draggedItemIndex.current === dragOverItemIndex.current) {
         draggedItemIndex.current = null;
         dragOverItemIndex.current = null;
+        setDragging(false);
         return;
     }
 
@@ -85,11 +110,12 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     
     draggedItemIndex.current = null;
     dragOverItemIndex.current = null;
+    setDragging(false);
   };
 
   const handleMerge = async () => {
     if (files.length < 2) {
-      alert('Silakan pilih setidaknya dua file PDF untuk digabungkan.');
+      addToast('Silakan pilih setidaknya dua file PDF untuk digabungkan.', 'warning');
       return;
     }
 
@@ -109,10 +135,11 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setMergedPdfUrl(url);
+      addToast('PDF berhasil digabungkan!', 'success');
 
     } catch (error) {
       console.error('Error merging PDFs:', error);
-      alert('Terjadi kesalahan saat menggabungkan PDF. Silakan coba lagi.');
+      addToast('Terjadi kesalahan saat menggabungkan PDF. Silakan coba lagi.', 'error');
     } finally {
       setIsMerging(false);
     }
@@ -194,16 +221,17 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
             <div>
                 <h3 className="text-lg font-semibold text-slate-300 mb-2">File yang akan digabungkan ({files.length}):</h3>
                 <p className="text-sm text-slate-500 mb-4">Seret dan lepas untuk mengatur urutan file.</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {files.map(({ file, buffer }, index) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 transition-all duration-300">
+                    {files.map(({ id, file, buffer }, index) => (
                     <div
-                        key={`${file.lastModified}-${file.name}`}
+                        key={id}
                         draggable
-                        onDragStart={() => handleDragStart(index)}
-                        onDragEnter={() => handleDragEnter(index)}
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnter={(e) => handleDragEnter(e, index)}
+                        onDragLeave={handleDragLeaveList}
                         onDragEnd={handleDropOnList}
                         onDragOver={(e) => e.preventDefault()}
-                        className="bg-slate-700/50 p-2 rounded-lg flex flex-col gap-2 cursor-grab active:cursor-grabbing border border-transparent hover:border-blue-500 transition-colors"
+                        className={`bg-slate-700/50 p-2 rounded-lg flex flex-col gap-2 cursor-grab active:cursor-grabbing border border-transparent hover:border-blue-500 transition-all duration-300 list-item-enter-active ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
                     >
                         <div className="flex items-center justify-between text-xs">
                         <span className="bg-slate-800 text-slate-300 font-bold rounded-full w-6 h-6 flex items-center justify-center">{index + 1}</span>

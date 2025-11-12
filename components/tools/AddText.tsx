@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, TextColorIcon, AddIcon, RotateIcon, ZoomInIcon, ZoomOutIcon, TextBoxBackgroundIcon, TextIcon } from '../icons';
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
 
 declare const pdfjsLib: any;
 
@@ -86,6 +87,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorPagesContainerRef = useRef<HTMLDivElement>(null);
+  const { addToast } = useToast();
 
   // --- State for smooth dragging ---
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -111,11 +113,12 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Membaca PDF...');
+    setProcessingMessage('Membaca file besar, mohon tunggu...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
+      setProcessingMessage('Merender pratinjau PDF...');
       const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
       
       const previews: PagePreview[] = [];
@@ -143,7 +146,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setPagePreviews(previews);
     } catch (error) {
       console.error("Gagal memuat PDF:", error);
-      alert("Gagal memuat file PDF. Pastikan file tidak rusak.");
+      addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
       resetState();
     } finally {
       setIsProcessing(false);
@@ -202,9 +205,6 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (e.nativeEvent.offsetX > target.offsetWidth - 15 && e.nativeEvent.offsetY > target.offsetHeight - 15) {
         return;
     }
-    
-    e.stopPropagation();
-    setSelectedElementId(text.id);
     
     const rect = target.getBoundingClientRect();
     const offsetX = (e.clientX - rect.left) / zoom;
@@ -412,9 +412,10 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           const finalPdfBytes = await pdfDoc.save();
           const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
           setOutputUrl(URL.createObjectURL(blob));
+          addToast('PDF berhasil disimpan!', 'success');
       } catch (error) {
           console.error("Gagal menyimpan PDF:", error);
-          alert("Terjadi kesalahan saat menyimpan PDF.");
+          addToast("Terjadi kesalahan saat menyimpan PDF.", 'error');
       } finally {
           setIsProcessing(false);
       }
@@ -511,14 +512,19 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     data-page-index={index}
                     className="relative shadow-lg"
                     style={{ width: page.width, height: page.height, transform: `rotate(${page.rotation}deg)` }}
-                    onClick={() => setSelectedElementId(null)}
+                    onClick={(e) => {
+                      if (!(e.target as HTMLElement).closest('[data-text-element="true"]')) {
+                        setSelectedElementId(null);
+                      }
+                    }}
                 >
                     <img src={page.url} alt={`Page ${index + 1}`} width={page.width} height={page.height} />
                     {textElements.filter(t => t.pageIndex === index).map(text => (
                     <textarea
                         key={text.id}
+                        data-text-element="true"
                         onMouseDown={(e) => handleMouseDownOnText(e, text)}
-                        onClick={(e) => { e.stopPropagation(); setSelectedElementId(text.id); }}
+                        onClick={() => setSelectedElementId(text.id)}
                         value={text.text}
                         onChange={(e) => {
                             const target = e.currentTarget;

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
-import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon } from '../icons';
+import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon, DuplicateIcon } from '../icons';
 import { PDFDocument, degrees } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
 
 declare const pdfjsLib: any;
 
@@ -28,10 +29,12 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   // Refs for drag and drop reordering
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const resetState = useCallback(() => {
     setFilesWithBuffer([]);
@@ -49,7 +52,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (newFiles.length === 0) return;
 
     setIsProcessing(true);
-    setProcessingMessage('Merender pratinjau halaman...');
+    setProcessingMessage('Membaca file dan merender pratinjau...');
 
     const currentFileCount = filesWithBuffer.length;
     
@@ -60,7 +63,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         for(let i = 0; i < newFiles.length; i++) {
             const file = newFiles[i];
             const fileIndex = currentFileCount + i;
-
+            setProcessingMessage(`Membaca ${file.name}...`);
             const arrayBuffer = await file.arrayBuffer();
             newFilesWithBuffer.push({ file, buffer: arrayBuffer });
 
@@ -96,12 +99,41 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setFilesWithBuffer(prev => [...prev, ...newFilesWithBuffer]);
     } catch (error) {
         console.error("Gagal memuat PDF:", error);
-        alert("Gagal memuat file PDF. Pastikan file tidak rusak.");
+        addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
         // We don't call resetState here to preserve already loaded files/pages
     } finally {
         setIsProcessing(false);
         setProcessingMessage('');
     }
+  };
+
+  const handleDeleteFile = (fileIndexToDelete: number) => {
+    const fileName = filesWithBuffer[fileIndexToDelete].file.name;
+
+    // Hapus file
+    const newFilesWithBuffer = filesWithBuffer.filter((_, index) => index !== fileIndexToDelete);
+    
+    // Hapus halaman yang terkait dengan file tersebut
+    const newPages = pages.filter(page => page.fileIndex !== fileIndexToDelete);
+
+    // Indeks ulang halaman yang tersisa
+    const reIndexedPages = newPages.map(page => {
+        if (page.fileIndex > fileIndexToDelete) {
+            const newFileIndex = page.fileIndex - 1;
+            const idParts = page.id.split('-');
+            const uniquePart = idParts.length > 2 ? `-${idParts[2]}` : '';
+            return {
+                ...page,
+                fileIndex: newFileIndex,
+                id: `${newFileIndex}-${page.originalPageIndex}${uniquePart}`,
+            };
+        }
+        return page;
+    });
+    
+    setFilesWithBuffer(newFilesWithBuffer);
+    setPages(reIndexedPages);
+    addToast(`File "${fileName}" telah dihapus.`, 'info');
   };
 
   const handleDeletePage = (idToDelete: string) => {
@@ -118,16 +150,47 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }));
   };
 
-  const handleDragStart = (index: number) => {
-    draggedItemIndex.current = index;
+  const handleDuplicatePage = (indexToDuplicate: number) => {
+    const pageToDuplicate = pages[indexToDuplicate];
+    const newPage: PageInfo = {
+      ...pageToDuplicate,
+      id: `${pageToDuplicate.fileIndex}-${pageToDuplicate.originalPageIndex}-${Date.now()}` // Pastikan ID unik
+    };
+    const newPages = [...pages];
+    newPages.splice(indexToDuplicate + 1, 0, newPage);
+    setPages(newPages);
   };
 
-  const handleDragEnter = (index: number) => {
-    dragOverItemIndex.current = index;
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    draggedItemIndex.current = index;
+    setDragging(true);
+
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+    ghost.classList.add('drag-ghost');
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, e.currentTarget.clientWidth / 2, e.currentTarget.clientHeight / 2);
+
+    setTimeout(() => document.body.removeChild(ghost), 0);
   };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+     e.preventDefault();
+     dragOverItemIndex.current = index;
+     const draggedOverEl = e.currentTarget;
+     draggedOverEl.classList.add('drag-over-indicator');
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+      e.currentTarget.classList.remove('drag-over-indicator');
+  }
 
   const handleDrop = () => {
-    if (draggedItemIndex.current === null || dragOverItemIndex.current === null || draggedItemIndex.current === dragOverItemIndex.current) return;
+    if (draggedItemIndex.current === null || dragOverItemIndex.current === null || draggedItemIndex.current === dragOverItemIndex.current) {
+        setDragging(false);
+        return;
+    }
+    
+    document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
 
     const newPages = [...pages];
     const draggedItem = newPages.splice(draggedItemIndex.current, 1)[0];
@@ -137,6 +200,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     
     draggedItemIndex.current = null;
     dragOverItemIndex.current = null;
+    setDragging(false);
   };
 
   const handleSave = async () => {
@@ -146,7 +210,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
         const sourcePdfDocs = await Promise.all(
-            filesWithBuffer.map(({ buffer }) => PDFDocument.load(buffer))
+            filesWithBuffer.map(({ buffer }) => PDFDocument.load(buffer.slice(0)))
         );
         const newPdfDoc = await PDFDocument.create();
 
@@ -165,10 +229,11 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const finalPdfBytes = await newPdfDoc.save();
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
         setOutputUrl(URL.createObjectURL(blob));
+        addToast('PDF berhasil diatur!', 'success');
 
     } catch (error) {
         console.error("Gagal menyimpan PDF:", error);
-        alert("Terjadi kesalahan saat menyimpan PDF.");
+        addToast("Terjadi kesalahan saat menyimpan PDF.", 'error');
     } finally {
         setIsProcessing(false);
     }
@@ -222,8 +287,8 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700 flex-wrap gap-4">
             <div className="text-slate-300">
-                <p className="font-semibold">{filesWithBuffer.length} file dimuat</p>
-                <p className="text-sm text-slate-400">{pages.length} halaman - Seret untuk mengurutkan</p>
+                <p className="font-semibold">{filesWithBuffer.length} file dimuat, {pages.length} total halaman</p>
+                <p className="text-sm text-slate-400">Seret halaman untuk mengurutkan</p>
             </div>
             <div className="flex items-center gap-2">
                  <button 
@@ -239,6 +304,27 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </button>
             </div>
         </div>
+
+        <div>
+            <h3 className="text-lg font-semibold text-slate-300 mb-2">File yang Dimuat</h3>
+            <ul className="space-y-2 max-h-48 overflow-y-auto bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                {filesWithBuffer.map((fileData, index) => (
+                    <li key={`${fileData.file.name}-${index}`} className="flex items-center justify-between bg-slate-700 p-2 rounded-md text-sm animate-fade-in">
+                    <span className="text-slate-300 truncate" title={fileData.file.name}>
+                        {fileData.file.name}
+                    </span>
+                    <button 
+                        onClick={() => handleDeleteFile(index)} 
+                        className="p-1 text-slate-400 hover:text-red-400 rounded-full transition-colors flex-shrink-0 ml-2"
+                        title={`Hapus ${fileData.file.name}`}
+                    >
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+        
         <div className="flex flex-wrap items-start justify-center gap-4">
           {pages.map((page, index) => {
             const isSideways = page.rotation === 90 || page.rotation === 270;
@@ -264,13 +350,15 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <div 
                 key={page.id}
                 draggable
-                onDragStart={() => handleDragStart(index)}
-                onDragEnter={() => handleDragEnter(index)}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnter={(e) => handleDragEnter(e, index)}
+                onDragLeave={handleDragLeave}
                 onDragEnd={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="relative group bg-slate-700/50 p-2 rounded-lg flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-transparent hover:border-blue-500"
+                className={`relative group bg-slate-700/50 p-2 rounded-lg flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-transparent hover:border-blue-500 transition-all duration-300 ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
               >
                 <div className="absolute top-0 right-0 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-slate-800/80 backdrop-blur-sm rounded-bl-lg rounded-tr-md hidden group-hover:flex">
+                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-slate-400 hover:text-blue-400 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
                   <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-slate-400 hover:text-blue-400 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
                   <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-slate-400 hover:text-red-400 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
                 </div>

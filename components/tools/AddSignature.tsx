@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, DrawIcon, UploadImageIcon, ZoomInIcon, ZoomOutIcon, FilePdfIcon } from '../icons';
 import { PDFDocument, rgb } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
 
 declare const pdfjsLib: any;
 
@@ -55,32 +56,21 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadSignatureInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingColor, setDrawingColor] = useState('#000000'); // Black, Blue, Red
 
-  // Effect to dynamically resize canvas for a better drawing experience
-  useEffect(() => {
-    if (signatureMode === 'draw' && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const container = canvas.parentElement;
-        if (container) {
-            // Brief timeout to allow layout to settle before measuring
-            setTimeout(() => {
-                const { width } = container.getBoundingClientRect();
-                // Set canvas resolution to match its display size for crisp drawing
-                canvas.width = width;
-                // Maintain a reasonable aspect ratio for signatures
-                canvas.height = width * 0.4;
-            }, 50);
-        }
-    }
-  }, [signatureMode]);
-
-
-  // --- State for smooth dragging ---
+  // --- State for smooth dragging & resizing ---
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [resizeState, setResizeState] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+  } | null>(null);
 
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
@@ -99,7 +89,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Merender pratinjau PDF...');
+    setProcessingMessage('Membaca file dan merender pratinjau...');
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
@@ -124,7 +114,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setPagePreviews(previews);
     } catch (error) {
       console.error("Gagal memuat PDF:", error);
-      alert("Gagal memuat file PDF.");
+      addToast("Gagal memuat file PDF. File mungkin rusak.", 'error');
       resetState();
     } finally {
       setIsProcessing(false);
@@ -176,7 +166,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const pos = getMousePos(canvas, e);
     ctx.lineTo(pos.x, pos.y);
     ctx.strokeStyle = drawingColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5; // Disesuaikan untuk kanvas resolusi tinggi
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -208,7 +198,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       blank.width = canvas.width;
       blank.height = canvas.height;
       if (canvas.toDataURL() === blank.toDataURL()) {
-        alert("Silakan gambar tanda tangan sebelum menyimpan.");
+        addToast("Silakan gambar tanda tangan sebelum menyimpan.", 'warning');
         return;
       }
 
@@ -217,7 +207,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         id: `sig-${Date.now()}`,
         dataUrl,
         width: 150,
-        height: 75,
+        height: 60, // Pertahankan rasio aspek kanvas resolusi tinggi (1200:480 -> 2.5:1)
       };
       setSignatures(prev => [...prev, newSig]);
       clearCanvas();
@@ -276,6 +266,18 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setDragState({ id: sig.id, offsetX, offsetY });
   };
   
+  const handleResizeStart = (e: React.MouseEvent, sig: PlacedSignature) => {
+    e.preventDefault();
+    e.stopPropagation(); // Important: Prevent triggering the drag handler
+    setResizeState({
+        id: sig.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        startWidth: sig.width,
+        startHeight: sig.height,
+    });
+  };
+  
   useEffect(() => {
     if (!dragState) return;
 
@@ -309,6 +311,36 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [dragState, zoom]);
+
+  useEffect(() => {
+    if (!resizeState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+        e.preventDefault();
+        setPlacedSignatures(prev => prev.map(sig => {
+            if (sig.id === resizeState.id) {
+                const dx = e.clientX - resizeState.startX;
+                const newWidth = Math.max(30, resizeState.startWidth + (dx / zoom));
+                const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+                const newHeight = newWidth / aspectRatio;
+                return { ...sig, width: newWidth, height: newHeight };
+            }
+            return sig;
+        }));
+    };
+
+    const handleMouseUp = () => {
+        setResizeState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp, { once: true });
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizeState, zoom]);
 
   // --- Save Final PDF ---
   const handleSave = async () => {
@@ -351,9 +383,10 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const finalPdfBytes = await pdfDoc.save();
       const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
       setOutputUrl(URL.createObjectURL(blob));
+      addToast('PDF berhasil ditandatangani!', 'success');
     } catch (error) {
       console.error("Gagal menyimpan PDF:", error);
-      alert("Terjadi kesalahan saat menyimpan PDF.");
+      addToast("Terjadi kesalahan saat menyimpan PDF.", 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -435,16 +468,23 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                             >
                                                 <img src={signatures.find(s => s.id === sig.signatureId)?.dataUrl} className="w-full h-full" alt="Placed Signature" />
                                                 {selectedPlacedId === sig.id && (
-                                                    <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setPlacedSignatures(prev => prev.filter(ps => ps.id !== sig.id));
-                                                        setSelectedPlacedId(null);
-                                                    }}
-                                                    className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5 w-6 h-6 flex items-center justify-center z-10"
-                                                    >
-                                                    &times;
-                                                    </button>
+                                                    <>
+                                                        <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPlacedSignatures(prev => prev.filter(ps => ps.id !== sig.id));
+                                                            setSelectedPlacedId(null);
+                                                        }}
+                                                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5 w-6 h-6 flex items-center justify-center z-10"
+                                                        >
+                                                        &times;
+                                                        </button>
+                                                        <div 
+                                                            onMouseDown={(e) => handleResizeStart(e, sig)}
+                                                            className="absolute -bottom-2 -right-2 bg-blue-500 w-4 h-4 rounded-full cursor-nwse-resize border-2 border-slate-900 z-10"
+                                                            title="Ubah Ukuran"
+                                                        />
+                                                    </>
                                                 )}
                                             </div>
                                         ))}
@@ -476,7 +516,9 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <div>
                                 <canvas
                                     ref={canvasRef}
-                                    className="bg-white rounded-md cursor-crosshair w-full"
+                                    width="1200"
+                                    height="480"
+                                    className="bg-white rounded-md cursor-crosshair w-full h-auto"
                                     onMouseDown={startDrawing}
                                     onMouseMove={draw}
                                     onMouseUp={stopDrawing}

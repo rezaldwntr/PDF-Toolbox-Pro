@@ -3,6 +3,7 @@ import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, ZipIcon, TrashIcon } from '../icons';
 import PdfPagePreview from './PdfPagePreview';
 import { PDFDocument } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
 
 // Memberi tahu TypeScript tentang variabel global dari CDN
 declare const pdfjsLib: any;
@@ -64,9 +65,11 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
     const [rangeInput, setRangeInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
     const [output, setOutput] = useState<{ url: string; filename: string; isZip: boolean } | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { addToast } = useToast();
 
     const resetState = useCallback(() => {
         setFileWithBuffer(null);
@@ -75,6 +78,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setSelectedPages(new Set());
         setRangeInput('');
         setIsProcessing(false);
+        setProcessingMessage('');
         if (output) {
             URL.revokeObjectURL(output.url);
         }
@@ -84,17 +88,23 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handleFileChange = async (selectedFile: File | null) => {
         if (!selectedFile || selectedFile.type !== 'application/pdf') return;
         resetState();
+        setIsProcessing(true);
+        setProcessingMessage('Membaca file, mohon tunggu...');
         
         try {
             const buffer = await selectedFile.arrayBuffer();
             setFileWithBuffer({ file: selectedFile, buffer });
+            
+            setProcessingMessage('Merender pratinjau PDF...');
             const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
             setPdfDoc(doc);
             setNumPages(doc.numPages);
         } catch (error) {
             console.error("Gagal memuat PDF:", error);
-            alert("Gagal memuat file PDF. Pastikan file tidak rusak.");
+            addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
             resetState();
+        } finally {
+            setIsProcessing(false);
         }
     };
     
@@ -120,6 +130,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!fileWithBuffer) return;
         
         setIsProcessing(true);
+        setProcessingMessage('Memproses PDF...');
         try {
             if (splitMode === 'all') {
                 const zip = new JSZip();
@@ -140,7 +151,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             } else { // extract mode
                 if (selectedPages.size === 0) {
-                    alert('Pilih setidaknya satu halaman untuk diekstrak.');
+                    addToast('Pilih setidaknya satu halaman untuk diekstrak.', 'warning');
                     setIsProcessing(false);
                     return;
                 }
@@ -157,9 +168,10 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const url = URL.createObjectURL(blob);
                 setOutput({ url, filename: `${fileWithBuffer.file.name.replace('.pdf', '')}-diekstrak.pdf`, isZip: false });
             }
+            addToast('PDF berhasil diproses!', 'success');
         } catch (error) {
             console.error("Gagal memisahkan PDF:", error);
-            alert("Terjadi kesalahan saat memproses PDF.");
+            addToast("Terjadi kesalahan saat memproses PDF.", 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -180,6 +192,18 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
             </ToolContainer>
         );
+    }
+    
+    if (isProcessing) {
+        return (
+            <ToolContainer title="Pisahkan PDF" onBack={onBack}>
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <p className="text-lg text-slate-300 font-semibold">{processingMessage}</p>
+                    <p className="text-slate-500">Mohon tunggu...</p>
+                </div>
+            </ToolContainer>
+        )
     }
 
     return (
