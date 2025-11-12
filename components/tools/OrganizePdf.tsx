@@ -165,12 +165,28 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     draggedItemIndex.current = index;
     setDragging(true);
 
-    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+    const target = e.currentTarget;
+    const ghost = target.cloneNode(true) as HTMLElement;
+
+    // Fix: Explicitly set the size of the ghost element to match the original.
+    // When an element is cloned and appended to the body, it loses its
+    // flex/grid container context, which can cause its dimensions to collapse or expand.
+    // This ensures the ghost image captured by the browser is correctly sized.
+    ghost.style.width = `${target.offsetWidth}px`;
+    ghost.style.height = `${target.offsetHeight}px`;
+
     ghost.classList.add('drag-ghost');
     document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, e.currentTarget.clientWidth / 2, e.currentTarget.clientHeight / 2);
 
-    setTimeout(() => document.body.removeChild(ghost), 0);
+    // Set the drag image to our styled ghost, centered on the cursor
+    e.dataTransfer.setDragImage(ghost, target.offsetWidth / 2, target.offsetHeight / 2);
+
+    // Clean up the ghost element from the DOM after the browser has captured it
+    setTimeout(() => {
+        if (ghost.parentNode) {
+            ghost.parentNode.removeChild(ghost);
+        }
+    }, 0);
   };
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
@@ -187,6 +203,8 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleDrop = () => {
     if (draggedItemIndex.current === null || dragOverItemIndex.current === null || draggedItemIndex.current === dragOverItemIndex.current) {
         setDragging(false);
+        draggedItemIndex.current = null;
+        dragOverItemIndex.current = null;
         return;
     }
     
