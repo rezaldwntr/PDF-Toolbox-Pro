@@ -7,20 +7,28 @@ interface FaqProps {
 
 const faqData = [
   {
-    question: 'Apakah file saya aman?',
-    answer: 'Ya. Semua pemrosesan dilakukan di komputer Anda sendiri (sisi klien). File Anda tidak pernah dikirim melalui internet ke server kami.',
+    question: 'Apakah PDF Toolbox Pro benar-benar gratis?',
+    answer: 'Ya, semua alat yang tersedia di PDF Toolbox Pro 100% gratis untuk digunakan. Layanan ini didukung oleh iklan untuk membantu kami membayar biaya pemeliharaan dan pengembangan agar tetap gratis untuk Anda.',
   },
   {
-    question: 'Apakah layanan ini benar-benar gratis?',
-    answer: 'Ya, PDF Toolbox Pro sepenuhnya gratis untuk digunakan. Layanan ini didukung oleh iklan untuk menjaga agar tetap gratis.',
+    question: 'Apakah file saya aman dan di mana file diproses?',
+    answer: 'Keamanan Anda adalah prioritas utama kami. Semua pemrosesan file (menggabungkan, mengompres, dll.) dilakukan langsung di dalam browser web Anda di komputer Anda. File Anda TIDAK PERNAH diunggah ke server kami. Mereka tetap berada di perangkat Anda dari awal hingga akhir.',
   },
   {
-    question: 'Apa saja batasannya?',
-    answer: 'Karena alat ini berjalan di browser Anda, kinerja dapat bergantung pada sumber daya komputer Anda dan ukuran file PDF Anda. Untuk file yang sangat besar, prosesnya mungkin lebih lambat.',
+    question: 'Apakah saya perlu menginstal perangkat lunak?',
+    answer: 'Tidak. PDF Toolbox Pro adalah aplikasi berbasis web sepenuhnya. Anda tidak perlu mengunduh atau menginstal apa pun. Cukup buka situs kami di browser apa pun (seperti Chrome, Firefox, atau Safari) dan Anda siap menggunakannya.',
   },
   {
+    question: 'Mengapa pemrosesan file saya gagal atau lambat?',
+    answer: 'Karena semua pemrosesan terjadi di komputer Anda, kinerjanya bergantung pada sumber daya perangkat Anda (CPU, RAM) dan ukuran serta kompleksitas file PDF Anda. Proses mungkin gagal atau berjalan lambat jika file sangat besar atau komputer Anda memiliki sumber daya terbatas. Coba tutup tab browser lain dan coba lagi.',
+  },
+   {
     question: 'Bagaimana cara kerja kompresi PDF?',
     answer: 'Alat kami mengurangi ukuran file dengan mengoptimalkan gambar dan menghapus data yang berlebihan di dalam PDF. Pengaturan "Direkomendasikan" memberikan keseimbangan yang baik antara ukuran dan kualitas, sementara "Lanjutan" memberi Anda lebih banyak kontrol.',
+  },
+  {
+    question: 'Bagaimana cara menghubungi Anda jika saya menemukan bug atau punya saran?',
+    answer: 'Kami sangat menghargai masukan Anda! Silakan kunjungi halaman "Kontak" kami untuk mengirimkan pesan kepada kami. Sertakan deskripsi masalah yang Anda temui agar kami dapat memperbaikinya.',
   },
 ];
 

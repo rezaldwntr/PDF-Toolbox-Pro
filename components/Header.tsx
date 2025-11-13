@@ -15,11 +15,13 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
             PDF Toolbox Pro
           </h1>
         </button>
-        <nav className="hidden md:flex items-center gap-6 text-sm">
-            <button onClick={() => onNavigate(View.BLOG)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Blog</button>
-            <button onClick={() => onNavigate(View.FAQ)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">FAQ</button>
-            <button onClick={() => onNavigate(View.ABOUT)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Tentang</button>
-            <button onClick={() => onNavigate(View.CONTACT)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Kontak</button>
+        <nav className="hidden md:flex items-center gap-4 text-sm">
+            <button onClick={() => onNavigate(View.MERGE)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Gabungkan</button>
+            <button onClick={() => onNavigate(View.SPLIT)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Pisahkan</button>
+            <button onClick={() => onNavigate(View.COMPRESS)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Kompres</button>
+            <button onClick={() => onNavigate(View.ADD_TEXT)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Tambah Teks</button>
+            <button onClick={() => onNavigate(View.ADD_SIGNATURE)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Tanda Tangan</button>
+            <button onClick={() => onNavigate(View.ORGANIZE)} className="font-medium text-slate-300 hover:text-blue-400 transition-colors">Atur</button>
         </nav>
       </div>
     </header>
