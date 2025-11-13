@@ -1,53 +1,53 @@
 
 import React from 'react';
-import { Tool } from '../types';
+import { View } from '../types';
 import ToolCard from './ToolCard';
 import { MergeIcon, SplitIcon, CompressIcon, TextIcon, SignatureIcon, OrganizeIcon } from './icons';
 
 interface LandingPageProps {
-  onSelectTool: (tool: Tool) => void;
+  onSelectView: (view: View) => void;
 }
 
 const tools = [
   {
-    tool: Tool.MERGE,
+    tool: View.MERGE,
     icon: <MergeIcon />,
     title: 'Gabungkan PDF',
     description: 'Satukan beberapa file PDF menjadi satu dokumen.',
   },
   {
-    tool: Tool.SPLIT,
+    tool: View.SPLIT,
     icon: <SplitIcon />,
     title: 'Pisahkan PDF',
     description: 'Ekstrak halaman atau ubah setiap halaman menjadi PDF terpisah.',
   },
   {
-    tool: Tool.COMPRESS,
+    tool: View.COMPRESS,
     icon: <CompressIcon />,
     title: 'Kompres PDF',
     description: 'Kurangi ukuran file PDF dengan tetap menjaga kualitas terbaik.',
   },
   {
-    tool: Tool.ADD_TEXT,
+    tool: View.ADD_TEXT,
     icon: <TextIcon />,
     title: 'Tambahkan Teks',
     description: 'Tulis teks atau tambahkan anotasi ke dokumen PDF Anda.',
   },
   {
-    tool: Tool.ADD_SIGNATURE,
+    tool: View.ADD_SIGNATURE,
     icon: <SignatureIcon />,
     title: 'Tambahkan Tanda Tangan',
     description: 'Tanda tangani dokumen PDF secara digital dengan mudah.',
   },
   {
-    tool: Tool.ORGANIZE,
+    tool: View.ORGANIZE,
     icon: <OrganizeIcon />,
     title: 'Atur PDF',
     description: 'Hapus, putar, dan urutkan ulang halaman PDF sesuai keinginan.',
   },
 ];
 
-const LandingPage: React.FC<LandingPageProps> = ({ onSelectTool }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-4 text-slate-100">Solusi PDF Lengkap Anda</h2>
@@ -61,7 +61,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectTool }) => {
             icon={toolInfo.icon}
             title={toolInfo.title}
             description={toolInfo.description}
-            onClick={() => onSelectTool(toolInfo.tool)}
+            onClick={() => onSelectView(toolInfo.tool)}
           />
         ))}
       </div>

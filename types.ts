@@ -1,5 +1,5 @@
 
-export enum Tool {
+export enum View {
   LANDING,
   MERGE,
   SPLIT,
@@ -7,4 +7,9 @@ export enum Tool {
   ADD_TEXT,
   ADD_SIGNATURE,
   ORGANIZE,
+  BLOG,
+  FAQ,
+  PRIVACY,
+  ABOUT,
+  CONTACT,
 }

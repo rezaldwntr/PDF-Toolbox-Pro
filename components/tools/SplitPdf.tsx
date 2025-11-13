@@ -75,7 +75,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setFileWithBuffer(null);
         setPdfDoc(null);
         setNumPages(0);
-        setSelectedPages(new Set());
+        // FIX: Explicitly type the new Set to ensure it is Set<number>.
+        setSelectedPages(new Set<number>());
         setRangeInput('');
         setIsProcessing(false);
         setProcessingMessage('');
@@ -109,7 +110,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
     
     const handleTogglePage = (pageNumber: number) => {
-        const newSelectedPages = new Set(selectedPages);
+        // FIX: Explicitly type the new Set to avoid it being inferred as Set<unknown>.
+        const newSelectedPages = new Set<number>(selectedPages);
         if (newSelectedPages.has(pageNumber)) {
             newSelectedPages.delete(pageNumber);
         } else {
@@ -158,7 +160,9 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 const newPdf = await PDFDocument.create();
-                const pageIndices = Array.from(selectedPages).map(p => p - 1).sort((a,b) => a - b);
+                // FIX: With selectedPages correctly typed as Set<number>, this operation is now safe.
+                // FIX: Explicitly cast page number to number to resolve arithmetic operation error.
+                const pageIndices = Array.from(selectedPages).map(p => (p as number) - 1).sort((a,b) => a - b);
                 
                 const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
                 copiedPages.forEach(page => newPdf.addPage(page));
