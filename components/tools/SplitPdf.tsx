@@ -61,9 +61,12 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
     const [pdfDoc, setPdfDoc] = useState<any | null>(null);
     const [numPages, setNumPages] = useState(0);
-    const [splitMode, setSplitMode] = useState<'all' | 'extract'>('extract');
+    const [splitMode, setSplitMode] = useState<'all' | 'extract' | 'fixed'>('extract');
     const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
     const [rangeInput, setRangeInput] = useState('');
+    const [fixedRange, setFixedRange] = useState<number>(1);
+    const [customFilename, setCustomFilename] = useState<string>('');
+    const [fixedRangeFilenames, setFixedRangeFilenames] = useState<Record<number, string>>({});
     const [isProcessing, setIsProcessing] = useState(false);
     const [processingMessage, setProcessingMessage] = useState('');
     const [output, setOutput] = useState<{ url: string; filename: string; isZip: boolean } | null>(null);
@@ -71,13 +74,23 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { addToast } = useToast();
 
+    useEffect(() => {
+        // Reset state yang relevan saat mode berubah untuk menghindari kebingungan
+        setSelectedPages(new Set());
+        setRangeInput('');
+        setCustomFilename('');
+        setFixedRangeFilenames({});
+    }, [splitMode]);
+
     const resetState = useCallback(() => {
         setFileWithBuffer(null);
         setPdfDoc(null);
         setNumPages(0);
-        // FIX: Explicitly type the new Set to ensure it is Set<number>.
         setSelectedPages(new Set<number>());
         setRangeInput('');
+        setFixedRange(1);
+        setCustomFilename('');
+        setFixedRangeFilenames({});
         setIsProcessing(false);
         setProcessingMessage('');
         if (output) {
@@ -110,7 +123,6 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
     
     const handleTogglePage = (pageNumber: number) => {
-        // FIX: Explicitly type the new Set to avoid it being inferred as Set<unknown>.
         const newSelectedPages = new Set<number>(selectedPages);
         if (newSelectedPages.has(pageNumber)) {
             newSelectedPages.delete(pageNumber);
@@ -128,6 +140,13 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setSelectedPages(newSelectedPages);
     };
 
+    const handleFixedFilenameChange = (groupIndex: number, filename: string) => {
+        setFixedRangeFilenames(prev => ({
+            ...prev,
+            [groupIndex]: filename
+        }));
+    };
+
     const handleProcess = async () => {
         if (!fileWithBuffer) return;
         
@@ -138,20 +157,22 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const zip = new JSZip();
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
+                const baseFilename = customFilename.trim() || 'halaman';
                 
                 for (let i = 0; i < originalPdf.getPageCount(); i++) {
                     const newPdf = await PDFDocument.create();
                     const [copiedPage] = await newPdf.copyPages(originalPdf, [i]);
                     newPdf.addPage(copiedPage);
                     const newPdfBytes = await newPdf.save();
-                    zip.file(`halaman_${i + 1}.pdf`, newPdfBytes);
+                    zip.file(`${baseFilename}_${i + 1}.pdf`, newPdfBytes);
                 }
 
                 const zipBlob = await zip.generateAsync({ type: 'blob' });
                 const url = URL.createObjectURL(zipBlob);
-                setOutput({ url, filename: `${fileWithBuffer.file.name.replace('.pdf', '')}-dipisah.zip`, isZip: true });
+                const finalZipName = `${customFilename.trim() || fileWithBuffer.file.name.replace('.pdf', '')}-dipisah.zip`;
+                setOutput({ url, filename: finalZipName, isZip: true });
 
-            } else { // extract mode
+            } else if (splitMode === 'extract') {
                 if (selectedPages.size === 0) {
                     addToast('Pilih setidaknya satu halaman untuk diekstrak.', 'warning');
                     setIsProcessing(false);
@@ -160,9 +181,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 const newPdf = await PDFDocument.create();
-                // FIX: With selectedPages correctly typed as Set<number>, this operation is now safe.
-                // FIX: Explicitly cast page number to number to resolve arithmetic operation error.
-                const pageIndices = Array.from(selectedPages).map(p => (p as number) - 1).sort((a,b) => a - b);
+                const pageIndices = Array.from(selectedPages).map(p => p - 1).sort((a,b) => a - b);
                 
                 const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
                 copiedPages.forEach(page => newPdf.addPage(page));
@@ -170,8 +189,60 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const newPdfBytes = await newPdf.save();
                 const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
-                setOutput({ url, filename: `${fileWithBuffer.file.name.replace('.pdf', '')}-diekstrak.pdf`, isZip: false });
+
+                let finalFilename = customFilename.trim();
+                if (finalFilename) {
+                    if (!finalFilename.toLowerCase().endsWith('.pdf')) {
+                        finalFilename += '.pdf';
+                    }
+                } else {
+                    finalFilename = `${fileWithBuffer.file.name.replace('.pdf', '')}-diekstrak.pdf`;
+                }
+
+                setOutput({ url, filename: finalFilename, isZip: false });
+            } else if (splitMode === 'fixed') {
+                if (fixedRange < 1) {
+                    addToast('Rentang halaman harus minimal 1.', 'warning');
+                    setIsProcessing(false);
+                    return;
+                }
+                const zip = new JSZip();
+                const pdfBytes = fileWithBuffer.buffer;
+                const originalPdf = await PDFDocument.load(pdfBytes);
+                const totalPages = originalPdf.getPageCount();
+                const originalFilenameBase = fileWithBuffer.file.name.replace('.pdf', '');
+
+                let fileCounter = 0;
+                for (let i = 0; i < totalPages; i += fixedRange) {
+                    const newPdf = await PDFDocument.create();
+                    const startPage = i;
+                    const endPage = Math.min(i + fixedRange, totalPages);
+                    
+                    const pageIndices = [];
+                    for (let j = startPage; j < endPage; j++) {
+                        pageIndices.push(j);
+                    }
+
+                    if (pageIndices.length > 0) {
+                        const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
+                        copiedPages.forEach(page => newPdf.addPage(page));
+
+                        const newPdfBytes = await newPdf.save();
+                        
+                        const customName = fixedRangeFilenames[fileCounter]?.trim();
+                        const filename = customName 
+                            ? `${customName}.pdf`
+                            : `${originalFilenameBase}-${fileCounter + 1}.pdf`;
+
+                        zip.file(filename, newPdfBytes);
+                        fileCounter++;
+                    }
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(zipBlob);
+                setOutput({ url, filename: `${originalFilenameBase}-rentang.zip`, isZip: true });
             }
+
             addToast('PDF berhasil diproses!', 'success');
         } catch (error) {
             console.error("Gagal memisahkan PDF:", error);
@@ -179,6 +250,14 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         } finally {
             setIsProcessing(false);
         }
+    };
+    
+    const getButtonText = () => {
+        if (isProcessing) return 'Memproses...';
+        if (splitMode === 'all') return `Pisahkan ${numPages} Halaman`;
+        if (splitMode === 'extract') return `Ekstrak ${selectedPages.size} Halaman`;
+        if (splitMode === 'fixed') return 'Pisahkan Berdasarkan Rentang';
+        return 'Proses';
     };
 
     if (output) {
@@ -238,27 +317,74 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <input type="radio" name="split-mode" checked={splitMode === 'extract'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                 <span className="ml-3 text-sm font-medium text-slate-300">Ekstrak Halaman</span>
                             </label>
-                             <label onClick={() => setSplitMode('all')} className={`flex items-center p-4 rounded-lg cursor-pointer border-2 transition-colors ${splitMode === 'all' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>
+                            <label onClick={() => setSplitMode('fixed')} className={`flex items-center p-4 rounded-lg cursor-pointer border-2 transition-colors ${splitMode === 'fixed' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>
+                                <input type="radio" name="split-mode" checked={splitMode === 'fixed'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                <span className="ml-3 text-sm font-medium text-slate-300">Pisahkan Rentang Tetap</span>
+                            </label>
+                            <label onClick={() => setSplitMode('all')} className={`flex items-center p-4 rounded-lg cursor-pointer border-2 transition-colors ${splitMode === 'all' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>
                                 <input type="radio" name="split-mode" checked={splitMode === 'all'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                 <span className="ml-3 text-sm font-medium text-slate-300">Pisahkan Semua Halaman</span>
                             </label>
                         </div>
 
                         {splitMode === 'extract' && (
-                            <div className="mt-6">
-                                <label htmlFor="page-range" className="block mb-2 text-sm font-medium text-slate-400">Pilih halaman atau rentang</label>
-                                <input type="text" id="page-range" value={rangeInput} onChange={handleRangeInputChange} className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Contoh: 1, 3, 5-8" />
-                                <p className="text-xs text-slate-500 mt-2">{selectedPages.size} halaman dipilih.</p>
+                            <div className="mt-6 space-y-4 animate-fade-in">
+                                <div>
+                                    <label htmlFor="page-range" className="block mb-2 text-sm font-medium text-slate-400">Pilih halaman atau rentang</label>
+                                    <input type="text" id="page-range" value={rangeInput} onChange={handleRangeInputChange} className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Contoh: 1, 3, 5-8" />
+                                    <p className="text-xs text-slate-500 mt-2">{selectedPages.size} halaman dipilih.</p>
+                                </div>
+                                <div>
+                                    <label htmlFor="custom-filename-extract" className="block mb-2 text-sm font-medium text-slate-400">Nama file kustom (opsional)</label>
+                                    <input 
+                                        type="text" 
+                                        id="custom-filename-extract"
+                                        value={customFilename}
+                                        onChange={(e) => setCustomFilename(e.target.value)}
+                                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                        placeholder="Contoh: Laporan-Penting"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">File akan disimpan sebagai: Nama-File.pdf</p>
+                                </div>
+                            </div>
+                        )}
+                         {splitMode === 'fixed' && (
+                            <div className="mt-6 space-y-4 animate-fade-in">
+                                <div>
+                                    <label htmlFor="fixed-range" className="block mb-2 text-sm font-medium text-slate-400">Halaman per file</label>
+                                    <input 
+                                        type="number" 
+                                        id="fixed-range"
+                                        value={fixedRange}
+                                        onChange={(e) => setFixedRange(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                        min="1"
+                                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                    />
+                                </div>
                             </div>
                         )}
                          {splitMode === 'all' && (
-                            <div className="mt-6 p-4 bg-slate-700/50 rounded-lg text-sm text-slate-400">
-                                Setiap halaman dari PDF Anda akan disimpan sebagai file terpisah, lalu digabungkan dalam satu file ZIP.
+                            <div className="mt-6 animate-fade-in">
+                                <p className="p-4 bg-slate-700/50 rounded-lg text-sm text-slate-400">
+                                    Setiap halaman dari PDF Anda akan disimpan sebagai file terpisah, lalu digabungkan dalam satu file ZIP.
+                                </p>
+                                <div className="mt-4">
+                                    <label htmlFor="custom-filename-all" className="block mb-2 text-sm font-medium text-slate-400">Nama dasar file kustom (opsional)</label>
+                                    <input 
+                                        type="text" 
+                                        id="custom-filename-all"
+                                        value={customFilename}
+                                        onChange={(e) => setCustomFilename(e.target.value)}
+                                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                        placeholder="Contoh: Lampiran"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">File akan dinamai: Nama-File_1.pdf, dst.</p>
+                                </div>
                             </div>
                         )}
                         <div className="mt-8">
-                            <button onClick={handleProcess} disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center">
-                               {isProcessing ? 'Memproses...' : (splitMode === 'all' ? `Pisahkan ${numPages} Halaman` : 'Ekstrak Halaman')}
+                            <button onClick={handleProcess} disabled={isProcessing || (splitMode === 'extract' && selectedPages.size === 0)} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center">
+                               {getButtonText()}
                             </button>
                         </div>
                     </div>
@@ -276,21 +402,63 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <TrashIcon />
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNumber => (
-                                <div key={pageNumber} onClick={() => splitMode === 'extract' && handleTogglePage(pageNumber)} className={`relative rounded-lg border-2 ${selectedPages.has(pageNumber) ? 'border-blue-500' : 'border-transparent'} ${splitMode === 'extract' ? 'cursor-pointer' : 'cursor-default'}`}>
-                                    <div className={`transition-opacity duration-200 ${selectedPages.has(pageNumber) ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}>
-                                      <PdfPagePreview pdfDoc={pdfDoc} pageNumber={pageNumber} />
-                                    </div>
-                                    <div className="absolute top-1 left-1 bg-slate-800/80 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">{pageNumber}</div>
-                                    {selectedPages.has(pageNumber) && (
-                                        <div className="absolute inset-0 bg-blue-500/30 rounded-md flex items-center justify-center">
-                                            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+
+                        {splitMode === 'fixed' && fixedRange > 0 ? (
+                            <div className="flex flex-col gap-6">
+                                {Array.from({ length: Math.ceil(numPages / fixedRange) }, (_, groupIndex) => {
+                                    const startPage = groupIndex * fixedRange + 1;
+                                    const endPage = Math.min(startPage + fixedRange - 1, numPages);
+                                    const pagesInGroup = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+                                    const defaultFilename = `File-${groupIndex + 1}`;
+
+                                    return (
+                                        <div key={groupIndex} className="bg-slate-800 p-4 rounded-lg border border-slate-700 animate-fade-in">
+                                            <div className="flex flex-col sm:flex-row gap-2 items-baseline mb-3">
+                                                <h4 className="font-semibold text-slate-200 whitespace-nowrap">
+                                                    {defaultFilename} <span className="text-sm text-slate-400 font-normal">(Halaman {startPage}-{endPage})</span>
+                                                </h4>
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <input
+                                                        type="text"
+                                                        value={fixedRangeFilenames[groupIndex] || ''}
+                                                        onChange={(e) => handleFixedFilenameChange(groupIndex, e.target.value)}
+                                                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+                                                        placeholder={`Nama file kustom (opsional)`}
+                                                    />
+                                                    <span className="text-slate-500 text-sm">.pdf</span>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                                                {pagesInGroup.map(pageNumber => (
+                                                    <div key={pageNumber} className="relative rounded-lg border-2 border-transparent">
+                                                        <div className="opacity-80">
+                                                        <PdfPagePreview pdfDoc={pdfDoc} pageNumber={pageNumber} />
+                                                        </div>
+                                                        <div className="absolute top-1 left-1 bg-slate-900/80 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{pageNumber}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNumber => (
+                                    <div key={pageNumber} onClick={() => splitMode === 'extract' && handleTogglePage(pageNumber)} className={`relative rounded-lg border-2 ${selectedPages.has(pageNumber) ? 'border-blue-500' : 'border-transparent'} ${splitMode === 'extract' ? 'cursor-pointer' : 'cursor-default'}`}>
+                                        <div className={`transition-opacity duration-200 ${selectedPages.has(pageNumber) ? 'opacity-100' : 'opacity-70'} ${splitMode === 'extract' && 'hover:opacity-100'}`}>
+                                        <PdfPagePreview pdfDoc={pdfDoc} pageNumber={pageNumber} />
+                                        </div>
+                                        <div className="absolute top-1 left-1 bg-slate-800/80 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">{pageNumber}</div>
+                                        {selectedPages.has(pageNumber) && (
+                                            <div className="absolute inset-0 bg-blue-500/30 rounded-md flex items-center justify-center">
+                                                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

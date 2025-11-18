@@ -33,6 +33,34 @@
         transition: opacity 300ms, transform 300ms;
       }
 
+      /* Animasi untuk menu dropdown mobile */
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-down {
+        animation: fadeInDown 200ms ease-out forwards;
+      }
+
+      /* Animasi fadeIn generik */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .animate-fade-in {
+        animation: fadeIn 300ms ease-out forwards;
+      }
+
       /* Gaya untuk seret dan lepas (Drag and Drop) */
       .dragging-item {
         opacity: 0.5;

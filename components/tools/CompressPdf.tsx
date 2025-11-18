@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } from '../icons';
 import { PDFDocument } from 'pdf-lib';
@@ -85,6 +85,8 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
 
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
@@ -94,6 +96,8 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       URL.revokeObjectURL(result.url);
     }
     setResult(null);
+    setEstimatedSize(null);
+    setIsEstimating(false);
   }, [result]);
 
   const handleFileChange = async (selectedFile: File | null) => {
@@ -112,6 +116,58 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
     }
   };
+
+  useEffect(() => {
+    const calculateEstimatedSize = async () => {
+      if (!fileWithBuffer) {
+        setEstimatedSize(null);
+        return;
+      }
+
+      setIsEstimating(true);
+      try {
+        const arrayBuffer = fileWithBuffer.buffer;
+        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+        
+        let totalEstimatedSize = 0;
+
+        for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+          const page = await pdfjsDoc.getPage(i);
+          const pageType = await analyzePageContent(page);
+
+          if (pageType === 'has-images') {
+            const viewport = page.getViewport({ scale: 1.0 });
+            // Heuristik: Halaman yang di-raster pada skala 1,5x dengan kualitas JPEG 0,75.
+            // Ukuran JPEG dapat diperkirakan secara kasar. Mari gunakan faktor
+            // dari jumlah piksel untuk mendapatkan perkiraan.
+            const rasterizedPixels = (viewport.width * 1.5) * (viewport.height * 1.5);
+            
+            // Faktor heuristik ini (0.12) menggabungkan kedalaman warna (sekitar 3 byte per piksel)
+            // dan rasio kompresi JPEG yang diharapkan (sekitar 25:1).
+            const PIXELS_TO_BYTES_FACTOR = 0.12;
+            const estimatedPageSize = rasterizedPixels * PIXELS_TO_BYTES_FACTOR; 
+            totalEstimatedSize += estimatedPageSize;
+          } else { // 'text-vector'
+            // Untuk halaman teks, logika kompresi kami menyalinnya secara langsung,
+            // sehingga ukurannya sebagian besar dipertahankan. Sulit untuk mengetahui ukuran halaman asli,
+            // jadi kami menggunakan konstanta kecil yang realistis.
+            totalEstimatedSize += 10 * 1024; // 10KB per halaman teks
+          }
+        }
+        
+        // Pastikan perkiraan tidak lebih besar dari ukuran file asli.
+        setEstimatedSize(Math.min(totalEstimatedSize, fileWithBuffer.file.size));
+
+      } catch (error) {
+        console.error("Gagal memperkirakan ukuran:", error);
+        setEstimatedSize(null); // Bersihkan pada kesalahan
+      } finally {
+        setIsEstimating(false);
+      }
+    };
+
+    calculateEstimatedSize();
+  }, [fileWithBuffer]);
   
   const handleCompress = async () => {
     if (!fileWithBuffer) return;
@@ -276,13 +332,22 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
           <h3 className="text-lg font-semibold text-center text-slate-300 mb-4">Pilih Mode Kompresi</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <label onClick={() => setCompressionMode('recommended')} className={`p-4 rounded-lg cursor-pointer border-2 transition-colors text-left ${compressionMode === 'recommended' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>
+            <label onClick={() => setCompressionMode('recommended')} className={`p-4 rounded-lg cursor-pointer border-2 transition-colors text-left flex flex-col justify-between ${compressionMode === 'recommended' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>
                 <div className="flex items-center">
                     <input type="radio" name="compression" value="recommended" checked={compressionMode === 'recommended'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                     <div className="ml-3">
                         <span className="block font-bold text-slate-200">Kompresi Direkomendasikan</span>
                         <span className="text-xs text-slate-400">Keseimbangan terbaik antara ukuran dan kualitas.</span>
                     </div>
+                </div>
+                 <div className="mt-3 pl-8 text-sm h-5">
+                  {isEstimating ? (
+                    <p className="text-slate-400 animate-pulse">Menghitung perkiraan...</p>
+                  ) : estimatedSize !== null ? (
+                    <p className="text-slate-300">
+                      <span className="font-semibold">Perkiraan Ukuran Akhir:</span> ~{formatBytes(estimatedSize)}
+                    </p>
+                  ) : null}
                 </div>
             </label>
              <label onClick={() => setCompressionMode('advanced')} className={`p-4 rounded-lg cursor-pointer border-2 transition-colors text-left ${compressionMode === 'advanced' ? 'bg-blue-900/50 border-blue-500' : 'bg-slate-700/50 border-slate-600 hover:border-slate-500'}`}>

@@ -61,6 +61,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingColor, setDrawingColor] = useState('#000000'); // Black, Blue, Red
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // --- State for smooth dragging & resizing ---
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -120,6 +121,32 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    const editorContainer = editorContainerRef.current;
+    if (!editorContainer) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) { // This is the key for pinch-zoom on trackpads and ctrl+scroll on mice
+        e.preventDefault();
+        
+        // Adjust zoom based on wheel delta
+        const zoomAmount = e.deltaY * -0.001; // Small multiplier for smooth zoom
+        setZoom(prevZoom => {
+          const newZoom = prevZoom + zoomAmount;
+          return Math.max(0.2, Math.min(3.0, newZoom)); // Clamp between 0.2 and 3.0
+        });
+      }
+    };
+
+    editorContainer.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      if (editorContainer) {
+        editorContainer.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   // --- Drawing Logic ---
   const getMousePos = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.TouchEvent) => {
@@ -453,7 +480,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left/Main Panel: Editor */}
                 <div className="lg:col-span-2 relative">
-                    <div className="bg-slate-900/50 p-4 rounded-lg max-h-[70vh] overflow-auto" data-editor-container>
+                    <div ref={editorContainerRef} className="bg-slate-900/50 p-4 rounded-lg max-h-[70vh] overflow-auto" data-editor-container>
                         <div className="flex justify-center items-start">
                             <div className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
                                 {pagePreviews.map((page, index) => (
