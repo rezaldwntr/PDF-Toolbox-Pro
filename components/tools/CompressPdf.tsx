@@ -7,7 +7,6 @@ import { useToast } from '../../contexts/ToastContext';
 declare const pdfjsLib: any;
 
 type CompressionMode = 'recommended' | 'advanced';
-type PageContentType = 'text-vector' | 'has-images';
 
 interface CompressResult {
   url: string;
@@ -29,28 +28,13 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-// Helper to analyze page content, simplified to a binary outcome.
-const analyzePageContent = async (page: any): Promise<PageContentType> => {
-    const operatorList = await page.getOperatorList();
-    
-    // Check for any image drawing operations.
-    for (const op of operatorList.fnArray) {
-        if (op === pdfjsLib.OPS.paintImageXObject) {
-            return 'has-images'; // Found at least one image.
-        }
-    }
-
-    return 'text-vector'; // No images found.
-};
-
-
-// Helper function to create a compressed PDF with a specific quality
+// Helper function to create a compressed PDF with a specific quality by rasterizing all pages
 const createPdfWithQuality = async (pdfjsDoc: any, jpegQuality: number): Promise<Uint8Array> => {
     const newPdfDoc = await PDFDocument.create();
     for (let i = 1; i <= pdfjsDoc.numPages; i++) {
         const page = await pdfjsDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
-
+        const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is approx 108 DPI. Let's use 2.0 for ~150 DPI
+        
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.width = viewport.width;
@@ -85,8 +69,10 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+  
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
+  const [recommendedResultBytes, setRecommendedResultBytes] = useState<Uint8Array | null>(null);
 
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
@@ -97,6 +83,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
     setResult(null);
     setEstimatedSize(null);
+    setRecommendedResultBytes(null);
     setIsEstimating(false);
   }, [result]);
 
@@ -116,58 +103,76 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
     }
   };
-
+  
+  // Pre-calculate the result for "Recommended" mode as soon as a file is loaded.
   useEffect(() => {
-    const calculateEstimatedSize = async () => {
-      if (!fileWithBuffer) {
-        setEstimatedSize(null);
-        return;
-      }
+    setEstimatedSize(null);
+    setRecommendedResultBytes(null);
+
+    const calculateRecommendedResult = async () => {
+      if (!fileWithBuffer) return;
 
       setIsEstimating(true);
       try {
         const arrayBuffer = fileWithBuffer.buffer;
+        const sourcePdfDoc = await PDFDocument.load(arrayBuffer.slice(0));
         const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
         
-        let totalEstimatedSize = 0;
+        const newPdfDoc = await PDFDocument.create();
+        
+        for (let i = 0; i < sourcePdfDoc.getPageCount(); i++) {
+          const pdfjsPage = await pdfjsDoc.getPage(i + 1);
+          const textContent = await pdfjsPage.getTextContent();
+          
+          // AUDIT: If page has no text content, it's likely a scanned image. Rasterize it.
+          if (textContent.items.length === 0) {
+            const viewport = pdfjsPage.getViewport({ scale: 2.0 }); // ~150 DPI for good quality/size balance
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
 
-        for (let i = 1; i <= pdfjsDoc.numPages; i++) {
-          const page = await pdfjsDoc.getPage(i);
-          const pageType = await analyzePageContent(page);
+            await pdfjsPage.render({ canvasContext: context, viewport: viewport }).promise;
 
-          if (pageType === 'has-images') {
-            const viewport = page.getViewport({ scale: 1.0 });
-            // Heuristik: Halaman yang di-raster pada skala 1,5x dengan kualitas JPEG 0,75.
-            // Ukuran JPEG dapat diperkirakan secara kasar. Mari gunakan faktor
-            // dari jumlah piksel untuk mendapatkan perkiraan.
-            const rasterizedPixels = (viewport.width * 1.5) * (viewport.height * 1.5);
-            
-            // Faktor heuristik ini (0.12) menggabungkan kedalaman warna (sekitar 3 byte per piksel)
-            // dan rasio kompresi JPEG yang diharapkan (sekitar 25:1).
-            const PIXELS_TO_BYTES_FACTOR = 0.12;
-            const estimatedPageSize = rasterizedPixels * PIXELS_TO_BYTES_FACTOR; 
-            totalEstimatedSize += estimatedPageSize;
-          } else { // 'text-vector'
-            // Untuk halaman teks, logika kompresi kami menyalinnya secara langsung,
-            // sehingga ukurannya sebagian besar dipertahankan. Sulit untuk mengetahui ukuran halaman asli,
-            // jadi kami menggunakan konstanta kecil yang realistis.
-            totalEstimatedSize += 10 * 1024; // 10KB per halaman teks
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.75); // Balanced quality
+            const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
+            const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
+
+            const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
+            newPage.drawImage(jpegImage, {
+              x: 0,
+              y: 0,
+              width: newPage.getWidth(),
+              height: newPage.getHeight(),
+            });
+
+          } else { // If page has text, copy it losslessly to preserve quality and searchability.
+            const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i]);
+            newPdfDoc.addPage(copiedPage);
           }
         }
         
-        // Pastikan perkiraan tidak lebih besar dari ukuran file asli.
-        setEstimatedSize(Math.min(totalEstimatedSize, fileWithBuffer.file.size));
+        const compressedBytes = await newPdfDoc.save();
+        setEstimatedSize(compressedBytes.byteLength);
+        
+        if (compressedBytes.byteLength < fileWithBuffer.file.size) {
+            setRecommendedResultBytes(compressedBytes);
+        } else {
+            setRecommendedResultBytes(null);
+        }
 
       } catch (error) {
-        console.error("Gagal memperkirakan ukuran:", error);
-        setEstimatedSize(null); // Bersihkan pada kesalahan
+        console.error("Gagal menghitung hasil kompresi yang direkomendasikan:", error);
+        setEstimatedSize(null);
+        setRecommendedResultBytes(null);
+        addToast("Tidak dapat menganalisis PDF untuk kompresi.", 'warning');
       } finally {
         setIsEstimating(false);
       }
     };
 
-    calculateEstimatedSize();
-  }, [fileWithBuffer]);
+    calculateRecommendedResult();
+  }, [fileWithBuffer, addToast]);
   
   const handleCompress = async () => {
     if (!fileWithBuffer) return;
@@ -176,46 +181,19 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
         const arrayBuffer = fileWithBuffer.buffer;
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
         let finalPdfBytes: Uint8Array;
 
         if (compressionMode === 'recommended') {
-            setProcessingMessage('Menganalisis konten PDF...');
-            const sourcePdfDoc = await PDFDocument.load(arrayBuffer);
-            const newPdfDoc = await PDFDocument.create();
-
-            for (let i = 1; i <= pdfjsDoc.numPages; i++) {
-                setProcessingMessage(`Memproses halaman ${i} dari ${pdfjsDoc.numPages}...`);
-                const page = await pdfjsDoc.getPage(i);
-                const pageType = await analyzePageContent(page);
-                
-                if (pageType === 'text-vector') {
-                    // Salin halaman secara langsung untuk menjaga kualitas dan mencegah pembengkakan ukuran.
-                    const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
-                    newPdfDoc.addPage(copiedPage);
-                } else { // 'has-images'
-                    // Rasterisasi dan kompres halaman yang mengandung gambar apa pun.
-                    const jpegQuality = 0.75;
-                    const scale = 1.5;
-
-                    const viewport = page.getViewport({ scale });
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    await page.render({ canvasContext: context, viewport }).promise;
-
-                    const jpegDataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
-                    const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
-                    const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
-                    
-                    const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
-                    newPage.drawImage(jpegImage, { x: 0, y: 0, width: newPage.getWidth(), height: newPage.getHeight() });
-                }
+            setProcessingMessage('Menyelesaikan kompresi...');
+            if (recommendedResultBytes) {
+                finalPdfBytes = recommendedResultBytes;
+            } else {
+                addToast("Kompresi tidak akan mengurangi ukuran file. Proses dibatalkan.", 'info');
+                setIsProcessing(false);
+                return;
             }
-            finalPdfBytes = await newPdfDoc.save();
-
-        } else { // Mode Lanjutan (tidak berubah)
+        } else { // Advanced Mode
+            const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
             const targetSizeBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
             if (targetSizeBytes >= fileWithBuffer.file.size) {
                 addToast("Ukuran target harus lebih kecil dari ukuran file asli.", 'warning');
@@ -227,11 +205,10 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             let bestPdfBytes: Uint8Array | null = null;
             let minDiff = Infinity;
             
-            // Pencarian biner untuk menemukan kualitas terbaik
             let minQuality = 0.01;
             let maxQuality = 1.0;
 
-            for (let i = 0; i < 7; i++) { // 7 iterasi cukup untuk presisi yang baik
+            for (let i = 0; i < 7; i++) {
                 const currentQuality = (minQuality + maxQuality) / 2;
                 setProcessingMessage(`Mencoba kualitas ${(currentQuality * 100).toFixed(0)}%... (${i+1}/7)`);
                 
@@ -251,6 +228,12 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 }
             }
             finalPdfBytes = bestPdfBytes!;
+
+            if (finalPdfBytes.byteLength >= fileWithBuffer.file.size) {
+              addToast("Tidak dapat mengompres file ke ukuran yang lebih kecil dari aslinya.", 'warning');
+              setIsProcessing(false);
+              return;
+            }
         }
 
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
@@ -308,7 +291,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (isProcessing) {
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center">
-              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <p className="text-lg text-slate-300 font-semibold">{processingMessage}</p>
             </div>
         );
@@ -342,10 +325,14 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
                  <div className="mt-3 pl-8 text-sm h-5">
                   {isEstimating ? (
-                    <p className="text-slate-400 animate-pulse">Menghitung perkiraan...</p>
+                    <p className="text-slate-400 animate-pulse">Menganalisis...</p>
                   ) : estimatedSize !== null ? (
                     <p className="text-slate-300">
-                      <span className="font-semibold">Perkiraan Ukuran Akhir:</span> ~{formatBytes(estimatedSize)}
+                      <span className="font-semibold">Perkiraan Ukuran:</span> {formatBytes(estimatedSize)}
+                      {fileWithBuffer && estimatedSize < fileWithBuffer.file.size ?
+                        <span className="text-green-400 ml-2">(-{(100 - (estimatedSize / fileWithBuffer.file.size) * 100).toFixed(1)}%)</span> :
+                        <span className="text-slate-500 ml-2">(Tidak ada penghematan)</span>
+                      }
                     </p>
                   ) : null}
                 </div>
@@ -355,7 +342,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <input type="radio" name="compression" value="advanced" checked={compressionMode === 'advanced'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                     <div className="ml-3">
                         <span className="block font-bold text-slate-200">Kompresi Lanjutan</span>
-                        <span className="text-xs text-slate-400">Pilih ukuran file target yang Anda inginkan.</span>
+                        <span className="text-xs text-slate-400">Pilih ukuran file target yang Anda inginkan (kualitas mungkin berkurang).</span>
                     </div>
                 </div>
             </label>
@@ -390,7 +377,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={handleCompress} disabled={isProcessing} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center min-w-[200px]">
               {isProcessing ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   <span>{processingMessage}</span>
                 </>
               ) : 'Kompres PDF'}
