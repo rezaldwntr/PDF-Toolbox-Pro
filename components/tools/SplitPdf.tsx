@@ -40,7 +40,8 @@ const parsePageRanges = (rangeStr: string, maxPage: number): Set<number> => {
 // Fungsi utilitas untuk mengubah set halaman menjadi string rentang
 const pagesToRangeString = (pages: Set<number>): string => {
     if (pages.size === 0) return '';
-    const sortedPages = Array.from(pages).sort((a, b) => a - b);
+    // FIX: Explicitly cast to Number to prevent type errors during sorting if non-numeric values are present.
+    const sortedPages = Array.from(pages).sort((a, b) => Number(a) - Number(b));
     const ranges = [];
     let start = sortedPages[0];
     let end = sortedPages[0];
@@ -181,7 +182,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 const newPdf = await PDFDocument.create();
-                const pageIndices = Array.from(selectedPages).map(p => p - 1).sort((a,b) => a - b);
+                // FIX: Explicitly cast to Number to prevent type errors during mapping and sorting if non-numeric values are present.
+                const pageIndices = Array.from(selectedPages).map(p => Number(p) - 1).sort((a,b) => Number(a) - Number(b));
                 
                 const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
                 copiedPages.forEach(page => newPdf.addPage(page));

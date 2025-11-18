@@ -104,7 +104,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
   
-  // Pre-calculate the result for "Recommended" mode as soon as a file is loaded.
+  // Pra-kalkulasi hasil untuk mode "Direkomendasikan" segera setelah file dimuat.
   useEffect(() => {
     setEstimatedSize(null);
     setRecommendedResultBytes(null);
@@ -114,42 +114,73 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       setIsEstimating(true);
       try {
-        // This logic implements a sophisticated, balanced compression pipeline inspired by professional tools,
-        // adapted for a web-based environment. It mirrors the "Profile 1: Fast & Balanced" approach.
+        // --- LOGIKA BARU BERDASARKAN AUDIT PROFESIONAL ---
+        // Pipeline ini meniru profil "Cepat & Seimbang" untuk mendapatkan
+        // keseimbangan terbaik antara ukuran dan kualitas, ideal untuk penggunaan web.
 
-        // Pass 1: Audit & Analysis (Per-Page)
-        // We audit each page to determine if it's primarily image-based (like a scan) or text/vector-based.
-        // This allows us to apply the correct compression strategy to each page individually.
-        // We use the presence of text content as a heuristic: no text strongly implies a scanned page.
-        
+        // Langkah 1 & 2: Muat PDF untuk Audit & Buat PDF Baru
         const arrayBuffer = fileWithBuffer.buffer;
         const sourcePdfDoc = await PDFDocument.load(arrayBuffer.slice(0));
         const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
-        
         const newPdfDoc = await PDFDocument.create();
         
+        // Langkah 3: Audit Halaman-demi-Halaman & Terapkan Strategi yang Tepat
         for (let i = 0; i < sourcePdfDoc.getPageCount(); i++) {
-          const pdfjsPage = await pdfjsDoc.getPage(i + 1);
-          const textContent = await pdfjsPage.getTextContent();
+          const pageNum = i + 1;
+          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
           
-          // AUDIT RESULT: If page has no text, treat as scanned (isScanned == true).
-          if (textContent.items.length === 0) {
-            // Pass 2 (for Scanned Pages): Asset Compression (Lossy)
-            // This mirrors the behavior of Ghostscript's `-dPDFSETTINGS=/ebook` preset.
-            // We downsample the image to a web-friendly resolution and convert it to an efficient JPEG.
-            
+          // AUDIT: Analisis konten halaman (teks dan gambar)
+          const textContent = await pdfjsPage.getTextContent();
+          const ops = await pdfjsPage.getOperatorList();
+          const viewport = pdfjsPage.getViewport({ scale: 1.0 });
+          const pageArea = viewport.width * viewport.height;
+          let totalImagePixels = 0;
+
+          // Temukan operator gambar dan hitung total piksel gambar.
+          // Ini adalah pendekatan yang disederhanakan dan tidak memperhitungkan transformasi gambar (skala/rotasi),
+          // tetapi memberikan perkiraan yang baik untuk audit sisi klien.
+          const imagePromises: Promise<void>[] = [];
+          for (let j = 0; j < ops.fnArray.length; j++) {
+            if (ops.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
+              const imgRef = ops.argsArray[j][0];
+              imagePromises.push(
+                new Promise(async (resolve) => {
+                  try {
+                    // Coba dapatkan data gambar dari referensinya
+                    const img = await pdfjsPage.commonObjs.get(imgRef);
+                    if (img && img.width && img.height) {
+                        totalImagePixels += img.width * img.height;
+                    }
+                  } catch (e) {
+                    // Abaikan jika referensi gambar tidak dapat diselesaikan
+                  }
+                  resolve();
+                })
+              );
+            }
+          }
+          await Promise.all(imagePromises);
+
+          // KEPUTUSAN: Berdasarkan hasil audit, pilih pipeline yang tepat.
+          // Halaman dianggap dominan gambar jika gambar menutupi > 50% halaman ATAU jika hanya ada sedikit teks.
+          const isImageDominant = (totalImagePixels / pageArea > 0.5) || textContent.items.length < 15;
+          
+          if (isImageDominant) {
+            // A. Pipeline untuk Halaman Pindaian/Berat Gambar (Kompresi Aset)
+            // Lakukan downsample seluruh halaman ke 150 DPI dan kompres sebagai JPEG.
+            // Ini sesuai dengan Pass 2 dari profil "Cepat & Seimbang".
             const TARGET_DPI = 150;
-            const scale = TARGET_DPI / 72; // PDF's default DPI is 72
+            const scale = TARGET_DPI / 72; // PDF menggunakan 72 DPI sebagai dasar
             
-            const viewport = pdfjsPage.getViewport({ scale });
+            const scaledViewport = pdfjsPage.getViewport({ scale });
             const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+            const context = canvas.getContext('2d')!;
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
 
-            await pdfjsPage.render({ canvasContext: context, viewport: viewport }).promise;
+            await pdfjsPage.render({ canvasContext: context, viewport: scaledViewport }).promise;
 
-            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.75); // Balanced quality (medium-high)
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.80); // Kualitas 80% (Seimbang)
             const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
             const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
 
@@ -160,27 +191,24 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               width: newPage.getWidth(),
               height: newPage.getHeight(),
             });
-
           } else { 
-            // Pass 2 (for Text/Vector Pages): Cleanup (Lossless)
-            // For pages with text, we avoid rasterization to maintain text clarity,
-            // searchability, and selection capabilities. We copy the page as is.
+            // B. Pipeline untuk Halaman Berat Teks/Vektor (Salinan Lossless)
+            // Salin halaman apa adanya untuk menjaga kualitas teks, kemampuan pencarian, dan vektor.
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i]);
             newPdfDoc.addPage(copiedPage);
           }
         }
         
-        // Pass 3 & 4: Font Subsetting & Structural Rewrite
-        // When pdf-lib saves the document, it performs a structural rewrite, similar to what qpdf does.
-        // It cleans up object references and recompresses streams. Any custom fonts that might be added
-        // would be automatically subsetted by pdf-lib, but for existing fonts, we rely on the lossless copy.
+        // Langkah 4: Simpan & Tulis Ulang Struktural (qpdf-like)
+        // Metode `save` dari pdf-lib melakukan pembersihan dan pengoptimalan struktural.
         const compressedBytes = await newPdfDoc.save();
         setEstimatedSize(compressedBytes.byteLength);
         
+        // Pemeriksaan Keamanan: Bandingkan ukuran baru dengan yang asli.
         if (compressedBytes.byteLength < fileWithBuffer.file.size) {
             setRecommendedResultBytes(compressedBytes);
         } else {
-            setRecommendedResultBytes(null);
+            setRecommendedResultBytes(null); // Mencegah kompresi jika tidak ada penghematan.
         }
 
       } catch (error) {
