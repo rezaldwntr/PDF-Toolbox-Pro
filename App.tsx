@@ -14,6 +14,8 @@ import Faq from './components/pages/Faq';
 import PrivacyPolicy from './components/pages/PrivacyPolicy';
 import AboutUs from './components/pages/AboutUs';
 import Contact from './components/pages/Contact';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
   const [activeView, setActiveView] = useState<View>(View.LANDING);
@@ -85,6 +87,8 @@ function App() {
               </a>
             </p>
         </footer>
+        <Analytics />
+        <SpeedInsights />
       </div>
     </ToastProvider>
   );
