@@ -16,7 +16,8 @@ const navItems = [
   { view: View.ORGANIZE, label: 'Atur' },
 ];
 
-const zentridoxLogoBase64 = "src/Gemini_Generated_Image_5bgfv65bgfv65bgf.png";
+// Menggunakan path file yang diunggah
+const logoUrl = "/src/Gemini_Generated_Image_5bgfv65bgfv65bgf.png";
 
 const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -34,12 +35,11 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
   return (
     <header className="bg-slate-900/70 backdrop-blur-lg sticky top-0 z-50 border-b border-slate-700">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <button onClick={handleGoHome} className="cursor-pointer">
+        <button onClick={handleGoHome} className="cursor-pointer flex items-center">
           <img 
-            src={zentridoxLogoBase64} 
+            src={logoUrl} 
             alt="Zentridox Logo" 
-            className="h-7 md:h-8"
-            style={{ filter: 'invert(1)' }}
+            className="h-10 md:h-12 object-contain"
           />
         </button>
         
