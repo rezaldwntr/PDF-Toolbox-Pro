@@ -1,6 +1,14 @@
+
 import React, { useState } from 'react';
 import { View } from '../types';
 import { HamburgerIcon, CloseIcon } from './icons';
+
+const logoPaths = [
+  'logozen.png',
+  '/logozen.png',
+  '/src/logozen.png',
+  'src/logozen.png'
+];
 
 interface HeaderProps {
   onGoHome: () => void;
@@ -16,11 +24,10 @@ const navItems = [
   { view: View.ORGANIZE, label: 'Atur' },
 ];
 
-// Menggunakan path file yang diunggah
-const logoUrl = "/src/Gemini_Generated_Image_5bgfv65bgfv65bgf.png";
-
 const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const [currentPathIndex, setCurrentPathIndex] = useState(0);
 
   const handleNavigate = (view: View) => {
     onNavigate(view);
@@ -32,15 +39,33 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
     setIsMobileMenuOpen(false); // Close mobile menu on navigation
   };
 
+  const handleLogoError = () => {
+    const nextIndex = currentPathIndex + 1;
+    if (nextIndex < logoPaths.length) {
+      setCurrentPathIndex(nextIndex);
+    } else {
+      setLogoError(true);
+      // Error log removed to prevent dev overlay from showing when fallback is active
+    }
+  };
+
   return (
     <header className="bg-slate-900/70 backdrop-blur-lg sticky top-0 z-50 border-b border-slate-700">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <button onClick={handleGoHome} className="cursor-pointer flex items-center">
-          <img 
-            src={logoUrl} 
-            alt="Zentridox Logo" 
-            className="h-10 md:h-12 object-contain"
-          />
+        <button onClick={handleGoHome} className="cursor-pointer flex items-center gap-2">
+          {!logoError ? (
+            <img 
+              src={logoPaths[currentPathIndex]}
+              alt="Zentridox Logo" 
+              className="h-10 md:h-12 object-contain"
+              onError={handleLogoError}
+              style={{ filter: 'brightness(0) invert(1)' }} 
+            />
+          ) : (
+             <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
+              Zentridox
+             </span>
+          )}
         </button>
         
         {/* Desktop Navigation */}
