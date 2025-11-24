@@ -10,12 +10,12 @@ const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
     <ToolContainer title="Tentang Kami" onBack={onBack} maxWidth="max-w-3xl">
       <div className="prose prose-invert prose-lg max-w-none text-slate-300 space-y-6">
         <p className="lead">
-          Selamat datang di PDF Toolbox Pro! Misi kami sederhana: menyediakan seperangkat alat PDF yang cepat, gratis, aman, dan mudah digunakan untuk semua orang.
+          Selamat datang di Zentridox! Misi kami sederhana: menyediakan seperangkat alat PDF yang cepat, gratis, aman, dan mudah digunakan untuk semua orang.
         </p>
         
         <h4>Apa yang Kami Tawarkan?</h4>
         <p>
-          PDF Toolbox Pro adalah solusi lengkap untuk semua kebutuhan PDF Anda. Kami percaya bahwa manajemen dokumen yang kuat harus dapat diakses oleh semua orang, tanpa iklan yang mengganggu atau keharusan untuk mengunggah file sensitif Anda ke server.
+          Zentridox adalah solusi lengkap untuk semua kebutuhan PDF Anda. Kami percaya bahwa manajemen dokumen yang kuat harus dapat diakses oleh semua orang, tanpa iklan yang mengganggu atau keharusan untuk mengunggah file sensitif Anda ke server.
         </p>
         <ul className="list-disc list-inside">
             <li><strong>Gratis:</strong> Semua alat kami 100% gratis untuk digunakan.</li>
@@ -33,7 +33,7 @@ const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
           >
             @rezaldwntr
           </a>
-          , seorang pengembang yang bersemangat dalam membangun aplikasi web yang berguna dan ramah pengguna. Kami terus berupaya meningkatkan dan menambahkan fitur baru ke platform kami. Terima kasih telah menggunakan PDF Toolbox Pro!
+          , seorang pengembang yang bersemangat dalam membangun aplikasi web yang berguna dan ramah pengguna. Kami terus berupaya meningkatkan dan menambahkan fitur baru ke platform kami. Terima kasih telah menggunakan Zentridox!
         </p>
       </div>
     </ToolContainer>

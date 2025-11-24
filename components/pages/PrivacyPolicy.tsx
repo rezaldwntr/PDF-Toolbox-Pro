@@ -18,7 +18,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
       <div className="prose prose-invert prose-lg max-w-none text-slate-300">
         <p><strong>Terakhir diperbarui:</strong> {formattedDate}</p>
         <p>
-          Privasi Anda sangat penting bagi kami. Kebijakan Privasi ini menjelaskan bagaimana kami menangani data Anda saat Anda menggunakan PDF Toolbox Pro. Dengan menggunakan situs web kami, Anda menyetujui praktik yang dijelaskan dalam kebijakan ini.
+          Privasi Anda sangat penting bagi kami. Kebijakan Privasi ini menjelaskan bagaimana kami menangani data Anda saat Anda menggunakan Zentridox. Dengan menggunakan situs web kami, Anda menyetujui praktik yang dijelaskan dalam kebijakan ini.
         </p>
 
         <h4>1. Privasi File Anda: Pemrosesan di Sisi Klien</h4>

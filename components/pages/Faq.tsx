@@ -7,8 +7,8 @@ interface FaqProps {
 
 const faqData = [
   {
-    question: 'Apakah PDF Toolbox Pro benar-benar gratis?',
-    answer: 'Ya, semua alat yang tersedia di PDF Toolbox Pro 100% gratis untuk digunakan. Layanan ini didukung oleh iklan untuk membantu kami membayar biaya pemeliharaan dan pengembangan agar tetap gratis untuk Anda.',
+    question: 'Apakah Zentridox benar-benar gratis?',
+    answer: 'Ya, semua alat yang tersedia di Zentridox 100% gratis untuk digunakan. Layanan ini didukung oleh iklan untuk membantu kami membayar biaya pemeliharaan dan pengembangan agar tetap gratis untuk Anda.',
   },
   {
     question: 'Apakah file saya aman dan di mana file diproses?',
@@ -16,7 +16,7 @@ const faqData = [
   },
   {
     question: 'Apakah saya perlu menginstal perangkat lunak?',
-    answer: 'Tidak. PDF Toolbox Pro adalah aplikasi berbasis web sepenuhnya. Anda tidak perlu mengunduh atau menginstal apa pun. Cukup buka situs kami di browser apa pun (seperti Chrome, Firefox, atau Safari) dan Anda siap menggunakannya.',
+    answer: 'Tidak. Zentridox adalah aplikasi berbasis web sepenuhnya. Anda tidak perlu mengunduh atau menginstal apa pun. Cukup buka situs kami di browser apa pun (seperti Chrome, Firefox, atau Safari) dan Anda siap menggunakannya.',
   },
   {
     question: 'Mengapa pemrosesan file saya gagal atau lambat?',
