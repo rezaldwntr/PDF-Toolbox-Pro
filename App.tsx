@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { View } from './types';
 import Header from './components/Header';
@@ -8,6 +10,7 @@ import CompressPdf from './components/tools/CompressPdf';
 import AddText from './components/tools/AddText';
 import AddSignature from './components/tools/AddSignature';
 import OrganizePdf from './components/tools/OrganizePdf';
+import ConvertPdf from './components/tools/ConvertPdf';
 import { ToastProvider } from './contexts/ToastContext';
 import Blog from './components/pages/Blog';
 import Faq from './components/pages/Faq';
@@ -30,6 +33,8 @@ function App() {
         return <SplitPdf onBack={backToLanding} />;
       case View.COMPRESS:
         return <CompressPdf onBack={backToLanding} />;
+      case View.CONVERT:
+        return <ConvertPdf onBack={backToLanding} />;
       case View.ADD_TEXT:
         return <AddText onBack={backToLanding} />;
       case View.ADD_SIGNATURE:

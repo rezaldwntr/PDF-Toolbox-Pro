@@ -1,9 +1,11 @@
 
+
 export enum View {
   LANDING,
   MERGE,
   SPLIT,
   COMPRESS,
+  CONVERT,
   ADD_TEXT,
   ADD_SIGNATURE,
   ORGANIZE,

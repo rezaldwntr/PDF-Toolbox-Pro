@@ -1,8 +1,9 @@
 
+
 import React from 'react';
 import { View } from '../types';
 import ToolCard from './ToolCard';
-import { MergeIcon, SplitIcon, CompressIcon, TextIcon, SignatureIcon, OrganizeIcon } from './icons';
+import { MergeIcon, SplitIcon, CompressIcon, TextIcon, SignatureIcon, OrganizeIcon, ConvertIcon } from './icons';
 
 interface LandingPageProps {
   onSelectView: (view: View) => void;
@@ -26,6 +27,12 @@ const tools = [
     icon: <CompressIcon />,
     title: 'Kompres PDF',
     description: 'Kurangi ukuran file PDF dengan tetap menjaga kualitas terbaik.',
+  },
+  {
+    tool: View.CONVERT,
+    icon: <ConvertIcon />,
+    title: 'Konversi PDF',
+    description: 'Ubah PDF ke Word, Excel, PowerPoint, atau JPG dengan mudah.',
   },
   {
     tool: View.ADD_TEXT,

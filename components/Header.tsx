@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { View } from '../types';
 import { HamburgerIcon, CloseIcon } from './icons';
@@ -19,6 +20,7 @@ const navItems = [
   { view: View.MERGE, label: 'Gabungkan' },
   { view: View.SPLIT, label: 'Pisahkan' },
   { view: View.COMPRESS, label: 'Kompres' },
+  { view: View.CONVERT, label: 'Konversi' },
   { view: View.ADD_TEXT, label: 'Tambah Teks' },
   { view: View.ADD_SIGNATURE, label: 'Tanda Tangan' },
   { view: View.ORGANIZE, label: 'Atur' },
