@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import ToolContainer from '../common/ToolContainer';
 
@@ -18,13 +19,21 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
     e.preventDefault();
     setFormStatus('submitting');
     try {
-      const response = await fetch('https://formsubmit.co/ajax/nryvieratech@gmail.com', {
+      // Menggunakan email Anda: rezaldewantara@gmail.com
+      const response = await fetch('https://formsubmit.co/ajax/rezaldewantara@gmail.com', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            message: formData.message,
+            _subject: "Pesan Baru dari Website Zentridox", // Subjek email agar mudah dicari
+            _template: "table", // Format email tabel agar lebih rapi
+            _captcha: "false" // Mematikan captcha bawaan jika mengganggu (opsional)
+        }),
       });
 
       if (response.ok) {
@@ -43,11 +52,12 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
   if (formStatus === 'success') {
     return (
       <ToolContainer title="Pesan Terkirim!" onBack={onBack} maxWidth="max-w-2xl">
-        <div className="text-center text-slate-300 space-y-4">
+        <div className="text-center text-slate-300 space-y-4 animate-fade-in">
           <svg className="w-16 h-16 text-green-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p className="text-lg">Terima kasih atas masukan Anda. Kami akan segera merespons jika diperlukan.</p>
+          <p className="text-sm text-slate-500">(Pastikan Anda sudah mengaktifkan form ini melalui email konfirmasi pertama kali)</p>
           <button
             onClick={() => setFormStatus('idle')}
             className="font-medium text-blue-400 hover:text-blue-300 transition-colors pt-4"
@@ -76,7 +86,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             onChange={handleChange}
             required
             className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors"
-            placeholder="John Doe"
+            placeholder="Nama Anda"
           />
         </div>
 
