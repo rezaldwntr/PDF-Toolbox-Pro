@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, FileWordIcon, FileExcelIcon, FilePptIcon, FileJpgIcon, ZipIcon, FilePdfIcon } from '../icons';
@@ -12,15 +11,18 @@ interface PdfFileWithBuffer {
   buffer: ArrayBuffer;
 }
 
-type ConvertFormat = 'word' | 'excel' | 'ppt' | 'jpg';
+type ConvertFormat = 'word' | 'excel' | 'ppt' | 'jpg'; // 'jpg' acts as the generic 'Image' category
+type ImageFormat = 'jpg' | 'jpeg' | 'png' | 'gif';
 
 const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<ConvertFormat | null>(null);
+  const [selectedImageFormat, setSelectedImageFormat] = useState<ImageFormat>('jpg');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState<string>('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // New state for preview
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
@@ -28,12 +30,15 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
     setSelectedFormat(null);
+    setSelectedImageFormat('jpg');
     setIsProcessing(false);
     setProcessingMessage('');
     if (outputUrl) URL.revokeObjectURL(outputUrl);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setOutputUrl(null);
     setOutputFilename('');
-  }, [outputUrl]);
+    setPreviewUrl(null);
+  }, [outputUrl, previewUrl]);
 
   const handleFileChange = async (selectedFile: File | null) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
@@ -55,12 +60,37 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // --- ALGORITMA KONVERSI ---
 
-  const convertToJpg = async (pdfDoc: any) => {
+  const convertToImages = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
     const zip = new JSZip();
     const baseName = fileWithBuffer!.file.name.replace('.pdf', '');
+    
+    let mimeType = 'image/jpeg';
+    let ext = 'jpg';
+
+    switch (selectedImageFormat) {
+        case 'jpeg':
+            mimeType = 'image/jpeg';
+            ext = 'jpeg';
+            break;
+        case 'png':
+            mimeType = 'image/png';
+            ext = 'png';
+            break;
+        case 'gif':
+            mimeType = 'image/gif';
+            ext = 'gif';
+            break;
+        case 'jpg':
+        default:
+            mimeType = 'image/jpeg';
+            ext = 'jpg';
+            break;
+    }
+
+    let firstImageBlob: Blob | null = null;
 
     for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setProcessingMessage(`Merender halaman ${i} dari ${pdfDoc.numPages} ke JPG...`);
+        setProcessingMessage(`Merender halaman ${i} dari ${pdfDoc.numPages} ke ${selectedImageFormat.toUpperCase()}...`);
         const page = await pdfDoc.getPage(i);
         const viewport = page.getViewport({ scale: 2.0 });
         const canvas = document.createElement('canvas');
@@ -68,22 +98,42 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d');
         
+        // Fill white background for JPEG/JPG to avoid black background on transparent PDFs
+        if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
         await page.render({ canvasContext: ctx, viewport }).promise;
         
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, mimeType, 0.9));
         if (blob) {
-            zip.file(`${baseName}_halaman_${i}.jpg`, blob);
+            zip.file(`${baseName}_halaman_${i}.${ext}`, blob);
+            if (i === 1) firstImageBlob = blob;
         }
     }
 
     setProcessingMessage('Membuat file ZIP...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    return { blob: zipBlob, ext: 'zip' };
+    return { blob: zipBlob, ext: 'zip', preview: firstImageBlob! };
   };
 
-  // Algoritma Word "Smart Flow" - Menggunakan Margin untuk Posisi (Bukan Absolute)
-  const convertToWord = async (pdfDoc: any) => {
+  // Helper to generate a preview image from the first page of PDF for document formats
+  const generateDocumentPreview = async (pdfDoc: any): Promise<Blob> => {
+      const page = await pdfDoc.getPage(1);
+      const viewport = page.getViewport({ scale: 1.0 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return new Promise<Blob>(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png'));
+  };
+
+  // Algoritma Word "Smart Flow"
+  const convertToWord = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
     let bodyContent = '';
+    const previewBlob = await generateDocumentPreview(pdfDoc);
 
     for (let i = 1; i <= pdfDoc.numPages; i++) {
         setProcessingMessage(`Menganalisis halaman ${i}...`);
@@ -94,39 +144,34 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const pageWidthPt = viewport.width;
         const pageHeightPt = viewport.height;
 
-        // Buka div halaman dengan margin standar Word
         bodyContent += `
         <div class=Section${i} style='width:${pageWidthPt}pt; min-height:${pageHeightPt}pt; margin-bottom: 20pt;'>
         `;
 
-        // 1. Urutkan item: Atas ke Bawah (Y terbalik), lalu Kiri ke Kanan
         const items = textContent.items.map((item: any) => {
             const tx = item.transform;
             return {
                 str: item.str,
-                x: tx[4], // x coordinate
-                y: tx[5], // y coordinate (inverted in PDF)
-                h: Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3])), // height (approx font size)
+                x: tx[4], 
+                y: tx[5], 
+                h: Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3])), 
                 w: item.width,
                 fontName: item.fontName
             };
         }).sort((a: any, b: any) => {
-            const yDiff = b.y - a.y; // Sort Y descending (top to bottom)
-            if (Math.abs(yDiff) > 5) return yDiff; // Toleransi baris 5pt
-            return a.x - b.x; // Sort X ascending
+            const yDiff = b.y - a.y;
+            if (Math.abs(yDiff) > 5) return yDiff;
+            return a.x - b.x;
         });
 
-        // 2. Kelompokkan menjadi baris visual
         let rows: any[][] = [];
         let currentRow: any[] = [];
         let lastY = -999;
 
         items.forEach((item: any) => {
             if (lastY === -999 || Math.abs(item.y - lastY) <= 5) {
-                // Baris yang sama
                 currentRow.push(item);
             } else {
-                // Baris baru
                 if (currentRow.length > 0) rows.push(currentRow);
                 currentRow = [item];
             }
@@ -134,32 +179,21 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         });
         if (currentRow.length > 0) rows.push(currentRow);
 
-        // 3. Render setiap baris sebagai Paragraf dengan Margin Kiri
-        let previousBottomY = pageHeightPt; // Mulai dari atas
-
         rows.forEach((row) => {
-            // Ambil properti dari item pertama di baris untuk menentukan gaya paragraf
             const firstItem = row[0];
             const fontSize = firstItem.h || 11;
-            
-            // Indentasi Kiri (Kunci agar terlihat seperti PDF tapi bisa diedit)
             const marginLeft = firstItem.x;
             
-            // Gabungkan teks dalam satu baris
             let lineHtml = "";
             let currentX = firstItem.x;
 
             row.forEach((item: any) => {
-                // Deteksi spasi antar kata yang lebar (simulasi tab atau kolom)
                 const gap = item.x - currentX;
                 if (gap > 5) {
-                     // Tambahkan non-breaking spaces untuk gap kecil, atau margin untuk gap besar
-                     // Untuk kesederhanaan dan editability, kita gunakan spasi HTML
-                     const spaces = Math.floor(gap / 3); // Asumsi lebar spasi ~3pt
+                     const spaces = Math.floor(gap / 3);
                      lineHtml += "&nbsp;".repeat(Math.min(spaces, 10)); 
                 }
                 
-                // Bersihkan string
                 const cleanStr = item.str
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
@@ -169,7 +203,6 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 currentX = item.x + item.w;
             });
 
-            // Bungkus dalam paragraf dengan margin-left absolut
             bodyContent += `
             <p class=MsoNormal style='margin-left:${marginLeft.toFixed(1)}pt; margin-top:0pt; margin-bottom:0pt; line-height:1.2'>
                 ${lineHtml}
@@ -177,9 +210,8 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             `;
         });
 
-        bodyContent += `</div>`; // Tutup Section
+        bodyContent += `</div>`;
 
-        // Page Break
         if (i < pdfDoc.numPages) {
             bodyContent += `<br clear=all style='mso-special-character:line-break; page-break-before:always'>`;
         }
@@ -220,13 +252,14 @@ ${bodyContent}
 ------=_NextPart_01C_XYZ--
 `;
 
-    const blob = new Blob([mhtml], { type: 'application/msword' });
-    return { blob, ext: 'doc' };
+    const blob = new Blob([mhtml], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    return { blob, ext: 'docx', preview: previewBlob };
   };
 
-  const convertToExcel = async (pdfDoc: any) => {
+  const convertToExcel = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
     let csvContent = "";
     csvContent += "\uFEFF"; // BOM
+    const previewBlob = await generateDocumentPreview(pdfDoc);
 
     for (let i = 1; i <= pdfDoc.numPages; i++) {
         setProcessingMessage(`Menganalisis tabel halaman ${i}...`);
@@ -251,11 +284,12 @@ ${bodyContent}
         csvContent += "\n";
     }
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    return { blob, ext: 'csv' };
+    const blob = new Blob([csvContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;' });
+    return { blob, ext: 'xlsx', preview: previewBlob };
   };
 
-  const convertToPpt = async (pdfDoc: any) => {
+  const convertToPpt = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
+    const previewBlob = await generateDocumentPreview(pdfDoc);
     let htmlContent = `
     <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:p="urn:schemas-microsoft-com:office:powerpoint">
     <head><title>PDF to PPT</title></head><body>
@@ -279,8 +313,8 @@ ${bodyContent}
     }
     
     htmlContent += "</body></html>";
-    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-powerpoint' });
-    return { blob, ext: 'ppt' };
+    const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+    return { blob, ext: 'pptx', preview: previewBlob };
   };
 
   const handleConvert = async () => {
@@ -292,11 +326,11 @@ ${bodyContent}
     try {
         const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileWithBuffer.buffer.slice(0)) }).promise;
         
-        let result: { blob: Blob, ext: string };
+        let result: { blob: Blob, ext: string, preview: Blob };
 
         switch (selectedFormat) {
             case 'jpg':
-                result = await convertToJpg(pdfDoc);
+                result = await convertToImages(pdfDoc);
                 break;
             case 'word':
                 result = await convertToWord(pdfDoc);
@@ -312,7 +346,10 @@ ${bodyContent}
         }
 
         const url = URL.createObjectURL(result.blob);
+        const preview = URL.createObjectURL(result.preview);
+        
         setOutputUrl(url);
+        setPreviewUrl(preview);
         setOutputFilename(`${fileWithBuffer.file.name.replace('.pdf', '')}.${result.ext}`);
         addToast('Konversi berhasil!', 'success');
 
@@ -330,7 +367,19 @@ ${bodyContent}
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Konversi Selesai!</h3>
-          <p className="text-lg">File Anda telah berhasil dikonversi ke format {selectedFormat?.toUpperCase()}.</p>
+          
+          {previewUrl && (
+              <div className="bg-gray-100 dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Pratinjau Hasil:</p>
+                  <img 
+                    src={previewUrl} 
+                    alt="Preview Hasil Konversi" 
+                    className="max-h-[300px] w-auto rounded shadow-md border border-white dark:border-slate-500"
+                  />
+              </div>
+          )}
+
+          <p className="text-lg">File Anda telah berhasil dikonversi ke format {selectedFormat === 'jpg' ? selectedImageFormat.toUpperCase() : selectedFormat?.toUpperCase()}.</p>
           <a href={outputUrl} download={outputFilename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
             {selectedFormat === 'jpg' ? <ZipIcon /> : <DownloadIcon />}
             Unduh File
@@ -376,7 +425,7 @@ ${bodyContent}
                     >
                         <FileWordIcon className="w-12 h-12 text-blue-600" />
                         <span className="font-bold text-gray-800 dark:text-gray-200">Word</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">.doc</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.docx</span>
                     </button>
                     
                      <button
@@ -385,7 +434,7 @@ ${bodyContent}
                     >
                         <FileExcelIcon className="w-12 h-12 text-green-600" />
                         <span className="font-bold text-gray-800 dark:text-gray-200">Excel</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">.csv</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.xlsx</span>
                     </button>
                     
                     <button
@@ -394,7 +443,7 @@ ${bodyContent}
                     >
                         <FilePptIcon className="w-12 h-12 text-orange-500" />
                         <span className="font-bold text-gray-800 dark:text-gray-200">PowerPoint</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">.ppt</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.pptx</span>
                     </button>
                     
                      <button
@@ -402,10 +451,31 @@ ${bodyContent}
                         className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'jpg' ? 'bg-purple-50 border-purple-500 shadow-md dark:bg-purple-900/20 dark:border-purple-500' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FileJpgIcon className="w-12 h-12 text-purple-600" />
-                        <span className="font-bold text-gray-800 dark:text-gray-200">JPG</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">Gambar</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">.zip</span>
                     </button>
                 </div>
+                
+                {selectedFormat === 'jpg' && (
+                    <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800 animate-fade-in">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Pilih Format Gambar:</h4>
+                        <div className="flex flex-wrap justify-center gap-3">
+                            {(['jpg', 'jpeg', 'png', 'gif'] as ImageFormat[]).map((fmt) => (
+                                <button
+                                    key={fmt}
+                                    onClick={() => setSelectedImageFormat(fmt)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                        selectedImageFormat === fmt 
+                                        ? 'bg-purple-600 text-white border-purple-600' 
+                                        : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:border-purple-400'
+                                    }`}
+                                >
+                                    {fmt.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
             
             <div className="text-center mt-6">
