@@ -32,6 +32,46 @@ function App() {
   const [lastActiveTab, setLastActiveTab] = useState<View>(View.HOME_TAB);
   const [showDevModal, setShowDevModal] = useState(false);
 
+  // Handle Browser Back Button (History API)
+  useEffect(() => {
+    // Set initial history state so we can go back to it
+    window.history.replaceState({ view: View.HOME_TAB }, '');
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && typeof event.state.view === 'number') {
+        // If history state exists, revert to that view
+        setActiveView(event.state.view);
+        
+        // Sync lastActiveTab if we went back to a main tab
+        if (event.state.view <= View.PROFILE_TAB) {
+            setLastActiveTab(event.state.view);
+        }
+      } else {
+        // Fallback: If we popped to a state without view info (e.g. initial load), go Home
+        setActiveView(View.HOME_TAB);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Enhanced Navigation Handler
+  const navigateTo = (newView: View) => {
+    // Don't push if it's the same view to avoid duplicate history entries
+    if (newView === activeView) return;
+
+    // Push new state to history
+    window.history.pushState({ view: newView }, '');
+    
+    setActiveView(newView);
+    
+    // Update last active tab logic
+    if (newView <= View.PROFILE_TAB) {
+        setLastActiveTab(newView);
+    }
+  };
+
   useEffect(() => {
     // Cek apakah user sudah pernah melihat modal ini
     const hasSeenModal = localStorage.getItem('hasSeenDevModal');
@@ -47,29 +87,27 @@ function App() {
 
   const handleNavigateToContact = () => {
     handleCloseDevModal();
-    setActiveView(View.CONTACT);
+    navigateTo(View.CONTACT);
   };
 
-  // Logika Navigasi Tab
+  // Logika Navigasi Tab (Override untuk BottomNav dan Header agar menggunakan History)
   const handleTabChange = (tab: View) => {
-    setActiveView(tab);
-    setLastActiveTab(tab);
+    navigateTo(tab);
   };
 
   const isToolOrPageActive = activeView > View.PROFILE_TAB;
 
   const renderActiveView = () => {
-    const backToHome = () => setActiveView(View.HOME_TAB);
-    // const backToLastTab = () => setActiveView(lastActiveTab); 
-    // Mengubah logika kembali untuk alat agar selalu ke Menu Alat PDF
-    const backToTools = () => setActiveView(View.TOOLS_TAB);
+    // Navigasi UI Tombol Kembali (Eksplisit)
+    const backToHome = () => navigateTo(View.HOME_TAB);
+    const backToTools = () => navigateTo(View.TOOLS_TAB);
 
     switch (activeView) {
       // Main Tabs
       case View.HOME_TAB:
-        return <LandingPage onSelectView={setActiveView} />;
+        return <LandingPage onSelectView={navigateTo} />;
       case View.TOOLS_TAB:
-        return <ToolsPage onSelectTool={setActiveView} />;
+        return <ToolsPage onSelectTool={navigateTo} />;
       case View.PROFILE_TAB:
         return <ProfilePage />;
 
@@ -102,7 +140,7 @@ function App() {
         return <Contact onBack={backToHome} />;
       
       default:
-        return <LandingPage onSelectView={setActiveView} />;
+        return <LandingPage onSelectView={navigateTo} />;
     }
   };
 
@@ -110,8 +148,8 @@ function App() {
     <ToastProvider>
       <div className="bg-gray-50 dark:bg-slate-900 min-h-screen text-gray-900 dark:text-white antialiased flex flex-col relative transition-colors duration-300">
         <Header 
-          onGoHome={() => setActiveView(View.HOME_TAB)} 
-          onNavigate={setActiveView} 
+          onGoHome={() => navigateTo(View.HOME_TAB)} 
+          onNavigate={navigateTo} 
         />
         
         <main className="container mx-auto px-4 py-6 md:py-8 flex-grow max-w-4xl">
@@ -126,11 +164,11 @@ function App() {
         {!isToolOrPageActive && (
           <footer className={`text-center py-6 text-gray-500 dark:text-gray-400 text-sm border-t border-gray-200 dark:border-slate-800 mb-16 md:mb-0 bg-white dark:bg-slate-900 transition-colors duration-300`}>
                <nav className="flex justify-center items-center gap-x-6 gap-y-2 flex-wrap mb-4">
-                <button onClick={() => setActiveView(View.ABOUT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tentang Kami</button>
-                <button onClick={() => setActiveView(View.PRIVACY)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kebijakan Privasi</button>
-                <button onClick={() => setActiveView(View.CONTACT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kontak</button>
-                <button onClick={() => setActiveView(View.FAQ)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">FAQ</button>
-                <button onClick={() => setActiveView(View.BLOG)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Blog</button>
+                <button onClick={() => navigateTo(View.ABOUT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tentang Kami</button>
+                <button onClick={() => navigateTo(View.PRIVACY)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kebijakan Privasi</button>
+                <button onClick={() => navigateTo(View.CONTACT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kontak</button>
+                <button onClick={() => navigateTo(View.FAQ)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">FAQ</button>
+                <button onClick={() => navigateTo(View.BLOG)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Blog</button>
               </nav>
               <div className="flex justify-center items-center gap-4 mb-2">
                 <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
