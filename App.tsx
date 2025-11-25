@@ -60,7 +60,9 @@ function App() {
 
   const renderActiveView = () => {
     const backToHome = () => setActiveView(View.HOME_TAB);
-    const backToLastTab = () => setActiveView(lastActiveTab);
+    // const backToLastTab = () => setActiveView(lastActiveTab); 
+    // Mengubah logika kembali untuk alat agar selalu ke Menu Alat PDF
+    const backToTools = () => setActiveView(View.TOOLS_TAB);
 
     switch (activeView) {
       // Main Tabs
@@ -73,19 +75,19 @@ function App() {
 
       // Tools
       case View.MERGE:
-        return <MergePdf onBack={backToLastTab} />;
+        return <MergePdf onBack={backToTools} />;
       case View.SPLIT:
-        return <SplitPdf onBack={backToLastTab} />;
+        return <SplitPdf onBack={backToTools} />;
       case View.COMPRESS:
-        return <CompressPdf onBack={backToLastTab} />;
+        return <CompressPdf onBack={backToTools} />;
       case View.CONVERT:
-        return <ConvertPdf onBack={backToLastTab} />;
+        return <ConvertPdf onBack={backToTools} />;
       case View.ADD_TEXT:
-        return <AddText onBack={backToLastTab} />;
+        return <AddText onBack={backToTools} />;
       case View.ADD_SIGNATURE:
-        return <AddSignature onBack={backToLastTab} />;
+        return <AddSignature onBack={backToTools} />;
       case View.ORGANIZE:
-        return <OrganizePdf onBack={backToLastTab} />;
+        return <OrganizePdf onBack={backToTools} />;
 
       // Static Pages
       case View.BLOG:
@@ -120,36 +122,36 @@ function App() {
           <BottomNav activeTab={activeView} onTabChange={handleTabChange} />
         )}
 
-        {/* Footer */}
-        {(isToolOrPageActive || window.innerWidth > 768) && (
-          <footer className="text-center py-6 text-gray-500 dark:text-gray-400 text-sm border-t border-gray-200 dark:border-slate-800 mb-16 md:mb-0 bg-white dark:bg-slate-900 transition-colors duration-300">
-             <nav className="flex justify-center items-center gap-x-6 gap-y-2 flex-wrap mb-4">
-              <button onClick={() => setActiveView(View.ABOUT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tentang Kami</button>
-              <button onClick={() => setActiveView(View.PRIVACY)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kebijakan Privasi</button>
-              <button onClick={() => setActiveView(View.CONTACT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kontak</button>
-              <button onClick={() => setActiveView(View.FAQ)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">FAQ</button>
-              <button onClick={() => setActiveView(View.BLOG)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Blog</button>
-            </nav>
-            <div className="flex justify-center items-center gap-4 mb-2">
-              <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-              <p className="text-gray-500 dark:text-gray-400">
-                Privasi Anda terjamin. Semua file diproses langsung di perangkat Anda.
-              </p>
-            </div>
-            <p>
-                Created By{' '}
-                <a
-                  href="https://instagram.com/rezaldwntr"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  @rezaldwntr
-                </a>
-              </p>
-          </footer>
+        {/* Footer - Hanya dirender di tab utama (Beranda, Alat, Profil) */}
+        {!isToolOrPageActive && (
+          <footer className={`text-center py-6 text-gray-500 dark:text-gray-400 text-sm border-t border-gray-200 dark:border-slate-800 mb-16 md:mb-0 bg-white dark:bg-slate-900 transition-colors duration-300`}>
+               <nav className="flex justify-center items-center gap-x-6 gap-y-2 flex-wrap mb-4">
+                <button onClick={() => setActiveView(View.ABOUT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Tentang Kami</button>
+                <button onClick={() => setActiveView(View.PRIVACY)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kebijakan Privasi</button>
+                <button onClick={() => setActiveView(View.CONTACT)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Kontak</button>
+                <button onClick={() => setActiveView(View.FAQ)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">FAQ</button>
+                <button onClick={() => setActiveView(View.BLOG)} className="font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Blog</button>
+              </nav>
+              <div className="flex justify-center items-center gap-4 mb-2">
+                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Privasi Anda terjamin. Semua file diproses langsung di perangkat Anda.
+                </p>
+              </div>
+              <p>
+                  Created By{' '}
+                  <a
+                    href="https://instagram.com/rezaldwntr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    @rezaldwntr
+                  </a>
+                </p>
+            </footer>
         )}
         
         <Analytics />

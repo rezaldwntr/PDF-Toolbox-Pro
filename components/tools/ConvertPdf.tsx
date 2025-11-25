@@ -327,15 +327,15 @@ ${bodyContent}
   const renderContent = () => {
     if (outputUrl) {
       return (
-        <div className="text-center text-gray-600 flex flex-col items-center gap-6 animate-fade-in">
+        <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-gray-900">Konversi Selesai!</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Konversi Selesai!</h3>
           <p className="text-lg">File Anda telah berhasil dikonversi ke format {selectedFormat?.toUpperCase()}.</p>
-          <a href={outputUrl} download={outputFilename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md">
+          <a href={outputUrl} download={outputFilename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
             {selectedFormat === 'jpg' ? <ZipIcon /> : <DownloadIcon />}
             Unduh File
           </a>
-          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
+          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
             Konversi File Lain
           </button>
         </div>
@@ -346,7 +346,7 @@ ${bodyContent}
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <p className="text-lg text-gray-800 font-semibold">{processingMessage}</p>
+          <p className="text-lg text-gray-800 dark:text-gray-200 font-semibold">{processingMessage}</p>
         </div>
       );
     }
@@ -354,12 +354,12 @@ ${bodyContent}
     if (fileWithBuffer) {
       return (
         <div className="flex flex-col gap-8 animate-fade-in">
-             <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg flex items-center justify-between shadow-sm">
+             <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-lg flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                     <span className="text-red-500 font-bold text-2xl"><FilePdfIcon /></span>
                     <div className="text-left">
-                        <p className="text-gray-800 font-medium truncate max-w-[200px] md:max-w-xs" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</p>
-                        <p className="text-gray-500 text-sm">{(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="text-gray-800 dark:text-gray-200 font-medium truncate max-w-[200px] md:max-w-xs" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">{(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
                 </div>
                 <button onClick={resetState} className="p-1 text-gray-400 hover:text-red-500 rounded-full transition-colors">
@@ -368,42 +368,42 @@ ${bodyContent}
             </div>
 
             <div>
-                <h3 className="text-lg font-semibold text-center text-gray-800 mb-6">Pilih Format Konversi</h3>
+                <h3 className="text-lg font-semibold text-center text-gray-800 dark:text-gray-200 mb-6">Pilih Format Konversi</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      <button
                         onClick={() => setSelectedFormat('word')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'word' ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-gray-50'}`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'word' ? 'bg-blue-50 border-blue-500 shadow-md dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FileWordIcon className="w-12 h-12 text-blue-600" />
-                        <span className="font-bold text-gray-800">Word</span>
-                        <span className="text-xs text-gray-500">.doc</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">Word</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.doc</span>
                     </button>
                     
                      <button
                         onClick={() => setSelectedFormat('excel')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'excel' ? 'bg-green-50 border-green-500 shadow-md' : 'bg-white border-gray-200 hover:border-green-300 hover:bg-gray-50'}`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'excel' ? 'bg-green-50 border-green-500 shadow-md dark:bg-green-900/20 dark:border-green-500' : 'bg-white border-gray-200 hover:border-green-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FileExcelIcon className="w-12 h-12 text-green-600" />
-                        <span className="font-bold text-gray-800">Excel</span>
-                        <span className="text-xs text-gray-500">.csv</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">Excel</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.csv</span>
                     </button>
                     
                     <button
                         onClick={() => setSelectedFormat('ppt')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'ppt' ? 'bg-orange-50 border-orange-500 shadow-md' : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-gray-50'}`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'ppt' ? 'bg-orange-50 border-orange-500 shadow-md dark:bg-orange-900/20 dark:border-orange-500' : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FilePptIcon className="w-12 h-12 text-orange-500" />
-                        <span className="font-bold text-gray-800">PowerPoint</span>
-                        <span className="text-xs text-gray-500">.ppt</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">PowerPoint</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.ppt</span>
                     </button>
                     
                      <button
                         onClick={() => setSelectedFormat('jpg')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'jpg' ? 'bg-purple-50 border-purple-500 shadow-md' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50'}`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'jpg' ? 'bg-purple-50 border-purple-500 shadow-md dark:bg-purple-900/20 dark:border-purple-500' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FileJpgIcon className="w-12 h-12 text-purple-600" />
-                        <span className="font-bold text-gray-800">JPG</span>
-                        <span className="text-xs text-gray-500">.zip</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">JPG</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.zip</span>
                     </button>
                 </div>
             </div>
@@ -423,15 +423,15 @@ ${bodyContent}
 
     return (
         <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
+            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
         >
-            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
+            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Pilih File
             </button>
             <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />

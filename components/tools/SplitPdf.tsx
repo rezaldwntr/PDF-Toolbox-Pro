@@ -264,13 +264,13 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (output) {
         return (
             <ToolContainer title="PDF Berhasil Diproses!" onBack={onBack}>
-                <div className="text-center text-gray-600 flex flex-col items-center gap-6">
+                <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6">
                     <p className="text-lg">File Anda telah berhasil dipisahkan.</p>
-                    <a href={output.url} download={output.filename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-sm">
+                    <a href={output.url} download={output.filename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-sm shadow-blue-200 dark:shadow-none">
                         {output.isZip ? <ZipIcon /> : <DownloadIcon />}
                         Unduh {output.isZip ? 'File ZIP' : 'PDF Hasil Ekstrak'}
                     </a>
-                    <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
+                    <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
                         Pisahkan PDF Lainnya
                     </button>
                 </div>
@@ -283,8 +283,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <ToolContainer title="Pisahkan PDF" onBack={onBack}>
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                     <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <p className="text-lg text-gray-700 font-semibold">{processingMessage}</p>
-                    <p className="text-gray-500">Mohon tunggu...</p>
+                    <p className="text-lg text-gray-700 dark:text-gray-200 font-semibold">{processingMessage}</p>
+                    <p className="text-gray-500 dark:text-gray-400">Mohon tunggu...</p>
                 </div>
             </ToolContainer>
         )
@@ -296,15 +296,15 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             
             {!fileWithBuffer ? (
                 <div
-                    className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
+                    className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
                     onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                     onDragLeave={() => setIsDragOver(false)}
                     onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
                 >
-                    <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
-                    <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-                    <p className="text-gray-500 mb-4">atau</p>
-                    <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+                    <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
+                    <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                         Pilih File
                     </button>
                 </div>
@@ -312,88 +312,88 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="flex flex-col md:flex-row gap-8">
                     {/* Panel Opsi */}
                     <div className="w-full md:w-1/3 lg:w-1/4">
-                        <h3 className="font-bold text-gray-800 mb-4">Opsi Pemisahan</h3>
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4">Opsi Pemisahan</h3>
                         <div className="space-y-4">
-                            <label onClick={() => setSplitMode('extract')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'extract' ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
-                                <input type="radio" name="split-mode" checked={splitMode === 'extract'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2" />
-                                <span className="ml-3 text-sm font-medium text-gray-700">Ekstrak Halaman</span>
+                            <label onClick={() => setSplitMode('extract')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'extract' ? 'bg-blue-50 border-blue-500 shadow-sm dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}>
+                                <input type="radio" name="split-mode" checked={splitMode === 'extract'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600" />
+                                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-200">Ekstrak Halaman</span>
                             </label>
-                            <label onClick={() => setSplitMode('fixed')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'fixed' ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
-                                <input type="radio" name="split-mode" checked={splitMode === 'fixed'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2" />
-                                <span className="ml-3 text-sm font-medium text-gray-700">Pisahkan Rentang Tetap</span>
+                            <label onClick={() => setSplitMode('fixed')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'fixed' ? 'bg-blue-50 border-blue-500 shadow-sm dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}>
+                                <input type="radio" name="split-mode" checked={splitMode === 'fixed'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600" />
+                                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-200">Pisahkan Rentang Tetap</span>
                             </label>
-                            <label onClick={() => setSplitMode('all')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'all' ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
-                                <input type="radio" name="split-mode" checked={splitMode === 'all'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2" />
-                                <span className="ml-3 text-sm font-medium text-gray-700">Pisahkan Semua Halaman</span>
+                            <label onClick={() => setSplitMode('all')} className={`flex items-center p-4 rounded-lg cursor-pointer border transition-colors ${splitMode === 'all' ? 'bg-blue-50 border-blue-500 shadow-sm dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}>
+                                <input type="radio" name="split-mode" checked={splitMode === 'all'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600" />
+                                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-200">Pisahkan Semua Halaman</span>
                             </label>
                         </div>
 
                         {splitMode === 'extract' && (
                             <div className="mt-6 space-y-4 animate-fade-in">
                                 <div>
-                                    <label htmlFor="page-range" className="block mb-2 text-sm font-medium text-gray-600">Pilih halaman atau rentang</label>
-                                    <input type="text" id="page-range" value={rangeInput} onChange={handleRangeInputChange} className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm" placeholder="Contoh: 1, 3, 5-8" />
-                                    <p className="text-xs text-gray-500 mt-2">{selectedPages.size} halaman dipilih.</p>
+                                    <label htmlFor="page-range" className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Pilih halaman atau rentang</label>
+                                    <input type="text" id="page-range" value={rangeInput} onChange={handleRangeInputChange} className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm" placeholder="Contoh: 1, 3, 5-8" />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{selectedPages.size} halaman dipilih.</p>
                                 </div>
                                 <div>
-                                    <label htmlFor="custom-filename-extract" className="block mb-2 text-sm font-medium text-gray-600">Nama file kustom (opsional)</label>
+                                    <label htmlFor="custom-filename-extract" className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Nama file kustom (opsional)</label>
                                     <input 
                                         type="text" 
                                         id="custom-filename-extract"
                                         value={customFilename}
                                         onChange={(e) => setCustomFilename(e.target.value)}
-                                        className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
+                                        className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
                                         placeholder="Contoh: Laporan-Penting"
                                     />
-                                    <p className="text-xs text-gray-500 mt-2">File akan disimpan sebagai: Nama-File.pdf</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">File akan disimpan sebagai: Nama-File.pdf</p>
                                 </div>
                             </div>
                         )}
                          {splitMode === 'fixed' && (
                             <div className="mt-6 space-y-4 animate-fade-in">
                                 <div>
-                                    <label htmlFor="fixed-range" className="block mb-2 text-sm font-medium text-gray-600">Halaman per file</label>
+                                    <label htmlFor="fixed-range" className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Halaman per file</label>
                                     <input 
                                         type="number" 
                                         id="fixed-range"
                                         value={fixedRange}
                                         onChange={(e) => setFixedRange(Math.max(1, parseInt(e.target.value, 10) || 1))}
                                         min="1"
-                                        className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
+                                        className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
                                     />
                                 </div>
                             </div>
                         )}
                          {splitMode === 'all' && (
                             <div className="mt-6 animate-fade-in">
-                                <p className="p-4 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-200">
+                                <p className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-700">
                                     Setiap halaman dari PDF Anda akan disimpan sebagai file terpisah, lalu digabungkan dalam satu file ZIP.
                                 </p>
                                 <div className="mt-4">
-                                    <label htmlFor="custom-filename-all" className="block mb-2 text-sm font-medium text-gray-600">Nama dasar file kustom (opsional)</label>
+                                    <label htmlFor="custom-filename-all" className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Nama dasar file kustom (opsional)</label>
                                     <input 
                                         type="text" 
                                         id="custom-filename-all"
                                         value={customFilename}
                                         onChange={(e) => setCustomFilename(e.target.value)}
-                                        className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
+                                        className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm"
                                         placeholder="Contoh: Lampiran"
                                     />
-                                    <p className="text-xs text-gray-500 mt-2">File akan dinamai: Nama-File_1.pdf, dst.</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">File akan dinamai: Nama-File_1.pdf, dst.</p>
                                 </div>
                             </div>
                         )}
                         <div className="mt-8">
-                            <button onClick={handleProcess} disabled={isProcessing || (splitMode === 'extract' && selectedPages.size === 0)} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md">
+                            <button onClick={handleProcess} disabled={isProcessing || (splitMode === 'extract' && selectedPages.size === 0)} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md">
                                {getButtonText()}
                             </button>
                         </div>
                     </div>
 
                     {/* Panel Pratinjau */}
-                    <div className="w-full md:w-2/3 lg:w-3/4 bg-gray-100 p-4 rounded-lg border border-gray-200 max-h-[60vh] overflow-y-auto">
-                        <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
-                            <span className="truncate font-medium text-gray-700" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</span>
+                    <div className="w-full md:w-2/3 lg:w-3/4 bg-gray-100 dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-700 max-h-[60vh] overflow-y-auto">
+                        <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            <span className="truncate font-medium text-gray-700 dark:text-gray-200" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</span>
                             <span>- {numPages} Halaman</span>
                             <button
                                 onClick={resetState}
@@ -413,20 +413,20 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     const defaultFilename = `File-${groupIndex + 1}`;
 
                                     return (
-                                        <div key={groupIndex} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm animate-fade-in">
+                                        <div key={groupIndex} className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm animate-fade-in">
                                             <div className="flex flex-col sm:flex-row gap-2 items-baseline mb-3">
-                                                <h4 className="font-semibold text-gray-800 whitespace-nowrap">
-                                                    {defaultFilename} <span className="text-sm text-gray-500 font-normal">(Halaman {startPage}-{endPage})</span>
+                                                <h4 className="font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                                                    {defaultFilename} <span className="text-sm text-gray-500 dark:text-gray-400 font-normal">(Halaman {startPage}-{endPage})</span>
                                                 </h4>
                                                 <div className="flex items-center gap-2 w-full">
                                                     <input
                                                         type="text"
                                                         value={fixedRangeFilenames[groupIndex] || ''}
                                                         onChange={(e) => handleFixedFilenameChange(groupIndex, e.target.value)}
-                                                        className="bg-white border border-gray-300 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+                                                        className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
                                                         placeholder={`Nama file kustom (opsional)`}
                                                     />
-                                                    <span className="text-gray-500 text-sm">.pdf</span>
+                                                    <span className="text-gray-500 dark:text-gray-400 text-sm">.pdf</span>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
@@ -446,13 +446,13 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                 {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNumber => (
-                                    <div key={pageNumber} onClick={() => splitMode === 'extract' && handleTogglePage(pageNumber)} className={`relative rounded-lg border-2 bg-white shadow-sm overflow-hidden ${selectedPages.has(pageNumber) ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent'} ${splitMode === 'extract' ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}>
+                                    <div key={pageNumber} onClick={() => splitMode === 'extract' && handleTogglePage(pageNumber)} className={`relative rounded-lg border-2 bg-white dark:bg-slate-800 shadow-sm overflow-hidden ${selectedPages.has(pageNumber) ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900' : 'border-transparent'} ${splitMode === 'extract' ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}>
                                         <div className={`transition-opacity duration-200 ${selectedPages.has(pageNumber) ? 'opacity-100' : 'opacity-80'} ${splitMode === 'extract' && 'hover:opacity-100'}`}>
                                         <PdfPagePreview pdfDoc={pdfDoc} pageNumber={pageNumber} />
                                         </div>
                                         <div className="absolute top-1 left-1 bg-gray-900/80 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">{pageNumber}</div>
                                         {selectedPages.has(pageNumber) && (
-                                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-blue-500/20 dark:bg-blue-500/40 flex items-center justify-center">
                                                 <div className="bg-blue-500 rounded-full p-1">
                                                     <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                                 </div>

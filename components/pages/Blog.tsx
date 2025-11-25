@@ -29,12 +29,12 @@ const Blog: React.FC<BlogProps> = ({ onBack }) => {
     <ToolContainer title="Blog & Artikel" onBack={onBack} maxWidth="max-w-5xl">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {blogPosts.map((post, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 flex flex-col items-start hover:border-blue-500 hover:shadow-md transition-all duration-300">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">{post.title}</h3>
-            <p className="text-gray-600 text-sm flex-grow">{post.summary}</p>
+          <div key={index} className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col items-start hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-300">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{post.title}</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm flex-grow">{post.summary}</p>
             <button
                 onClick={() => alert('Detail artikel akan segera hadir!')}
-                className="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-500 transition-colors"
+                className="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
             >
               Baca Selengkapnya &rarr;
             </button>

@@ -37,14 +37,14 @@ const FaqItem: React.FC<{ q: string; a: string; }> = ({ q, a }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-gray-200 dark:border-slate-700">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex justify-between items-center w-full py-5 text-left font-semibold text-gray-800"
+        className="flex justify-between items-center w-full py-5 text-left font-semibold text-gray-800 dark:text-gray-200"
       >
         <span>{q}</span>
         <svg
-          className={`w-5 h-5 transition-transform duration-300 text-gray-500 ${isOpen ? 'transform rotate-180' : ''}`}
+          className={`w-5 h-5 transition-transform duration-300 text-gray-500 dark:text-gray-400 ${isOpen ? 'transform rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -56,7 +56,7 @@ const FaqItem: React.FC<{ q: string; a: string; }> = ({ q, a }) => {
         className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
       >
         <div className="overflow-hidden">
-            <p className="pb-5 pr-10 text-gray-600">
+            <p className="pb-5 pr-10 text-gray-600 dark:text-gray-300">
                 {a}
             </p>
         </div>

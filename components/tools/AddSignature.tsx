@@ -423,13 +423,13 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const renderContent = () => {
     if (outputUrl) {
        return (
-        <div className="text-center text-gray-600 flex flex-col items-center gap-6 animate-fade-in">
+        <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-gray-900">PDF Berhasil Ditandatangani!</h3>
-          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-ditandatangani.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">PDF Berhasil Ditandatangani!</h3>
+          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-ditandatangani.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
             <DownloadIcon /> Unduh PDF
           </a>
-          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
+          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
             Tandatangani PDF Lainnya
           </button>
         </div>
@@ -440,7 +440,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <p className="text-lg text-gray-800 font-semibold">{processingMessage}</p>
+          <p className="text-lg text-gray-800 dark:text-gray-200 font-semibold">{processingMessage}</p>
         </div>
       );
     }
@@ -448,15 +448,15 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!fileWithBuffer) {
       return (
          <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
+            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
         >
-            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
+            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Pilih File
             </button>
         </div>
@@ -467,13 +467,13 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return (
         <div className="flex flex-col gap-4">
             {/* Top Toolbar */}
-            <div className="bg-white/80 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-gray-200 flex-wrap shadow-sm">
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-gray-200 dark:border-slate-700 flex-wrap shadow-sm transition-colors">
                 <div className="flex items-center gap-2">
                     <FilePdfIcon />
-                    <span className="text-sm text-gray-700 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
                     <button onClick={resetState} title="Hapus PDF" className="p-1 text-gray-400 hover:text-red-500"><TrashIcon /></button>
                 </div>
-                 <button onClick={handleSave} disabled={placedSignatures.length === 0} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm shadow-sm">
+                 <button onClick={handleSave} disabled={placedSignatures.length === 0} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm shadow-sm">
                     Simpan PDF
                 </button>
             </div>
@@ -481,11 +481,11 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left/Main Panel: Editor */}
                 <div className="lg:col-span-2 relative">
-                    <div ref={editorContainerRef} className="bg-gray-100 p-4 rounded-lg max-h-[70vh] overflow-auto border border-gray-200 shadow-inner" data-editor-container>
+                    <div ref={editorContainerRef} className="bg-gray-100 dark:bg-slate-900 p-4 rounded-lg max-h-[70vh] overflow-auto border border-gray-200 dark:border-slate-700 shadow-inner transition-colors" data-editor-container>
                         <div className="flex justify-center items-start">
                             <div className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
                                 {pagePreviews.map((page, index) => (
-                                    <div key={index} data-page-index={index} className="relative shadow-md bg-white border border-gray-200" style={{ width: page.width, height: page.height }}>
+                                    <div key={index} data-page-index={index} className="relative shadow-md bg-white border border-gray-200 dark:border-slate-600" style={{ width: page.width, height: page.height }}>
                                         <img src={page.url} alt={`Page ${index + 1}`} width={page.width} height={page.height} />
                                         {placedSignatures.filter(s => s.pageIndex === index).map(sig => (
                                             <div
@@ -521,22 +521,22 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             </div>
                         </div>
                     </div>
-                    <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md p-1.5 rounded-lg border border-gray-200 shadow-sm">
-                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md"><ZoomOutIcon /></button>
-                        <span className="text-sm text-gray-700 font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md"><ZoomInIcon /></button>
+                    <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md p-1.5 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm">
+                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md"><ZoomOutIcon /></button>
+                        <span className="text-sm text-gray-700 dark:text-gray-200 font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+                        <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md"><ZoomInIcon /></button>
                     </div>
                 </div>
 
                 {/* Right Panel: Controls */}
                 <div className="lg:col-span-1">
-                    <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4">Buat Tanda Tangan</h3>
-                        <div className="flex bg-gray-200 p-1 rounded-lg mb-4">
-                            <button onClick={() => setSignatureMode('draw')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'draw' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>
+                    <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-xl shadow-sm transition-colors">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4">Buat Tanda Tangan</h3>
+                        <div className="flex bg-gray-200 dark:bg-slate-700 p-1 rounded-lg mb-4">
+                            <button onClick={() => setSignatureMode('draw')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'draw' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
                                 <DrawIcon className="w-5 h-5"/> Gambar
                             </button>
-                            <button onClick={() => setSignatureMode('upload')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'upload' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>
+                            <button onClick={() => setSignatureMode('upload')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'upload' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
                             <UploadImageIcon className="w-5 h-5"/> Unggah
                             </button>
                         </div>
@@ -546,7 +546,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     ref={canvasRef}
                                     width="1200"
                                     height="480"
-                                    className="bg-white border border-gray-300 rounded-lg cursor-crosshair w-full h-auto shadow-inner"
+                                    className="bg-white border border-gray-300 dark:border-slate-600 rounded-lg cursor-crosshair w-full h-auto shadow-inner"
                                     onMouseDown={startDrawing}
                                     onMouseMove={draw}
                                     onMouseUp={stopDrawing}
@@ -566,25 +566,25 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             </div>
                         )}
                         {signatureMode === 'upload' && (
-                            <div className="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg bg-white">
+                            <div className="text-center p-6 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700">
                                 <input type="file" accept="image/png, image/jpeg" ref={uploadSignatureInputRef} className="hidden" onChange={handleSignatureUpload} />
-                                <button onClick={() => uploadSignatureInputRef.current?.click()} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors border border-gray-300">
+                                <button onClick={() => uploadSignatureInputRef.current?.click()} className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg transition-colors border border-gray-300 dark:border-slate-500">
                                     Pilih Gambar
                                 </button>
-                                <p className="text-xs text-gray-500 mt-3">Gunakan gambar dengan latar belakang transparan untuk hasil terbaik.</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">Gunakan gambar dengan latar belakang transparan untuk hasil terbaik.</p>
                             </div>
                         )}
-                        <button onClick={saveSignature} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg mt-6 shadow-sm">Simpan Tanda Tangan</button>
+                        <button onClick={saveSignature} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg mt-6 shadow-sm shadow-blue-200 dark:shadow-none">Simpan Tanda Tangan</button>
                     </div>
 
                     {signatures.length > 0 && (
-                    <div className="mt-6 bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-2">Tanda Tangan Anda</h3>
-                        <p className="text-xs text-gray-500 mb-4">Klik tanda tangan untuk menambahkannya ke halaman PDF.</p>
+                    <div className="mt-6 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-xl shadow-sm transition-colors">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">Tanda Tangan Anda</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Klik tanda tangan untuk menambahkannya ke halaman PDF.</p>
                         <div className="space-y-3">
                         {signatures.map(sig => (
-                            <div key={sig.id} className="bg-white border border-gray-200 p-2 rounded-lg flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                                <button onClick={() => placeSignatureOnPage(sig, 0)} className="p-1 rounded-md flex-grow flex justify-center items-center h-16 hover:bg-gray-50">
+                            <div key={sig.id} className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 p-2 rounded-lg flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                                <button onClick={() => placeSignatureOnPage(sig, 0)} className="p-1 rounded-md flex-grow flex justify-center items-center h-16 hover:bg-gray-50 dark:hover:bg-slate-600 bg-white dark:bg-slate-500">
                                     <img src={sig.dataUrl} alt="Signature" className="max-h-full max-w-full" />
                                 </button>
                                 <button onClick={() => setSignatures(prev => prev.filter(s => s.id !== sig.id))} className="ml-2 p-2 text-gray-400 hover:text-red-500 transition-colors">

@@ -255,14 +255,14 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const renderContent = () => {
     if (outputUrl) {
       return (
-        <div className="text-center text-gray-600 flex flex-col items-center gap-6 animate-fade-in">
+        <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-gray-900">PDF Berhasil Diatur!</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">PDF Berhasil Diatur!</h3>
           <p className="text-lg">File Anda telah berhasil disusun ulang.</p>
-          <a href={outputUrl} download={`${filesWithBuffer[0]?.file.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md">
+          <a href={outputUrl} download={`${filesWithBuffer[0]?.file.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
             <DownloadIcon /> Unduh PDF
           </a>
-          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
+          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
             Atur PDF Lainnya
           </button>
         </div>
@@ -273,7 +273,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <p className="text-lg text-gray-800 font-semibold">{processingMessage}</p>
+          <p className="text-lg text-gray-800 dark:text-gray-200 font-semibold">{processingMessage}</p>
         </div>
       );
     }
@@ -281,15 +281,15 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (filesWithBuffer.length === 0) {
       return (
         <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
+            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleAddFiles(e.dataTransfer.files); }}
         >
-            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
+            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Pilih File
             </button>
         </div>
@@ -298,20 +298,20 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 flex-wrap gap-4 shadow-sm">
-            <div className="text-gray-700">
+        <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-3 rounded-lg border border-gray-200 dark:border-slate-700 flex-wrap gap-4 shadow-sm transition-colors">
+            <div className="text-gray-700 dark:text-gray-300">
                 <p className="font-semibold">{filesWithBuffer.length} file dimuat, {pages.length} total halaman</p>
-                <p className="text-sm text-gray-500">Seret halaman untuk mengurutkan</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Seret halaman untuk mengurutkan</p>
             </div>
             <div className="flex items-center gap-2">
                  <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors text-sm flex items-center gap-2 border border-gray-300"
+                    className="bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg transition-colors text-sm flex items-center gap-2 border border-gray-300 dark:border-slate-600"
                 >
                     <AddIcon className="w-5 h-5"/>
                     Tambah PDF
                 </button>
-                <button onClick={handleSave} disabled={pages.length === 0 || isProcessing} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm relative shadow-sm">
+                <button onClick={handleSave} disabled={pages.length === 0 || isProcessing} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm relative shadow-sm">
                     {isProcessing && <span className="absolute left-2 top-1/2 -translate-y-1/2"><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>}
                     {isProcessing ? 'Memproses...' : 'Simpan Perubahan'}
                 </button>
@@ -319,11 +319,11 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
 
         <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">File yang Dimuat</h3>
-            <ul className="space-y-2 max-h-48 overflow-y-auto bg-gray-100 p-3 rounded-lg border border-gray-200 shadow-inner">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">File yang Dimuat</h3>
+            <ul className="space-y-2 max-h-48 overflow-y-auto bg-gray-100 dark:bg-slate-900/50 p-3 rounded-lg border border-gray-200 dark:border-slate-700 shadow-inner transition-colors">
                 {filesWithBuffer.map((fileData, index) => (
-                    <li key={`${fileData.file.name}-${index}`} className="flex items-center justify-between bg-white p-2 rounded-md text-sm animate-fade-in border border-gray-200">
-                    <span className="text-gray-700 truncate" title={fileData.file.name}>
+                    <li key={`${fileData.file.name}-${index}`} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2 rounded-md text-sm animate-fade-in border border-gray-200 dark:border-slate-600">
+                    <span className="text-gray-700 dark:text-gray-300 truncate" title={fileData.file.name}>
                         {fileData.file.name}
                     </span>
                     <button 
@@ -368,22 +368,22 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 onDragLeave={handleDragLeave}
                 onDragEnd={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className={`relative group bg-gray-50 p-2 rounded-lg flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-gray-200 hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
+                className={`relative group bg-gray-50 dark:bg-slate-800 p-2 rounded-lg flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-gray-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
               >
-                <div className="absolute top-0 right-0 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-bl-lg rounded-tr-md hidden group-hover:flex border-l border-b border-gray-200 shadow-sm">
-                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-gray-500 hover:text-blue-600 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
-                  <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-gray-500 hover:text-blue-600 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
-                  <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-gray-500 hover:text-red-500 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
+                <div className="absolute top-0 right-0 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm rounded-bl-lg rounded-tr-md hidden group-hover:flex border-l border-b border-gray-200 dark:border-slate-600 shadow-sm">
+                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
+                  <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
+                  <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
                 </div>
                 <div style={imageContainerStyle}>
                     <img 
                         src={page.previewUrl} 
                         alt={`Page ${page.originalPageIndex + 1}`} 
-                        className="rounded-md shadow-sm border border-gray-200"
+                        className="rounded-md shadow-sm border border-gray-200 dark:border-slate-600"
                         style={imageStyle}
                     />
                 </div>
-                <span className="bg-white border border-gray-200 text-gray-700 font-bold rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-sm">{index + 1}</span>
+                <span className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 font-bold rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-sm">{index + 1}</span>
               </div>
             );
           })}
