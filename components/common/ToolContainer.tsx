@@ -15,14 +15,14 @@ const ToolContainer: React.FC<ToolContainerProps> = ({ title, onBack, children, 
       <div className="mb-8">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-colors duration-200 text-sm font-medium"
+          className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 text-sm font-medium"
         >
           <ArrowLeftIcon />
           Kembali ke Menu Utama
         </button>
       </div>
-      <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 text-slate-100">{title}</h2>
-      <div className={`bg-slate-800 p-8 rounded-xl border border-slate-700 ${maxWidth} mx-auto`}>
+      <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 text-gray-900 dark:text-white">{title}</h2>
+      <div className={`bg-white dark:bg-slate-800 p-8 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-colors duration-300 ${maxWidth} mx-auto`}>
         {children}
       </div>
     </div>

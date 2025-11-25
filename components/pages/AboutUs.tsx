@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 
@@ -8,7 +9,7 @@ interface AboutUsProps {
 const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
   return (
     <ToolContainer title="Tentang Kami" onBack={onBack} maxWidth="max-w-3xl">
-      <div className="prose prose-invert prose-lg max-w-none text-slate-300 space-y-6">
+      <div className="prose prose-gray prose-lg max-w-none text-gray-700 space-y-6">
         <p className="lead">
           Selamat datang di Zentridox! Misi kami sederhana: menyediakan seperangkat alat PDF yang cepat, gratis, aman, dan mudah digunakan untuk semua orang.
         </p>
@@ -29,7 +30,7 @@ const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
             href="https://instagram.com/rezaldwntr"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 transition-colors"
+            className="text-blue-600 hover:text-blue-500 transition-colors"
           >
             @rezaldwntr
           </a>

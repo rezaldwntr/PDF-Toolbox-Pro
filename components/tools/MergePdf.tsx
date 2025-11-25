@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { PDFDocument } from 'pdf-lib';
@@ -72,20 +73,14 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     const target = e.currentTarget;
     const ghost = target.cloneNode(true) as HTMLElement;
 
-    // Fix: Explicitly set the size of the ghost element to match the original.
-    // When an element is cloned and appended to the body, it loses its
-    // flex/grid container context, which can cause its dimensions to collapse or expand.
-    // This ensures the ghost image captured by the browser is correctly sized.
     ghost.style.width = `${target.offsetWidth}px`;
     ghost.style.height = `${target.offsetHeight}px`;
 
     ghost.classList.add('drag-ghost');
     document.body.appendChild(ghost);
     
-    // Set the drag image to our styled ghost, centered on the cursor
     e.dataTransfer.setDragImage(ghost, target.offsetWidth / 2, target.offsetHeight / 2);
 
-    // Clean up the ghost element from the DOM after the browser has captured it
     setTimeout(() => {
         if (ghost.parentNode) {
             ghost.parentNode.removeChild(ghost);
@@ -140,7 +135,6 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     try {
       const mergedPdf = await PDFDocument.create();
       for (const { buffer } of files) {
-        // Use a copy of the buffer for loading into pdf-lib, just in case
         const pdf = await PDFDocument.load(buffer.slice(0));
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
@@ -172,19 +166,19 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   if (mergedPdfUrl) {
     return (
       <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack}>
-        <div className="text-center text-slate-400 flex flex-col items-center gap-6">
+        <div className="text-center text-gray-600 flex flex-col items-center gap-6">
           <p className="text-lg">File Anda telah berhasil disatukan.</p>
           <a
             href={mergedPdfUrl}
             download={`gabung-pdf-${Date.now()}.pdf`}
-            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg"
+            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-sm shadow-blue-200"
           >
             <DownloadIcon />
             Unduh PDF Gabungan
           </a>
           <button
             onClick={reset}
-            className="font-medium text-slate-400 hover:text-blue-400 transition-colors"
+            className="font-medium text-gray-500 hover:text-blue-600 transition-colors"
           >
             Gabungkan PDF Lainnya
           </button>
@@ -206,17 +200,17 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       
       {files.length === 0 && (
         <div 
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500'}`}
+            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDropOnUploader}
         >
-            <UploadIcon className="w-12 h-12 text-slate-500 mb-4" />
-            <p className="text-slate-300 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-slate-500 mb-4">atau</p>
+            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
+            <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+            <p className="text-gray-500 mb-4">atau</p>
             <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-4 rounded-lg transition-colors"
+                className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
             >
             Pilih File
             </button>
@@ -228,14 +222,14 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
             <div className="mb-6 flex justify-center">
                 <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-4 rounded-lg transition-colors"
+                    className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                 >
                 Tambah File Lain
                 </button>
             </div>
             <div>
-                <h3 className="text-lg font-semibold text-slate-300 mb-2">File yang akan digabungkan ({files.length}):</h3>
-                <p className="text-sm text-slate-500 mb-4">Seret dan lepas untuk mengatur urutan file.</p>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">File yang akan digabungkan ({files.length}):</h3>
+                <p className="text-sm text-gray-500 mb-4">Seret dan lepas untuk mengatur urutan file.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 transition-all duration-300">
                     {files.map(({ id, file, buffer }, index) => (
                     <div
@@ -246,18 +240,18 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                         onDragLeave={handleDragLeaveList}
                         onDragEnd={handleDropOnList}
                         onDragOver={(e) => e.preventDefault()}
-                        className={`bg-slate-700/50 p-2 rounded-lg flex flex-col gap-2 cursor-grab active:cursor-grabbing border border-transparent hover:border-blue-500 transition-all duration-300 list-item-enter-active ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
+                        className={`bg-gray-50 p-2 rounded-lg flex flex-col gap-2 cursor-grab active:cursor-grabbing border border-gray-200 hover:border-blue-500 transition-all duration-300 list-item-enter-active shadow-sm ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
                     >
                         <div className="flex items-center justify-between text-xs">
-                        <span className="bg-slate-800 text-slate-300 font-bold rounded-full w-6 h-6 flex items-center justify-center">{index + 1}</span>
-                        <button onClick={() => removeFile(index)} className="p-1 text-slate-500 hover:text-red-400 rounded-full transition-colors">
+                        <span className="bg-white text-gray-600 border border-gray-200 font-bold rounded-full w-6 h-6 flex items-center justify-center">{index + 1}</span>
+                        <button onClick={() => removeFile(index)} className="p-1 text-gray-400 hover:text-red-500 rounded-full transition-colors">
                             <TrashIcon />
                         </button>
                         </div>
                         <PdfPreview buffer={buffer} />
                         <div className="text-center">
-                        <p className="text-slate-300 truncate text-xs" title={file.name}>{file.name}</p>
-                        <p className="text-slate-500 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
+                        <p className="text-gray-700 truncate text-xs font-medium" title={file.name}>{file.name}</p>
+                        <p className="text-gray-500 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
                         </div>
                     </div>
                     ))}
@@ -268,7 +262,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                 <button 
                     onClick={handleMerge}
                     disabled={isMerging || files.length < 2}
-                    className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center"
+                    className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md"
                 >
                 {isMerging ? (
                     <>
@@ -280,7 +274,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                     </>
                 ) : `Gabungkan ${files.length} PDF`}
                 </button>
-                {files.length < 2 && <p className="text-sm text-slate-500 mt-3">Silakan tambahkan setidaknya 2 file untuk digabungkan.</p>}
+                {files.length < 2 && <p className="text-sm text-gray-500 mt-3">Silakan tambahkan setidaknya 2 file untuk digabungkan.</p>}
             </div>
         </>
       )}

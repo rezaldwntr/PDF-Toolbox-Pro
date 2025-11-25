@@ -52,15 +52,15 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
   if (formStatus === 'success') {
     return (
       <ToolContainer title="Pesan Terkirim!" onBack={onBack} maxWidth="max-w-2xl">
-        <div className="text-center text-slate-300 space-y-4 animate-fade-in">
-          <svg className="w-16 h-16 text-green-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="text-center text-gray-700 space-y-4 animate-fade-in">
+          <svg className="w-16 h-16 text-green-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p className="text-lg">Terima kasih atas masukan Anda. Kami akan segera merespons jika diperlukan.</p>
-          <p className="text-sm text-slate-500">(Pastikan Anda sudah mengaktifkan form ini melalui email konfirmasi pertama kali)</p>
+          <p className="text-sm text-gray-500">(Pastikan Anda sudah mengaktifkan form ini melalui email konfirmasi pertama kali)</p>
           <button
             onClick={() => setFormStatus('idle')}
-            className="font-medium text-blue-400 hover:text-blue-300 transition-colors pt-4"
+            className="font-medium text-blue-600 hover:text-blue-500 transition-colors pt-4"
           >
             Kirim pesan lain
           </button>
@@ -71,13 +71,13 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Hubungi Kami" onBack={onBack} maxWidth="max-w-2xl">
-      <div className="text-center text-slate-300 mb-8">
+      <div className="text-center text-gray-600 mb-8">
         <p>Punya pertanyaan, masukan, atau saran? Kami ingin sekali mendengar dari Anda. Silakan isi formulir di bawah ini.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="name" className="block mb-2 text-sm font-medium text-slate-400">Nama Anda</label>
+          <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-700">Nama Anda</label>
           <input
             type="text"
             name="name"
@@ -85,13 +85,13 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             value={formData.name}
             onChange={handleChange}
             required
-            className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors"
+            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm"
             placeholder="Nama Anda"
           />
         </div>
 
         <div>
-          <label htmlFor="email" className="block mb-2 text-sm font-medium text-slate-400">Email Anda</label>
+          <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700">Email Anda</label>
           <input
             type="email"
             name="email"
@@ -99,13 +99,13 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors"
+            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm"
             placeholder="anda@email.com"
           />
         </div>
 
         <div>
-          <label htmlFor="message" className="block mb-2 text-sm font-medium text-slate-400">Pesan</label>
+          <label htmlFor="message" className="block mb-2 text-sm font-medium text-gray-700">Pesan</label>
           <textarea
             name="message"
             id="message"
@@ -113,13 +113,13 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             value={formData.message}
             onChange={handleChange}
             required
-            className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors"
+            className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm"
             placeholder="Tinggalkan pesan Anda di sini..."
           />
         </div>
 
         {formStatus === 'error' && (
-          <p className="text-sm text-red-400 text-center">
+          <p className="text-sm text-red-500 text-center">
             Maaf, terjadi kesalahan saat mengirim pesan Anda. Silakan coba lagi nanti.
           </p>
         )}
@@ -127,7 +127,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
         <button
           type="submit"
           disabled={formStatus === 'submitting'}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center"
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md"
         >
           {formStatus === 'submitting' ? (
             <>

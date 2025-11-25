@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 
@@ -15,7 +16,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Kebijakan Privasi" onBack={onBack} maxWidth="max-w-4xl">
-      <div className="prose prose-invert prose-lg max-w-none text-slate-300">
+      <div className="prose prose-gray prose-lg max-w-none text-gray-700">
         <p><strong>Terakhir diperbarui:</strong> {formattedDate}</p>
         <p>
           Privasi Anda sangat penting bagi kami. Kebijakan Privasi ini menjelaskan bagaimana kami menangani data Anda saat Anda menggunakan Zentridox. Dengan menggunakan situs web kami, Anda menyetujui praktik yang dijelaskan dalam kebijakan ini.
@@ -38,9 +39,9 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
         <ul>
           <li>Kami menggunakan vendor pihak ketiga, termasuk Google, untuk menayangkan iklan di situs kami.</li>
           <li>Google, sebagai vendor pihak ketiga, menggunakan cookies (seperti cookie DART) untuk menayangkan iklan berdasarkan kunjungan pengguna sebelumnya ke situs kami atau situs lain di internet.</li>
-          <li>Anda dapat memilih keluar dari iklan yang dipersonalisasi dengan mengunjungi <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Setelan Iklan Google</a>.</li>
+          <li>Anda dapat memilih keluar dari iklan yang dipersonalisasi dengan mengunjungi <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500">Setelan Iklan Google</a>.</li>
           <li>Untuk pengguna di Wilayah Ekonomi Eropa (EEA), iklan ditampilkan sesuai dengan persetujuan yang Anda berikan.</li>
-          <li>Silakan tinjau <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Privasi & Persyaratan Google</a> untuk informasi lebih lanjut tentang cara mereka menangani data.</li>
+          <li>Silakan tinjau <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500">Privasi & Persyaratan Google</a> untuk informasi lebih lanjut tentang cara mereka menangani data.</li>
         </ul>
 
         <h4>4. Keamanan</h4>

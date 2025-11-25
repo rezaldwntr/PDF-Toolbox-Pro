@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 
@@ -73,10 +74,10 @@ const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> 
     }, []);
 
     const typeClasses = {
-        success: 'bg-green-500/90 border-green-400',
-        error: 'bg-red-500/90 border-red-400',
-        warning: 'bg-yellow-500/90 border-yellow-400',
-        info: 'bg-blue-500/90 border-blue-400',
+        success: 'bg-green-600 border-green-700 text-white dark:bg-green-900/90 dark:border-green-800',
+        error: 'bg-red-600 border-red-700 text-white dark:bg-red-900/90 dark:border-red-800',
+        warning: 'bg-yellow-500 border-yellow-600 text-white dark:bg-yellow-700/90 dark:border-yellow-600',
+        info: 'bg-blue-600 border-blue-700 text-white dark:bg-blue-900/90 dark:border-blue-800',
     };
     const Icon = {
         success: () => <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
@@ -87,7 +88,7 @@ const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> 
 
     return (
         <div 
-        className={`flex items-center gap-4 w-full max-w-sm p-4 text-white rounded-lg shadow-lg backdrop-blur-md border transition-all duration-300 ${typeClasses[toast.type]} ${isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}`}
+        className={`flex items-center gap-4 w-full max-w-sm p-4 rounded-lg shadow-lg shadow-gray-300/50 dark:shadow-none backdrop-blur-md border transition-all duration-300 ${typeClasses[toast.type]} ${isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}`}
         role="alert"
         >
             <div className="flex-shrink-0">

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 
 // Beri tahu TypeScript tentang variabel global pdfjsLib dari CDN
@@ -73,9 +74,9 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer }) => {
   }, [buffer]);
 
   return (
-    <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
-      {status === 'loading' && <div className="text-slate-500 text-xs animate-pulse">Memuat...</div>}
-      {status === 'error' && <div className="text-red-400 text-xs px-2 text-center">Gagal memuat pratinjau</div>}
+    <div className="relative w-full aspect-[2/3] bg-gray-200 rounded-md overflow-hidden flex items-center justify-center border border-gray-300">
+      {status === 'loading' && <div className="text-gray-500 text-xs animate-pulse">Memuat...</div>}
+      {status === 'error' && <div className="text-red-500 text-xs px-2 text-center">Gagal memuat pratinjau</div>}
       <canvas
         ref={canvasRef}
         className={`transition-opacity duration-300 absolute top-0 left-0 ${status === 'success' ? 'opacity-100' : 'opacity-0'}`}

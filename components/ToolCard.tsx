@@ -12,13 +12,13 @@ const ToolCard: React.FC<ToolCardProps> = ({ icon, title, description, onClick }
   return (
     <div
       onClick={onClick}
-      className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500 cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col items-start"
+      className="bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-500 cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-100 flex flex-col items-start"
     >
-      <div className="bg-slate-700 p-3 rounded-lg text-blue-400 mb-4">
+      <div className="bg-blue-50 p-3 rounded-lg text-blue-600 mb-4">
         {icon}
       </div>
-      <h3 className="text-xl font-bold text-slate-100 mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm flex-grow">{description}</p>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-500 text-sm flex-grow">{description}</p>
     </div>
   );
 };

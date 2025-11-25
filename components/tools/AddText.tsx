@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, TextColorIcon, AddIcon, RotateIcon, ZoomInIcon, ZoomOutIcon, TextBoxBackgroundIcon, TextIcon } from '../icons';
@@ -426,13 +427,13 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const renderContent = () => {
     if (outputUrl) {
       return (
-        <div className="text-center text-slate-400 flex flex-col items-center gap-6 animate-fade-in">
+        <div className="text-center text-gray-600 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-slate-100">PDF Berhasil Disimpan!</h3>
-          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-diedit.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg">
+          <h3 className="text-2xl font-bold text-gray-900">PDF Berhasil Disimpan!</h3>
+          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-diedit.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md">
             <DownloadIcon /> Unduh PDF
           </a>
-          <button onClick={resetState} className="font-medium text-slate-400 hover:text-blue-400 transition-colors">
+          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
             Edit PDF Lainnya
           </button>
         </div>
@@ -442,9 +443,9 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (isProcessing) {
       return (
           <div className="flex flex-col items-center justify-center p-8 text-center">
-              <svg className="animate-spin h-10 w-10 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              <p className="text-lg text-slate-300 font-semibold">{processingMessage}</p>
-              <p className="text-slate-500">Mohon tunggu...</p>
+              <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              <p className="text-lg text-gray-800 font-semibold">{processingMessage}</p>
+              <p className="text-gray-500">Mohon tunggu...</p>
           </div>
       );
     }
@@ -452,15 +453,15 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!fileWithBuffer) {
       return (
         <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500'}`}
+            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
         >
-            <UploadIcon className="w-12 h-12 text-slate-500 mb-4" />
-            <p className="text-slate-300 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-slate-500 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-4 rounded-lg transition-colors">
+            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
+            <p className="text-gray-700 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
+            <p className="text-gray-500 mb-4">atau</p>
+            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Pilih File
             </button>
         </div>
@@ -471,46 +472,46 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return (
       <div className="flex flex-col gap-4">
         {/* Top Toolbar */}
-        <div className="bg-slate-900/70 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-slate-700 flex-wrap">
+        <div className="bg-white/80 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-gray-200 flex-wrap shadow-sm">
           <div className="flex items-center gap-2">
             <FilePdfIcon />
-            <span className="text-sm text-slate-300 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
-            <button onClick={resetState} title="Hapus PDF" className="p-1 text-slate-400 hover:text-red-400"><TrashIcon /></button>
-            <button onClick={handleRotateAllPages} title="Putar PDF" className="p-1 text-slate-400 hover:text-blue-400"><RotateIcon /></button>
+            <span className="text-sm text-gray-700 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
+            <button onClick={resetState} title="Hapus PDF" className="p-1 text-gray-400 hover:text-red-500"><TrashIcon /></button>
+            <button onClick={handleRotateAllPages} title="Putar PDF" className="p-1 text-gray-400 hover:text-blue-600"><RotateIcon /></button>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleAddText} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-4 rounded-lg transition-colors text-sm flex items-center gap-2"><AddIcon className="w-5 h-5"/> Tambah Teks</button>
-            <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">Simpan PDF</button>
+            <button onClick={handleAddText} className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors text-sm flex items-center gap-2 border border-gray-200"><AddIcon className="w-5 h-5"/> Tambah Teks</button>
+            <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm shadow-sm">Simpan PDF</button>
           </div>
         </div>
 
         {/* Floating Element Toolbar */}
         {selectedTextElement && (
-            <div className="bg-slate-900/80 backdrop-blur-md p-2 rounded-lg border border-slate-700 flex items-center gap-2 flex-wrap justify-center sticky top-2 z-20">
-              <select value={selectedTextElement.fontFamily} onChange={(e) => updateSelectedElement({ fontFamily: e.target.value })} className="bg-slate-800 border-slate-600 text-sm rounded-md p-1.5">
+            <div className="bg-white/90 backdrop-blur-md p-2 rounded-lg border border-gray-200 flex items-center gap-2 flex-wrap justify-center sticky top-2 z-20 shadow-lg">
+              <select value={selectedTextElement.fontFamily} onChange={(e) => updateSelectedElement({ fontFamily: e.target.value })} className="bg-gray-50 border-gray-300 text-gray-800 text-sm rounded-md p-1.5 focus:border-blue-500 focus:outline-none">
                 {Object.keys(FONT_MAP).map(font => <option key={font} value={font}>{font}</option>)}
               </select>
-              <input type="number" value={selectedTextElement.fontSize} onChange={(e) => updateSelectedElement({ fontSize: parseInt(e.target.value) || 1 })} className="w-16 bg-slate-800 border-slate-600 text-sm rounded-md p-1.5" />
-              <button onClick={() => updateSelectedElement({ isBold: !selectedTextElement.isBold })} className={`p-1.5 rounded-md ${selectedTextElement.isBold ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}><BoldIcon /></button>
-              <button onClick={() => updateSelectedElement({ isItalic: !selectedTextElement.isItalic })} className={`p-1.5 rounded-md ${selectedTextElement.isItalic ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}><ItalicIcon /></button>
-              <button onClick={() => updateSelectedElement({ isUnderline: !selectedTextElement.isUnderline })} className={`p-1.5 rounded-md ${selectedTextElement.isUnderline ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}><UnderlineIcon /></button>
-              <button onClick={() => updateSelectedElement({ isStrikethrough: !selectedTextElement.isStrikethrough })} className={`p-1.5 rounded-md ${selectedTextElement.isStrikethrough ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`}><StrikethroughIcon /></button>
-              <label className="p-1.5 rounded-md hover:bg-slate-700 cursor-pointer relative"><TextColorIcon /><input type="color" value={selectedTextElement.color} onChange={(e) => updateSelectedElement({ color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" /></label>
-              <button onClick={() => updateSelectedElement({ backgroundColor: selectedTextElement.backgroundColor === 'transparent' ? '#FFFFFF' : 'transparent' })} className={`p-1.5 rounded-md ${selectedTextElement.backgroundColor !== 'transparent' ? 'bg-blue-600 text-white' : 'hover:bg-slate-700'}`} title="Latar Belakang Teks"><TextBoxBackgroundIcon /></button>
-              <div className="flex items-center gap-1"><RotateIcon /><input type="number" value={selectedTextElement.rotation} onChange={(e) => updateSelectedElement({ rotation: parseInt(e.target.value) || 0 })} className="w-16 bg-slate-800 border-slate-600 text-sm rounded-md p-1.5" /></div>
-              <button onClick={handleDeleteElement} className="p-1.5 rounded-md hover:bg-red-500/20 text-red-400"><TrashIcon /></button>
+              <input type="number" value={selectedTextElement.fontSize} onChange={(e) => updateSelectedElement({ fontSize: parseInt(e.target.value) || 1 })} className="w-16 bg-gray-50 border-gray-300 text-gray-800 text-sm rounded-md p-1.5 focus:border-blue-500 focus:outline-none" />
+              <button onClick={() => updateSelectedElement({ isBold: !selectedTextElement.isBold })} className={`p-1.5 rounded-md ${selectedTextElement.isBold ? 'bg-blue-600 text-white' : 'hover:bg-gray-200 text-gray-700'}`}><BoldIcon /></button>
+              <button onClick={() => updateSelectedElement({ isItalic: !selectedTextElement.isItalic })} className={`p-1.5 rounded-md ${selectedTextElement.isItalic ? 'bg-blue-600 text-white' : 'hover:bg-gray-200 text-gray-700'}`}><ItalicIcon /></button>
+              <button onClick={() => updateSelectedElement({ isUnderline: !selectedTextElement.isUnderline })} className={`p-1.5 rounded-md ${selectedTextElement.isUnderline ? 'bg-blue-600 text-white' : 'hover:bg-gray-200 text-gray-700'}`}><UnderlineIcon /></button>
+              <button onClick={() => updateSelectedElement({ isStrikethrough: !selectedTextElement.isStrikethrough })} className={`p-1.5 rounded-md ${selectedTextElement.isStrikethrough ? 'bg-blue-600 text-white' : 'hover:bg-gray-200 text-gray-700'}`}><StrikethroughIcon /></button>
+              <label className="p-1.5 rounded-md hover:bg-gray-200 cursor-pointer relative text-gray-700"><TextColorIcon /><input type="color" value={selectedTextElement.color} onChange={(e) => updateSelectedElement({ color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" /></label>
+              <button onClick={() => updateSelectedElement({ backgroundColor: selectedTextElement.backgroundColor === 'transparent' ? '#FFFFFF' : 'transparent' })} className={`p-1.5 rounded-md ${selectedTextElement.backgroundColor !== 'transparent' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200 text-gray-700'}`} title="Latar Belakang Teks"><TextBoxBackgroundIcon /></button>
+              <div className="flex items-center gap-1 text-gray-700"><RotateIcon /><input type="number" value={selectedTextElement.rotation} onChange={(e) => updateSelectedElement({ rotation: parseInt(e.target.value) || 0 })} className="w-16 bg-gray-50 border-gray-300 text-gray-800 text-sm rounded-md p-1.5 focus:border-blue-500 focus:outline-none" /></div>
+              <button onClick={handleDeleteElement} className="p-1.5 rounded-md hover:bg-red-100 text-red-500"><TrashIcon /></button>
             </div>
         )}
 
         {/* PDF Editor */}
         <div className="relative">
-            <div className="bg-slate-900 rounded-lg p-4 overflow-auto max-h-[70vh] flex justify-center items-start">
+            <div className="bg-gray-100 rounded-lg p-4 overflow-auto max-h-[70vh] flex justify-center items-start border border-gray-200">
             <div ref={editorPagesContainerRef} className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
                 {pagePreviews.map((page, index) => (
                 <div
                     key={index}
                     data-page-index={index}
-                    className="relative shadow-lg"
+                    className="relative shadow-md border border-gray-200 bg-white"
                     style={{ width: page.width, height: page.height, transform: `rotate(${page.rotation}deg)` }}
                     onClick={(e) => {
                       if (!(e.target as HTMLElement).closest('[data-text-element="true"]')) {
@@ -535,7 +536,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             
                             setTextElements(prev => prev.map(el => el.id === text.id ? {...el, text: e.target.value, height: newHeight / zoom} : el));
                         }}
-                        className={`absolute bg-transparent focus:outline-none p-0 border-2 resize-x overflow-hidden whitespace-pre-wrap cursor-move ${selectedElementId === text.id ? 'border-blue-500 border-dashed' : 'border-transparent hover:border-blue-500/50'}`}
+                        className={`absolute bg-transparent focus:outline-none p-0 border-2 resize-x overflow-hidden whitespace-pre-wrap cursor-move ${selectedElementId === text.id ? 'border-blue-500 border-dashed' : 'border-transparent hover:border-blue-300/50'}`}
                         style={{
                         left: text.x, top: text.y,
                         width: text.width,
@@ -556,10 +557,10 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 ))}
             </div>
             </div>
-             <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-slate-800/80 backdrop-blur-md p-1.5 rounded-lg border border-slate-700">
-                <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-md"><ZoomOutIcon /></button>
-                <span className="text-sm text-slate-300 font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
-                <button onClick={() => setZoom(z => z + 0.1)} className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-md"><ZoomInIcon /></button>
+             <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md p-1.5 rounded-lg border border-gray-200 shadow-sm">
+                <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md"><ZoomOutIcon /></button>
+                <span className="text-sm text-gray-700 font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+                <button onClick={() => setZoom(z => z + 0.1)} className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md"><ZoomInIcon /></button>
             </div>
         </div>
       </div>

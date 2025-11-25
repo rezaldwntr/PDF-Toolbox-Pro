@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 
 // Tipe sederhana untuk objek dokumen pdf.js
@@ -64,7 +65,7 @@ const PdfPagePreview: React.FC<PdfPagePreviewProps> = ({ pdfDoc, pageNumber }) =
   }, [pdfDoc, pageNumber]);
 
   return (
-    <div className="relative w-full aspect-[2/3] bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
+    <div className="relative w-full aspect-[2/3] bg-gray-200 rounded-md overflow-hidden flex items-center justify-center border border-gray-300">
       <canvas ref={canvasRef} />
     </div>
   );
