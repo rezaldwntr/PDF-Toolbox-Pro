@@ -42,7 +42,7 @@ function App() {
         // If history state exists, revert to that view
         setActiveView(event.state.view);
         
-        // Sync lastActiveTab if we went back to a main tab
+        // Sync last active tab logic
         if (event.state.view <= View.PROFILE_TAB) {
             setLastActiveTab(event.state.view);
         }
@@ -74,7 +74,8 @@ function App() {
 
   useEffect(() => {
     // Cek apakah user sudah pernah melihat modal ini
-    const hasSeenModal = localStorage.getItem('hasSeenDevModal');
+    // Menggunakan key baru untuk mereset status tampilan bagi pengguna lama
+    const hasSeenModal = localStorage.getItem('zentridox_beta_notice_viewed');
     if (!hasSeenModal) {
       setShowDevModal(true);
     }
@@ -82,7 +83,7 @@ function App() {
 
   const handleCloseDevModal = () => {
     setShowDevModal(false);
-    localStorage.setItem('hasSeenDevModal', 'true');
+    localStorage.setItem('zentridox_beta_notice_viewed', 'true');
   };
 
   const handleNavigateToContact = () => {
