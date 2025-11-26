@@ -78,6 +78,9 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       } else if (format === 'excel') {
           endpoint = '/convert/pdf-to-excel';
           ext = 'xlsx';
+      } else if (format === 'ppt') {
+          endpoint = '/convert/pdf-to-ppt';
+          ext = 'pptx';
       } else {
           throw new Error("Format ini belum didukung oleh server.");
       }
@@ -210,10 +213,9 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 result = await convertWithBackend('excel');
                 break;
             case 'ppt':
-                 // Placeholders for future backend implementation
-                 addToast("Format ini belum tersedia di server saat ini.", 'info');
-                 setIsProcessing(false);
-                 return;
+                 setProcessingMessage('Konversi ke PowerPoint...');
+                 result = await convertWithBackend('ppt');
+                 break;
             default:
                 throw new Error("Format tidak dikenal");
         }
@@ -299,12 +301,11 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     
                     <button
                         onClick={() => setSelectedFormat('ppt')}
-                        disabled={true}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 opacity-50 cursor-not-allowed bg-gray-100 dark:bg-slate-800 border-gray-200 dark:border-slate-700`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'ppt' ? 'bg-orange-50 border-orange-500 shadow-md dark:bg-orange-900/20 dark:border-orange-500' : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
-                        <FilePptIcon className="w-12 h-12 text-gray-400" />
-                        <span className="font-bold text-gray-500 dark:text-gray-400">PowerPoint</span>
-                        <span className="text-[10px] text-gray-400 uppercase tracking-wider bg-gray-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">Segera</span>
+                        <FilePptIcon className="w-12 h-12 text-orange-600" />
+                        <span className="font-bold text-gray-800 dark:text-gray-200">PowerPoint</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">.pptx</span>
                     </button>
                     
                      <button
