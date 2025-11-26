@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, FileWordIcon, FileExcelIcon, FilePptIcon, FileJpgIcon, ZipIcon, FilePdfIcon } from '../icons';
@@ -5,6 +6,11 @@ import { useToast } from '../../contexts/ToastContext';
 
 declare const pdfjsLib: any;
 declare const JSZip: any;
+
+// --- CONFIGURATION ---
+// Backend URL for high-fidelity conversions
+// Pastikan tidak ada garis miring (/) di akhir URL ini
+const BACKEND_URL = 'https://pdf-backend-api.onrender.com'; 
 
 interface PdfFileWithBuffer {
   file: File;
@@ -22,7 +28,6 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState<string>('');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // New state for preview
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
@@ -34,11 +39,9 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsProcessing(false);
     setProcessingMessage('');
     if (outputUrl) URL.revokeObjectURL(outputUrl);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setOutputUrl(null);
     setOutputFilename('');
-    setPreviewUrl(null);
-  }, [outputUrl, previewUrl]);
+  }, [outputUrl]);
 
   const handleFileChange = async (selectedFile: File | null) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
@@ -58,9 +61,77 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  // --- ALGORITMA KONVERSI ---
+  // --- BACKEND INTEGRATION ---
+  const convertWithBackend = async (format: string): Promise<{ blob: Blob, ext: string }> => {
+      if (!fileWithBuffer) throw new Error("No file");
+      
+      const formData = new FormData();
+      formData.append('file', fileWithBuffer.file);
+      
+      let endpoint = '';
+      let ext = '';
 
-  const convertToImages = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
+      // Map formats to backend endpoints
+      if (format === 'word') {
+          endpoint = '/convert/pdf-to-docx';
+          ext = 'docx';
+      } else if (format === 'excel') {
+          endpoint = '/convert/pdf-to-excel';
+          ext = 'xlsx';
+      } else {
+          throw new Error("Format ini belum didukung oleh server.");
+      }
+
+      try {
+          // Set timeout for fetch to handle slow server response gracefully
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout for server processing
+
+          const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
+          const fullUrl = `${cleanBackendUrl}${endpoint}`;
+
+          console.log(`Mengirim request ke: ${fullUrl}`);
+
+          const response = await fetch(fullUrl, {
+              method: 'POST',
+              body: formData,
+              signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+              if (response.status === 404) {
+                  throw new Error(`Endpoint ${endpoint} tidak ditemukan (404). Periksa konfigurasi server.`);
+              } else if (response.status === 500) {
+                  throw new Error("Terjadi kesalahan internal di server (500). Silakan coba lagi nanti.");
+              } else if (response.status === 422) {
+                  throw new Error("Data yang dikirim tidak valid (422). Periksa format file.");
+              }
+              const errData = await response.json().catch(() => ({}));
+              throw new Error(errData.detail || errData.error || `Gagal memproses di server (Status: ${response.status})`);
+          }
+
+          const blob = await response.blob();
+          
+          return { blob, ext };
+
+      } catch (error: any) {
+          console.error("Backend error:", error);
+          if (error.name === 'AbortError') {
+              throw new Error("Waktu habis! Server terlalu lama merespons. Coba lagi dengan file yang lebih kecil.");
+          } else if (error.message.includes('Failed to fetch')) {
+              throw new Error("Tidak dapat terhubung ke server. Pastikan koneksi internet Anda lancar atau server mungkin sedang offline.");
+          }
+          throw error;
+      }
+  };
+
+
+  // --- CLIENT-SIDE ALGORITHMS (IMAGES ONLY) ---
+  // We keep this client-side because it's efficient enough for images and saves server bandwidth.
+
+  const convertToImages = async (pdfDoc: any): Promise<{ blob: Blob, ext: string }> => {
     const zip = new JSZip();
     const baseName = fileWithBuffer!.file.name.replace('.pdf', '');
     
@@ -87,8 +158,6 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             break;
     }
 
-    let firstImageBlob: Blob | null = null;
-
     for (let i = 1; i <= pdfDoc.numPages; i++) {
         setProcessingMessage(`Merender halaman ${i} dari ${pdfDoc.numPages} ke ${selectedImageFormat.toUpperCase()}...`);
         const page = await pdfDoc.getPage(i);
@@ -109,253 +178,55 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, mimeType, 0.9));
         if (blob) {
             zip.file(`${baseName}_halaman_${i}.${ext}`, blob);
-            if (i === 1) firstImageBlob = blob;
         }
     }
 
     setProcessingMessage('Membuat file ZIP...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    return { blob: zipBlob, ext: 'zip', preview: firstImageBlob! };
-  };
-
-  // Helper to generate a preview image from the first page of PDF for document formats
-  const generateDocumentPreview = async (pdfDoc: any): Promise<Blob> => {
-      const page = await pdfDoc.getPage(1);
-      const viewport = page.getViewport({ scale: 1.0 });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      return new Promise<Blob>(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png'));
-  };
-
-  // Algoritma Word "Smart Flow"
-  const convertToWord = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
-    let bodyContent = '';
-    const previewBlob = await generateDocumentPreview(pdfDoc);
-
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setProcessingMessage(`Menganalisis halaman ${i}...`);
-        const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.0 });
-        const textContent = await page.getTextContent();
-        
-        const pageWidthPt = viewport.width;
-        const pageHeightPt = viewport.height;
-
-        bodyContent += `
-        <div class=Section${i} style='width:${pageWidthPt}pt; min-height:${pageHeightPt}pt; margin-bottom: 20pt;'>
-        `;
-
-        const items = textContent.items.map((item: any) => {
-            const tx = item.transform;
-            return {
-                str: item.str,
-                x: tx[4], 
-                y: tx[5], 
-                h: Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3])), 
-                w: item.width,
-                fontName: item.fontName
-            };
-        }).sort((a: any, b: any) => {
-            const yDiff = b.y - a.y;
-            if (Math.abs(yDiff) > 5) return yDiff;
-            return a.x - b.x;
-        });
-
-        let rows: any[][] = [];
-        let currentRow: any[] = [];
-        let lastY = -999;
-
-        items.forEach((item: any) => {
-            if (lastY === -999 || Math.abs(item.y - lastY) <= 5) {
-                currentRow.push(item);
-            } else {
-                if (currentRow.length > 0) rows.push(currentRow);
-                currentRow = [item];
-            }
-            lastY = item.y;
-        });
-        if (currentRow.length > 0) rows.push(currentRow);
-
-        rows.forEach((row) => {
-            const firstItem = row[0];
-            const fontSize = firstItem.h || 11;
-            const marginLeft = firstItem.x;
-            
-            let lineHtml = "";
-            let currentX = firstItem.x;
-
-            row.forEach((item: any) => {
-                const gap = item.x - currentX;
-                if (gap > 5) {
-                     const spaces = Math.floor(gap / 3);
-                     lineHtml += "&nbsp;".repeat(Math.min(spaces, 10)); 
-                }
-                
-                const cleanStr = item.str
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                
-                lineHtml += `<span style='font-size:${fontSize.toFixed(1)}pt; font-family:"Calibri", sans-serif'>${cleanStr}</span>`;
-                currentX = item.x + item.w;
-            });
-
-            bodyContent += `
-            <p class=MsoNormal style='margin-left:${marginLeft.toFixed(1)}pt; margin-top:0pt; margin-bottom:0pt; line-height:1.2'>
-                ${lineHtml}
-            </p>
-            `;
-        });
-
-        bodyContent += `</div>`;
-
-        if (i < pdfDoc.numPages) {
-            bodyContent += `<br clear=all style='mso-special-character:line-break; page-break-before:always'>`;
-        }
-    }
-
-    const mhtml = `MIME-Version: 1.0
-Content-Type: multipart/related; boundary="----=_NextPart_01C_XYZ"
-
-------=_NextPart_01C_XYZ
-Content-Location: file:///C:/fake/document.htm
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/html; charset="utf-8"
-
-<html xmlns:o=3D"urn:schemas-microsoft-com:office:office"
-xmlns:w=3D"urn:schemas-microsoft-com:office:word"
-xmlns=3D"http://www.w3.org/TR/REC-html40">
-
-<head>
-<meta http-equiv=3DContent-Type content=3D"text/html; charset=3Dutf-8">
-<style>
- @page WordSection1
-	{size:595.3pt 841.9pt;
-	margin:36.0pt 36.0pt 36.0pt 36.0pt;}
- div.WordSection1
-	{page:WordSection1;}
- p.MsoNormal
-    {margin-bottom:.0001pt; line-height:normal;}
-</style>
-</head>
-
-<body lang=3DEN-US>
-<div class=WordSection1>
-${bodyContent}
-</div>
-</body>
-</html>
-
-------=_NextPart_01C_XYZ--
-`;
-
-    const blob = new Blob([mhtml], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    return { blob, ext: 'docx', preview: previewBlob };
-  };
-
-  const convertToExcel = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
-    let csvContent = "";
-    csvContent += "\uFEFF"; // BOM
-    const previewBlob = await generateDocumentPreview(pdfDoc);
-
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setProcessingMessage(`Menganalisis tabel halaman ${i}...`);
-        const page = await pdfDoc.getPage(i);
-        const textContent = await page.getTextContent();
-        
-        const rows: Record<number, {x: number, str: string}[]> = {};
-        
-        textContent.items.forEach((item: any) => {
-             const y = Math.round(item.transform[5] / 5) * 5; 
-             if (!rows[y]) rows[y] = [];
-             rows[y].push({ x: item.transform[4], str: item.str });
-        });
-        
-        const sortedY = Object.keys(rows).sort((a, b) => Number(b) - Number(a));
-        
-        sortedY.forEach(y => {
-            const rowItems = rows[Number(y)].sort((a, b) => a.x - b.x);
-            const rowStr = rowItems.map(item => `"${item.str.replace(/"/g, '""')}"`).join(",");
-            csvContent += rowStr + "\n";
-        });
-        csvContent += "\n";
-    }
-    
-    const blob = new Blob([csvContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;' });
-    return { blob, ext: 'xlsx', preview: previewBlob };
-  };
-
-  const convertToPpt = async (pdfDoc: any): Promise<{ blob: Blob, ext: string, preview: Blob }> => {
-    const previewBlob = await generateDocumentPreview(pdfDoc);
-    let htmlContent = `
-    <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:p="urn:schemas-microsoft-com:office:powerpoint">
-    <head><title>PDF to PPT</title></head><body>
-    `;
-    
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setProcessingMessage(`Merender slide ${i}...`);
-        const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        const imgData = canvas.toDataURL('image/jpeg', 0.85);
-
-        htmlContent += `
-        <div class=Slide><img src="${imgData}" style='width:100%; height:auto' /></div>
-        <br style='page-break-before:always' />
-        `;
-    }
-    
-    htmlContent += "</body></html>";
-    const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
-    return { blob, ext: 'pptx', preview: previewBlob };
+    return { blob: zipBlob, ext: 'zip' };
   };
 
   const handleConvert = async () => {
     if (!fileWithBuffer || !selectedFormat) return;
 
     setIsProcessing(true);
-    setProcessingMessage('Memulai konversi...');
-
+    
     try {
         const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileWithBuffer.buffer.slice(0)) }).promise;
         
-        let result: { blob: Blob, ext: string, preview: Blob };
+        let result: { blob: Blob, ext: string };
 
         switch (selectedFormat) {
             case 'jpg':
+                setProcessingMessage('Memproses gambar lokal...');
                 result = await convertToImages(pdfDoc);
                 break;
             case 'word':
-                result = await convertToWord(pdfDoc);
+                setProcessingMessage('Konversi ke Word...');
+                result = await convertWithBackend('word');
                 break;
             case 'excel':
-                result = await convertToExcel(pdfDoc);
+                setProcessingMessage('Konversi ke Excel...');
+                result = await convertWithBackend('excel');
                 break;
             case 'ppt':
-                result = await convertToPpt(pdfDoc);
-                break;
+                 // Placeholders for future backend implementation
+                 addToast("Format ini belum tersedia di server saat ini.", 'info');
+                 setIsProcessing(false);
+                 return;
             default:
                 throw new Error("Format tidak dikenal");
         }
 
         const url = URL.createObjectURL(result.blob);
-        const preview = URL.createObjectURL(result.preview);
         
         setOutputUrl(url);
-        setPreviewUrl(preview);
         setOutputFilename(`${fileWithBuffer.file.name.replace('.pdf', '')}.${result.ext}`);
         addToast('Konversi berhasil!', 'success');
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Konversi gagal:", error);
-        addToast("Terjadi kesalahan saat mengonversi.", 'error');
+        addToast(error.message || "Terjadi kesalahan saat mengonversi.", 'error');
     } finally {
         setIsProcessing(false);
     }
@@ -368,19 +239,8 @@ ${bodyContent}
           <CheckCircleIcon />
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Konversi Selesai!</h3>
           
-          {previewUrl && (
-              <div className="bg-gray-100 dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Pratinjau Hasil:</p>
-                  <img 
-                    src={previewUrl} 
-                    alt="Preview Hasil Konversi" 
-                    className="max-h-[300px] w-auto rounded shadow-md border border-white dark:border-slate-500"
-                  />
-              </div>
-          )}
-
           <p className="text-lg">File Anda telah berhasil dikonversi ke format {selectedFormat === 'jpg' ? selectedImageFormat.toUpperCase() : selectedFormat?.toUpperCase()}.</p>
-          <a href={outputUrl} download={outputFilename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
+          <a href={outputUrl} download={outputFilename} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none w-full max-w-sm">
             {selectedFormat === 'jpg' ? <ZipIcon /> : <DownloadIcon />}
             Unduh File
           </a>
@@ -439,11 +299,12 @@ ${bodyContent}
                     
                     <button
                         onClick={() => setSelectedFormat('ppt')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'ppt' ? 'bg-orange-50 border-orange-500 shadow-md dark:bg-orange-900/20 dark:border-orange-500' : 'bg-white border-gray-200 hover:border-orange-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
+                        disabled={true}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 opacity-50 cursor-not-allowed bg-gray-100 dark:bg-slate-800 border-gray-200 dark:border-slate-700`}
                     >
-                        <FilePptIcon className="w-12 h-12 text-orange-500" />
-                        <span className="font-bold text-gray-800 dark:text-gray-200">PowerPoint</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">.pptx</span>
+                        <FilePptIcon className="w-12 h-12 text-gray-400" />
+                        <span className="font-bold text-gray-500 dark:text-gray-400">PowerPoint</span>
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wider bg-gray-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">Segera</span>
                     </button>
                     
                      <button
