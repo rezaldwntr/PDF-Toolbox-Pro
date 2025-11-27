@@ -22,14 +22,18 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
           Privasi Anda sangat penting bagi kami. Kebijakan Privasi ini menjelaskan bagaimana kami menangani data Anda saat Anda menggunakan Zentridox. Dengan menggunakan situs web kami, Anda menyetujui praktik yang dijelaskan dalam kebijakan ini.
         </p>
 
-        <h4>1. Privasi File Anda: Pemrosesan di Sisi Klien</h4>
+        <h4>1. Privasi File & Pemrosesan</h4>
         <p>
-          Kami memahami sensitivitas dokumen Anda. Oleh karena itu, semua pemrosesan PDF (menggabungkan, memisahkan, mengompres, dll.) terjadi langsung di browser web Anda menggunakan JavaScript. File Anda <strong>TIDAK PERNAH</strong> diunggah, disimpan, atau ditransmisikan ke server kami atau server pihak ketiga mana pun. File-file tersebut tetap berada secara eksklusif di perangkat Anda setiap saat.
+          Kami memprioritaskan privasi dokumen Anda dengan pendekatan berikut:
         </p>
+        <ul>
+          <li><strong>Pemrosesan Lokal (Client-Side):</strong> Untuk alat seperti Menggabungkan, Memisahkan, Mengompres, dan Mengedit Teks, pemrosesan dilakukan sepenuhnya di dalam browser Anda menggunakan teknologi web modern. File-file ini tidak pernah diunggah ke server kami.</li>
+          <li><strong>Pemrosesan Server (Server-Side):</strong> Untuk alat Konversi Lanjutan (misalnya PDF ke Word, Excel, PowerPoint), file perlu dikirim ke server kami untuk diproses. Kami menjamin bahwa file ini hanya digunakan untuk tujuan konversi sementara dan segera dihapus dari sistem kami setelah proses selesai.</li>
+        </ul>
 
         <h4>2. Informasi yang Kami Kumpulkan (Data Log)</h4>
         <p>
-          Seperti kebanyakan situs web, penyedia hosting kami dapat mengumpulkan informasi yang dikirimkan browser Anda ("Data Log"). Data ini mungkin mencakup alamat Protokol Internet (IP) Anda, jenis browser, halaman yang Anda kunjungi, dan statistik lainnya. Data ini digunakan untuk tujuan analitik dan keamanan, dan tidak ditautkan ke file yang Anda proses.
+          Seperti kebanyakan situs web, penyedia hosting kami dapat mengumpulkan informasi yang dikirimkan browser Anda ("Data Log"). Data ini mungkin mencakup alamat Protokol Internet (IP) Anda, jenis browser, halaman yang Anda kunjungi, dan statistik lainnya. Data ini digunakan untuk tujuan analitik dan keamanan.
         </p>
 
         <h4>3. Cookies dan Iklan Pihak Ketiga (Google AdSense)</h4>
@@ -46,7 +50,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         <h4>4. Keamanan</h4>
         <p>
-          Kami menggunakan koneksi terenkripsi (HTTPS) untuk melindungi data yang ditransmisikan antara browser Anda dan server hosting kami. Namun, perlu diingat bahwa tidak ada metode transmisi melalui Internet yang 100% aman.
+          Kami menggunakan koneksi terenkripsi (HTTPS) untuk melindungi data yang ditransmisikan antara browser Anda dan server kami. Kami menerapkan langkah-langkah keamanan standar industri untuk melindungi informasi Anda.
         </p>
 
         <h4>5. Perubahan pada Kebijakan Privasi Ini</h4>

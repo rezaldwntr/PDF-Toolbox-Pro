@@ -73,9 +73,9 @@ function App() {
   };
 
   useEffect(() => {
-    // Cek apakah user sudah pernah melihat modal ini
-    // Menggunakan key baru untuk mereset status tampilan bagi pengguna lama
-    const hasSeenModal = localStorage.getItem('zentridox_beta_notice_viewed');
+    // Cek apakah user sudah pernah melihat modal ini di sesi ini
+    // Menggunakan sessionStorage agar muncul lagi saat browser dibuka ulang/refresh
+    const hasSeenModal = sessionStorage.getItem('zentridox_beta_notice_viewed');
     if (!hasSeenModal) {
       setShowDevModal(true);
     }
@@ -83,7 +83,7 @@ function App() {
 
   const handleCloseDevModal = () => {
     setShowDevModal(false);
-    localStorage.setItem('zentridox_beta_notice_viewed', 'true');
+    sessionStorage.setItem('zentridox_beta_notice_viewed', 'true');
   };
 
   const handleNavigateToContact = () => {
@@ -175,21 +175,10 @@ function App() {
                 <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Privasi Anda terjamin. Semua file diproses langsung di perangkat Anda.
+                <p className="text-gray-500 dark:text-gray-400 px-4">
+                  Sebagian besar alat memproses file secara lokal. Konversi lanjutan diproses secara aman di server.
                 </p>
               </div>
-              <p>
-                  Created By{' '}
-                  <a
-                    href="https://instagram.com/rezaldwntr"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    @rezaldwntr
-                  </a>
-                </p>
             </footer>
         )}
         

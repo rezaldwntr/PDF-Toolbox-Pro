@@ -16,25 +16,16 @@ const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
         
         <h4>Apa yang Kami Tawarkan?</h4>
         <p>
-          Zentridox adalah solusi lengkap untuk semua kebutuhan PDF Anda. Kami percaya bahwa manajemen dokumen yang kuat harus dapat diakses oleh semua orang, tanpa iklan yang mengganggu atau keharusan untuk mengunggah file sensitif Anda ke server.
+          Zentridox adalah solusi lengkap untuk semua kebutuhan PDF Anda. Kami percaya bahwa manajemen dokumen yang kuat harus dapat diakses oleh semua orang, tanpa iklan yang mengganggu.
         </p>
         <ul className="list-disc list-inside">
             <li><strong>Gratis:</strong> Semua alat kami 100% gratis untuk digunakan.</li>
-            <li><strong>Aman:</strong> Aplikasi kami berjalan sepenuhnya di browser Anda. File Anda tidak pernah meninggalkan komputer Anda, memastikan privasi Anda selalu terlindungi.</li>
-            <li><strong>Berbasis Web:</strong> Tidak perlu mengunduh atau menginstal perangkat lunak apa pun. Cukup buka di browser Anda dan mulai bekerja.</li>
+            <li><strong>Privasi & Keamanan:</strong> Untuk sebagian besar alat (seperti gabungkan, pisahkan, kompres), pemrosesan dilakukan langsung di browser Anda. Untuk konversi format lanjutan (seperti PDF ke Word), kami menggunakan server aman untuk memproses file Anda tanpa menyimpannya secara permanen.</li>
+            <li><strong>Mudah Digunakan:</strong> Tidak perlu mengunduh atau menginstal perangkat lunak apa pun. Cukup buka di browser Anda dan mulai bekerja.</li>
         </ul>
 
         <p>
-          Proyek ini dihidupkan oleh{' '}
-          <a
-            href="https://instagram.com/rezaldwntr"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            @rezaldwntr
-          </a>
-          , seorang pengembang yang bersemangat dalam membangun aplikasi web yang berguna dan ramah pengguna. Kami terus berupaya meningkatkan dan menambahkan fitur baru ke platform kami. Terima kasih telah menggunakan Zentridox!
+          Kami berdedikasi untuk terus meningkatkan platform ini dengan fitur-fitur baru yang bermanfaat bagi produktivitas Anda. Terima kasih telah memilih Zentridox sebagai alat manajemen dokumen Anda!
         </p>
       </div>
     </ToolContainer>

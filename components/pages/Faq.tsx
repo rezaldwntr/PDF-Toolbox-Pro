@@ -13,7 +13,7 @@ const faqData = [
   },
   {
     question: 'Apakah file saya aman dan di mana file diproses?',
-    answer: 'Keamanan Anda adalah prioritas utama kami. Semua pemrosesan file (menggabungkan, mengompres, dll.) dilakukan langsung di dalam browser web Anda di komputer Anda. File Anda TIDAK PERNAH diunggah ke server kami. Mereka tetap berada di perangkat Anda dari awal hingga akhir.',
+    answer: 'Ya, file Anda aman. Untuk sebagian besar alat (seperti Gabungkan, Pisahkan, Kompres), file diproses langsung di browser Anda dan tidak pernah meninggalkan perangkat Anda. Untuk alat Konversi (seperti PDF ke Word), file diproses secara aman di server kami dan dihapus segera setelah proses selesai.',
   },
   {
     question: 'Apakah saya perlu menginstal perangkat lunak?',
@@ -21,7 +21,7 @@ const faqData = [
   },
   {
     question: 'Mengapa pemrosesan file saya gagal atau lambat?',
-    answer: 'Karena semua pemrosesan terjadi di komputer Anda, kinerjanya bergantung pada sumber daya perangkat Anda (CPU, RAM) dan ukuran serta kompleksitas file PDF Anda. Proses mungkin gagal atau berjalan lambat jika file sangat besar atau komputer Anda memiliki sumber daya terbatas. Coba tutup tab browser lain dan coba lagi.',
+    answer: 'Kinerja bergantung pada koneksi internet (untuk alat konversi) dan spesifikasi perangkat Anda (untuk alat lokal). Jika file sangat besar atau kompleks, proses mungkin memakan waktu lebih lama. Pastikan koneksi internet Anda stabil saat menggunakan fitur konversi.',
   },
    {
     question: 'Bagaimana cara kerja kompresi PDF?',
