@@ -18,7 +18,7 @@ interface PdfFileWithBuffer {
 }
 
 type ConvertFormat = 'word' | 'excel' | 'ppt' | 'jpg'; // 'jpg' acts as the generic 'Image' category
-type ImageFormat = 'jpg' | 'jpeg' | 'png' | 'gif';
+type ImageFormat = 'jpg' | 'jpeg' | 'png';
 
 const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
@@ -62,7 +62,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   // --- BACKEND INTEGRATION ---
-  const convertWithBackend = async (format: string): Promise<{ blob: Blob, ext: string }> => {
+  const convertWithBackend = async (format: string, imageOutputFormat?: string): Promise<{ blob: Blob, ext: string }> => {
       if (!fileWithBuffer) throw new Error("No file");
       
       const formData = new FormData();
@@ -81,6 +81,11 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       } else if (format === 'ppt') {
           endpoint = '/convert/pdf-to-ppt';
           ext = 'pptx';
+      } else if (format === 'image') {
+          // Menggunakan query param untuk format gambar sesuai instruksi
+          const fmt = imageOutputFormat || 'jpg';
+          endpoint = `/convert/pdf-to-image?output_format=${fmt}`;
+          ext = 'zip'; // Server mengembalikan zip berisi gambar
       } else {
           throw new Error("Format ini belum didukung oleh server.");
       }
@@ -88,7 +93,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
           // Set timeout for fetch to handle slow server response gracefully
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout for server processing
+          const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes timeout (images can take time)
 
           const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
           const fullUrl = `${cleanBackendUrl}${endpoint}`;
@@ -130,79 +135,19 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
   };
 
-
-  // --- CLIENT-SIDE ALGORITHMS (IMAGES ONLY) ---
-  // We keep this client-side because it's efficient enough for images and saves server bandwidth.
-
-  const convertToImages = async (pdfDoc: any): Promise<{ blob: Blob, ext: string }> => {
-    const zip = new JSZip();
-    const baseName = fileWithBuffer!.file.name.replace('.pdf', '');
-    
-    let mimeType = 'image/jpeg';
-    let ext = 'jpg';
-
-    switch (selectedImageFormat) {
-        case 'jpeg':
-            mimeType = 'image/jpeg';
-            ext = 'jpeg';
-            break;
-        case 'png':
-            mimeType = 'image/png';
-            ext = 'png';
-            break;
-        case 'gif':
-            mimeType = 'image/gif';
-            ext = 'gif';
-            break;
-        case 'jpg':
-        default:
-            mimeType = 'image/jpeg';
-            ext = 'jpg';
-            break;
-    }
-
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setProcessingMessage(`Merender halaman ${i} dari ${pdfDoc.numPages} ke ${selectedImageFormat.toUpperCase()}...`);
-        const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        
-        // Fill white background for JPEG/JPG to avoid black background on transparent PDFs
-        if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, mimeType, 0.9));
-        if (blob) {
-            zip.file(`${baseName}_halaman_${i}.${ext}`, blob);
-        }
-    }
-
-    setProcessingMessage('Membuat file ZIP...');
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    return { blob: zipBlob, ext: 'zip' };
-  };
-
   const handleConvert = async () => {
     if (!fileWithBuffer || !selectedFormat) return;
 
     setIsProcessing(true);
     
     try {
-        const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileWithBuffer.buffer.slice(0)) }).promise;
-        
         let result: { blob: Blob, ext: string };
 
         switch (selectedFormat) {
-            case 'jpg':
-                setProcessingMessage('Memproses gambar lokal...');
-                result = await convertToImages(pdfDoc);
+            case 'jpg': // 'jpg' is the key for the Image category button
+                setProcessingMessage(`Konversi ke Gambar (${selectedImageFormat.toUpperCase()})...`);
+                // Menggunakan server backend dengan parameter format gambar
+                result = await convertWithBackend('image', selectedImageFormat);
                 break;
             case 'word':
                 setProcessingMessage('Konversi ke Word...');
@@ -322,7 +267,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800 animate-fade-in">
                         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Pilih Format Gambar:</h4>
                         <div className="flex flex-wrap justify-center gap-3">
-                            {(['jpg', 'jpeg', 'png', 'gif'] as ImageFormat[]).map((fmt) => (
+                            {(['jpg', 'jpeg', 'png'] as ImageFormat[]).map((fmt) => (
                                 <button
                                     key={fmt}
                                     onClick={() => setSelectedImageFormat(fmt)}
