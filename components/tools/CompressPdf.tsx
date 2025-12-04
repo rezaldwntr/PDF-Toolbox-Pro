@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } from '../icons';
@@ -20,6 +19,7 @@ interface PdfFileWithBuffer {
   buffer: ArrayBuffer;
 }
 
+// Utilitas format byte ke KB/MB agar mudah dibaca manusia
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -29,24 +29,30 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-// Helper function to create a compressed PDF with a specific quality by rasterizing all pages
+// --- FUNGSI KOMPRESI LANJUTAN ---
+// Membuat PDF baru dengan me-render ulang setiap halaman sebagai gambar JPEG (Rasterisasi).
+// Teknik ini sangat efektif untuk mengurangi ukuran PDF hasil scan yang berisi gambar besar.
 const createPdfWithQuality = async (pdfjsDoc: any, jpegQuality: number): Promise<Uint8Array> => {
     const newPdfDoc = await PDFDocument.create();
     for (let i = 1; i <= pdfjsDoc.numPages; i++) {
         const page = await pdfjsDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is approx 108 DPI. Let's use 2.0 for ~150 DPI
+        // Menggunakan skala 1.5 untuk menjaga keterbacaan teks (sekitar 108 DPI)
+        const viewport = page.getViewport({ scale: 1.5 });
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
+        // Render halaman PDF ke Canvas
         await page.render({ canvasContext: context, viewport: viewport }).promise;
 
+        // Konversi Canvas ke format JPEG dengan kualitas kompresi tertentu
         const jpegDataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
         const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
+        
+        // Sematkan gambar hasil kompresi ke halaman PDF baru
         const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
-
         const newPage = newPdfDoc.addPage([jpegImage.width, jpegImage.height]);
         newPage.drawImage(jpegImage, {
             x: 0,
@@ -62,6 +68,7 @@ const createPdfWithQuality = async (pdfjsDoc: any, jpegQuality: number): Promise
 const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [compressionMode, setCompressionMode] = useState<CompressionMode>('recommended');
+  // Target ukuran untuk mode Advanced (user menentukan sendiri batas ukuran)
   const [targetSize, setTargetSize] = useState<number>(1024);
   const [targetUnit, setTargetUnit] = useState<'KB' | 'MB'>('KB');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,6 +78,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
   
+  // State untuk estimasi ukuran (Mode Recommended)
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [recommendedResultBytes, setRecommendedResultBytes] = useState<Uint8Array | null>(null);
@@ -105,7 +113,9 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
   
-  // Pra-kalkulasi hasil untuk mode "Direkomendasikan" segera setelah file dimuat.
+  // --- ALGORITMA ESTIMASI CERDAS ---
+  // Dijalankan segera setelah file dimuat untuk menghitung potensi penghematan.
+  // Menganalisis konten setiap halaman untuk menentukan strategi terbaik (Lossless vs Lossy).
   useEffect(() => {
     setEstimatedSize(null);
     setRecommendedResultBytes(null);
@@ -115,31 +125,27 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       setIsEstimating(true);
       try {
-        // --- LOGIKA BARU BERDASARKAN AUDIT PROFESIONAL ---
-        // Pipeline ini meniru profil "Cepat & Seimbang" untuk mendapatkan
-        // keseimbangan terbaik antara ukuran dan kualitas, ideal untuk penggunaan web.
-
-        // Langkah 1 & 2: Muat PDF untuk Audit & Buat PDF Baru
+        // --- LOGIKA AUDIT PROFESIONAL ---
+        // Meniru profil "Cepat & Seimbang" untuk mendapatkan keseimbangan terbaik.
+        
         const arrayBuffer = fileWithBuffer.buffer;
         const sourcePdfDoc = await PDFDocument.load(arrayBuffer.slice(0));
         const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
         const newPdfDoc = await PDFDocument.create();
         
-        // Langkah 3: Audit Halaman-demi-Halaman & Terapkan Strategi yang Tepat
+        // Audit Halaman-demi-Halaman
         for (let i = 0; i < sourcePdfDoc.getPageCount(); i++) {
           const pageNum = i + 1;
           const pdfjsPage = await pdfjsDoc.getPage(pageNum);
           
-          // AUDIT: Analisis konten halaman (teks dan gambar)
+          // Analisis konten halaman (teks vs gambar)
           const textContent = await pdfjsPage.getTextContent();
           const ops = await pdfjsPage.getOperatorList();
           const viewport = pdfjsPage.getViewport({ scale: 1.0 });
           const pageArea = viewport.width * viewport.height;
           let totalImagePixels = 0;
 
-          // Temukan operator gambar dan hitung total piksel gambar.
-          // Ini adalah pendekatan yang disederhanakan dan tidak memperhitungkan transformasi gambar (skala/rotasi),
-          // tetapi memberikan perkiraan yang baik untuk audit sisi klien.
+          // Hitung luas area yang tertutup gambar
           const imagePromises: Promise<void>[] = [];
           for (let j = 0; j < ops.fnArray.length; j++) {
             if (ops.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
@@ -147,13 +153,12 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               imagePromises.push(
                 new Promise(async (resolve) => {
                   try {
-                    // Coba dapatkan data gambar dari referensinya
                     const img = await pdfjsPage.commonObjs.get(imgRef);
                     if (img && img.width && img.height) {
                         totalImagePixels += img.width * img.height;
                     }
                   } catch (e) {
-                    // Abaikan jika referensi gambar tidak dapat diselesaikan
+                    // Abaikan error referensi gambar
                   }
                   resolve();
                 })
@@ -162,16 +167,14 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           }
           await Promise.all(imagePromises);
 
-          // KEPUTUSAN: Berdasarkan hasil audit, pilih pipeline yang tepat.
-          // Halaman dianggap dominan gambar jika gambar menutupi > 50% halaman ATAU jika hanya ada sedikit teks.
+          // Tentukan apakah halaman dominan gambar atau teks
           const isImageDominant = (totalImagePixels / pageArea > 0.5) || textContent.items.length < 15;
           
           if (isImageDominant) {
-            // A. Pipeline untuk Halaman Pindaian/Berat Gambar (Kompresi Aset)
-            // Lakukan downsample seluruh halaman ke 150 DPI dan kompres sebagai JPEG.
-            // Ini sesuai dengan Pass 2 dari profil "Cepat & Seimbang".
+            // STRATEGI A: Kompresi Gambar (Rasterisasi)
+            // Downsample ke 150 DPI dan kompres JPEG 80%
             const TARGET_DPI = 150;
-            const scale = TARGET_DPI / 72; // PDF menggunakan 72 DPI sebagai dasar
+            const scale = TARGET_DPI / 72; // PDF base 72 DPI
             
             const scaledViewport = pdfjsPage.getViewport({ scale });
             const canvas = document.createElement('canvas');
@@ -181,7 +184,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             await pdfjsPage.render({ canvasContext: context, viewport: scaledViewport }).promise;
 
-            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.80); // Kualitas 80% (Seimbang)
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.80);
             const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
             const jpegImage = await newPdfDoc.embedJpg(jpegImageBytes);
 
@@ -193,23 +196,22 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               height: newPage.getHeight(),
             });
           } else { 
-            // B. Pipeline untuk Halaman Berat Teks/Vektor (Salinan Lossless)
-            // Salin halaman apa adanya untuk menjaga kualitas teks, kemampuan pencarian, dan vektor.
+            // STRATEGI B: Salin Halaman Asli (Lossless)
+            // Jaga teks agar tetap bisa dipilih/dicari (OCR friendly)
             const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i]);
             newPdfDoc.addPage(copiedPage);
           }
         }
         
-        // Langkah 4: Simpan & Tulis Ulang Struktural (qpdf-like)
-        // Metode `save` dari pdf-lib melakukan pembersihan dan pengoptimalan struktural.
+        // Simpan hasil audit
         const compressedBytes = await newPdfDoc.save();
         setEstimatedSize(compressedBytes.byteLength);
         
-        // Pemeriksaan Keamanan: Bandingkan ukuran baru dengan yang asli.
+        // Simpan bytes jika ukurannya memang lebih kecil
         if (compressedBytes.byteLength < fileWithBuffer.file.size) {
             setRecommendedResultBytes(compressedBytes);
         } else {
-            setRecommendedResultBytes(null); // Mencegah kompresi jika tidak ada penghematan.
+            setRecommendedResultBytes(null); 
         }
 
       } catch (error) {
@@ -225,6 +227,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     calculateRecommendedResult();
   }, [fileWithBuffer, addToast]);
   
+  // Handler untuk menjalankan proses kompresi final
   const handleCompress = async () => {
     if (!fileWithBuffer) return;
 
@@ -243,9 +246,12 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 setIsProcessing(false);
                 return;
             }
-        } else { // Advanced Mode
+        } else { 
+            // --- MODE LANJUTAN (Target Ukuran) ---
+            // Mencoba mencapai ukuran target dengan menyesuaikan kualitas JPEG secara iteratif
             const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
             const targetSizeBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
+            
             if (targetSizeBytes >= fileWithBuffer.file.size) {
                 addToast("Ukuran target harus lebih kecil dari ukuran file asli.", 'warning');
                 setIsProcessing(false);
@@ -256,6 +262,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             let bestPdfBytes: Uint8Array | null = null;
             let minDiff = Infinity;
             
+            // Binary Search sederhana untuk menemukan kualitas JPEG yang pas
             let minQuality = 0.01;
             let maxQuality = 1.0;
 
@@ -279,12 +286,6 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 }
             }
             finalPdfBytes = bestPdfBytes!;
-
-            if (finalPdfBytes.byteLength >= fileWithBuffer.file.size) {
-              addToast("Tidak dapat mengompres file ke ukuran yang lebih kecil dari aslinya.", 'warning');
-              setIsProcessing(false);
-              return;
-            }
         }
 
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
@@ -305,7 +306,9 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  // Render UI...
   const renderContent = () => {
+    // Tampilan Hasil
     if (result) {
       const savings = 100 - (result.newSize / result.originalSize) * 100;
       return (
@@ -348,9 +351,11 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         );
     }
 
+    // Tampilan Pilihan Mode
     if (fileWithBuffer) {
       return (
         <div className="animate-fade-in">
+          {/* File Info */}
           <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-lg flex items-center justify-between mb-6 shadow-sm">
             <div className="flex items-center gap-3">
               <FilePdfIcon />
@@ -366,6 +371,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
           <h3 className="text-lg font-semibold text-center text-gray-800 dark:text-gray-200 mb-4">Pilih Mode Kompresi</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Mode Direkomendasikan */}
             <label onClick={() => setCompressionMode('recommended')} className={`p-4 rounded-xl cursor-pointer border-2 transition-all text-left flex flex-col justify-between ${compressionMode === 'recommended' ? 'bg-blue-50 border-blue-500 shadow-sm dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}>
                 <div className="flex items-center">
                     <input type="radio" name="compression" value="recommended" checked={compressionMode === 'recommended'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600" />
@@ -388,6 +394,8 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   ) : null}
                 </div>
             </label>
+            
+             {/* Mode Lanjutan */}
              <label onClick={() => setCompressionMode('advanced')} className={`p-4 rounded-xl cursor-pointer border-2 transition-all text-left ${compressionMode === 'advanced' ? 'bg-blue-50 border-blue-500 shadow-sm dark:bg-blue-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}>
                 <div className="flex items-center">
                     <input type="radio" name="compression" value="advanced" checked={compressionMode === 'advanced'} onChange={() => {}} className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600" />
@@ -438,6 +446,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
     
+    // Tampilan Upload Default
     return (
         <div
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}

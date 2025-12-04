@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon, DuplicateIcon } from '../icons';
@@ -76,7 +75,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const viewport = page.getViewport({ scale: 1 });
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d')!;
-                const desiredWidth = 200; // a fixed width for previews
+                const desiredWidth = 200; // Lebar tetap untuk pratinjau agar seragam
                 const scale = desiredWidth / viewport.width;
                 const scaledViewport = page.getViewport({ scale });
                 
@@ -101,23 +100,23 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } catch (error) {
         console.error("Gagal memuat PDF:", error);
         addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
-        // We don't call resetState here to preserve already loaded files/pages
     } finally {
         setIsProcessing(false);
         setProcessingMessage('');
     }
   };
 
+  // Menghapus file dan seluruh halaman yang terkait dengannya
   const handleDeleteFile = (fileIndexToDelete: number) => {
     const fileName = filesWithBuffer[fileIndexToDelete].file.name;
 
-    // Hapus file
+    // Hapus file dari state
     const newFilesWithBuffer = filesWithBuffer.filter((_, index) => index !== fileIndexToDelete);
     
     // Hapus halaman yang terkait dengan file tersebut
     const newPages = pages.filter(page => page.fileIndex !== fileIndexToDelete);
 
-    // Indeks ulang halaman yang tersisa
+    // Indeks ulang halaman yang tersisa agar sinkron dengan array file baru
     const reIndexedPages = newPages.map(page => {
         if (page.fileIndex > fileIndexToDelete) {
             const newFileIndex = page.fileIndex - 1;
@@ -162,6 +161,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setPages(newPages);
   };
 
+  // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
     setDragging(true);
@@ -216,12 +216,14 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setDragging(false);
   };
 
+  // Menyimpan hasil akhir PDF
   const handleSave = async () => {
     if (filesWithBuffer.length === 0 || pages.length === 0) return;
     setIsProcessing(true);
     setProcessingMessage('Menyusun PDF...');
 
     try {
+        // Muat semua dokumen sumber
         const sourcePdfDocs = await Promise.all(
             filesWithBuffer.map(({ buffer }) => PDFDocument.load(buffer.slice(0)))
         );
@@ -232,6 +234,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             const sourceDoc = sourcePdfDocs[pageInfo.fileIndex];
             const [copiedPage] = await newPdfDoc.copyPages(sourceDoc, [pageInfo.originalPageIndex]);
             
+            // Terapkan rotasi tambahan (relatif terhadap rotasi asli)
             const originalPage = sourceDoc.getPage(pageInfo.originalPageIndex);
             const originalRotation = originalPage.getRotation().angle;
             copiedPage.setRotation(degrees(originalRotation + pageInfo.rotation));
@@ -253,6 +256,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const renderContent = () => {
+    // ... UI Rendering Code ...
     if (outputUrl) {
       return (
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
@@ -318,6 +322,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
         </div>
 
+        {/* List file yang dimuat */}
         <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">File yang Dimuat</h3>
             <ul className="space-y-2 max-h-48 overflow-y-auto bg-gray-100 dark:bg-slate-900/50 p-3 rounded-lg border border-gray-200 dark:border-slate-700 shadow-inner transition-colors">
@@ -338,6 +343,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </ul>
         </div>
         
+        {/* Grid Halaman */}
         <div className="flex flex-wrap items-start justify-center gap-4">
           {pages.map((page, index) => {
             const isSideways = page.rotation === 90 || page.rotation === 270;

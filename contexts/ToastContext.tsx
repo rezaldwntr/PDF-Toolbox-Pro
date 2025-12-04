@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 
+// Tipe notifikasi yang tersedia
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 interface ToastMessage {
@@ -14,8 +14,10 @@ interface ToastContextType {
   addToast: (message: string, type: ToastType) => void;
 }
 
+// Membuat Context React untuk manajemen Toast
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+// Custom hook untuk mempermudah pemanggilan toast dari komponen mana saja
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
@@ -28,17 +30,22 @@ interface ToastProviderProps {
     children: ReactNode;
 }
 
+// Provider utama yang membungkus aplikasi dan menyimpan state toast
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  // Fungsi untuk menambahkan pesan toast baru ke dalam antrian
   const addToast = useCallback((message: string, type: ToastType) => {
-    const id = Date.now();
+    const id = Date.now(); // Gunakan timestamp sebagai ID unik
     setToasts(prevToasts => [...prevToasts, { id, message, type }]);
+    
+    // Otomatis hapus toast setelah 5 detik
     setTimeout(() => {
       removeToast(id);
     }, 5000);
   }, []);
 
+  // Fungsi untuk menghapus toast dari state (digunakan oleh tombol tutup atau timeout)
   const removeToast = (id: number) => {
     setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   };
@@ -46,26 +53,29 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   return (
     <ToastContext.Provider value={{ addToast }}>
       {children}
+      {/* Container untuk merender toast secara visual di lapisan atas */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </ToastContext.Provider>
   );
 };
-
 
 interface ToastContainerProps {
   toasts: ToastMessage[];
   removeToast: (id: number) => void;
 }
 
+// Komponen individual untuk menampilkan satu pesan Toast
 const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> = ({ toast, onDismiss }) => {
     const [isExiting, setIsExiting] = useState(false);
 
+    // Animasi keluar sebelum menghapus dari DOM
     const handleDismiss = () => {
         setIsExiting(true);
         setTimeout(() => onDismiss(toast.id), 300);
     };
     
     useEffect(() => {
+        // Timer otomatis di level komponen untuk memicu animasi keluar
         const timer = setTimeout(() => {
             handleDismiss();
         }, 5000);
@@ -73,12 +83,15 @@ const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> 
         return () => clearTimeout(timer);
     }, []);
 
+    // Styling CSS berdasarkan tipe pesan
     const typeClasses = {
         success: 'bg-green-600 border-green-700 text-white dark:bg-green-900/90 dark:border-green-800',
         error: 'bg-red-600 border-red-700 text-white dark:bg-red-900/90 dark:border-red-800',
         warning: 'bg-yellow-500 border-yellow-600 text-white dark:bg-yellow-700/90 dark:border-yellow-600',
         info: 'bg-blue-600 border-blue-700 text-white dark:bg-blue-900/90 dark:border-blue-800',
     };
+
+    // Ikon SVG berdasarkan tipe
     const Icon = {
         success: () => <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
         error: () => <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />,
@@ -108,10 +121,12 @@ const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> 
     );
 };
 
+// Container yang menggunakan Portal untuk merender toast di layer paling atas (di luar root app)
 export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeToast }) => {
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
+    // Membuat atau mencari elemen root khusus untuk portal toast
     let element = document.getElementById('toast-portal');
     if (!element) {
       element = document.createElement('div');
@@ -123,6 +138,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeTo
 
   if (!portalRoot) return null;
 
+  // Render menggunakan ReactDOM.createPortal agar tidak terpengaruh overflow parent
   return ReactDOM.createPortal(
     <div className="fixed top-5 right-5 z-[100] space-y-3">
       {toasts.map(toast => (

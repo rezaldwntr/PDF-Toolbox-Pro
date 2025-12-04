@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 
 // Beri tahu TypeScript tentang variabel global pdfjsLib dari CDN
@@ -8,6 +7,7 @@ interface PdfPreviewProps {
   buffer: ArrayBuffer;
 }
 
+// Komponen untuk merender halaman pertama dari file PDF sebagai pratinjau (thumbnail)
 const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -25,11 +25,12 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer }) => {
       try {
         if (isCancelled) return;
         
-        // Use a copy of the buffer for rendering so the original is not detached
+        // Salin buffer agar rendering tidak mempengaruhi data asli
         const bufferCopy = buffer.slice(0);
         const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(bufferCopy) }).promise;
         if (isCancelled) return;
 
+        // Ambil halaman pertama
         const page = await pdf.getPage(1);
         if (isCancelled) return;
 

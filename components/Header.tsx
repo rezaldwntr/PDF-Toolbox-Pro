@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { View } from '../types';
 import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon } from './icons';
 import { useTheme } from '../contexts/ThemeContext';
 
+// Daftar path logo untuk menangani kemungkinan masalah loading path di berbagai environment
 const logoPaths = [
   'logozen.png',
   '/logozen.png',
@@ -23,14 +23,17 @@ const navItems = [
 ];
 
 const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
+  // State untuk mengontrol visibilitas menu di tampilan mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // State untuk menangani fallback jika gambar logo gagal dimuat
   const [logoError, setLogoError] = useState(false);
   const [currentPathIndex, setCurrentPathIndex] = useState(0);
+  // Mengambil tema dan fungsi toggle dari Context
   const { theme, toggleTheme } = useTheme();
 
   const handleNavigate = (view: View) => {
     onNavigate(view);
-    setIsMobileMenuOpen(false);
+    setIsMobileMenuOpen(false); // Tutup menu mobile setelah navigasi
   };
 
   const handleGoHome = () => {
@@ -38,24 +41,26 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
     setIsMobileMenuOpen(false);
   };
 
+  // Mencoba path logo berikutnya jika yang sekarang gagal dimuat
   const handleLogoError = () => {
     const nextIndex = currentPathIndex + 1;
     if (nextIndex < logoPaths.length) {
       setCurrentPathIndex(nextIndex);
     } else {
-      setLogoError(true);
+      setLogoError(true); // Menyerah dan tampilkan teks
     }
   };
 
   return (
     <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50 border-b border-gray-200 dark:border-slate-700 transition-colors duration-300">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        {/* Logo Section */}
         <button onClick={handleGoHome} className="cursor-pointer flex items-center gap-2">
           {!logoError ? (
             <img 
               src={logoPaths[currentPathIndex]}
               alt="Zentridox Logo" 
-              className={`h-10 md:h-12 object-contain ${theme === 'dark' ? 'invert' : ''}`} // Invert logo color for dark mode if it's black text
+              className={`h-10 md:h-12 object-contain ${theme === 'dark' ? 'invert' : ''}`} // Membalik warna logo di mode gelap jika logo berwarna hitam
               onError={handleLogoError}
             />
           ) : (
@@ -79,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
             ))}
             </nav>
 
-            {/* Theme Toggle */}
+            {/* Tombol Ganti Tema (Dark/Light) */}
             <button 
                 onClick={toggleTheme} 
                 className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
@@ -88,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
                 {theme === 'light' ? <MoonIcon /> : <SunIcon />}
             </button>
             
-            {/* Mobile Menu Button */}
+            {/* Tombol Menu Mobile */}
             <div className="md:hidden">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 p-2 -mr-2">
                 {isMobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
@@ -97,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
         </div>
       </div>
       
-      {/* Mobile Navigation Menu */}
+      {/* Menu Navigasi Mobile (Dropdown) */}
       {isMobileMenuOpen && (
         <div className="md:hidden animate-fade-in-down bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 absolute w-full left-0 shadow-lg">
             <nav className="px-4 pt-2 pb-4 flex flex-col items-start gap-2">

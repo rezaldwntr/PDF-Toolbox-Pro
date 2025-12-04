@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, ZipIcon, TrashIcon } from '../icons';
@@ -6,7 +5,7 @@ import PdfPagePreview from './PdfPagePreview';
 import { PDFDocument } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
 
-// Memberi tahu TypeScript tentang variabel global dari CDN
+// Memberi tahu TypeScript tentang variabel global dari CDN (PDF.js dan JSZip)
 declare const pdfjsLib: any;
 declare const JSZip: any;
 
@@ -15,7 +14,8 @@ interface PdfFileWithBuffer {
   buffer: ArrayBuffer;
 }
 
-// Fungsi utilitas untuk mem-parsing rentang halaman
+// Fungsi utilitas untuk mem-parsing string rentang halaman (misal: "1, 3-5")
+// Mengembalikan Set berisi nomor halaman yang unik
 const parsePageRanges = (rangeStr: string, maxPage: number): Set<number> => {
     const pages = new Set<number>();
     if (!rangeStr) return pages;
@@ -38,7 +38,8 @@ const parsePageRanges = (rangeStr: string, maxPage: number): Set<number> => {
     return pages;
 };
 
-// Fungsi utilitas untuk mengubah set halaman menjadi string rentang
+// Fungsi utilitas untuk mengubah set halaman menjadi string rentang (misal: Set{1,2,3} -> "1-3")
+// Digunakan untuk menampilkan kembali pilihan ke input teks
 const pagesToRangeString = (pages: Set<number>): string => {
     if (pages.size === 0) return '';
     const sortedPages = Array.from(pages).sort((a, b) => Number(a) - Number(b));
@@ -60,8 +61,9 @@ const pagesToRangeString = (pages: Set<number>): string => {
 
 const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
-    const [pdfDoc, setPdfDoc] = useState<any | null>(null);
+    const [pdfDoc, setPdfDoc] = useState<any | null>(null); // Objek dokumen PDF.js untuk pratinjau
     const [numPages, setNumPages] = useState(0);
+    // Mode Split: 'all' (tiap halaman jadi 1 file), 'extract' (pilih halaman tertentu), 'fixed' (bagi setiap X halaman)
     const [splitMode, setSplitMode] = useState<'all' | 'extract' | 'fixed'>('extract');
     const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
     const [rangeInput, setRangeInput] = useState('');
@@ -75,8 +77,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { addToast } = useToast();
 
+    // Reset pilihan saat mode berubah
     useEffect(() => {
-        // Reset state yang relevan saat mode berubah untuk menghindari kebingungan
         setSelectedPages(new Set());
         setRangeInput('');
         setCustomFilename('');
@@ -111,6 +113,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setFileWithBuffer({ file: selectedFile, buffer });
             
             setProcessingMessage('Merender pratinjau PDF...');
+            // Memuat dokumen menggunakan PDF.js untuk pratinjau
             const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
             setPdfDoc(doc);
             setNumPages(doc.numPages);
@@ -123,6 +126,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
     };
     
+    // Toggle seleksi halaman saat diklik pada pratinjau grid
     const handleTogglePage = (pageNumber: number) => {
         const newSelectedPages = new Set<number>(selectedPages);
         if (newSelectedPages.has(pageNumber)) {
@@ -148,6 +152,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }));
     };
 
+    // --- LOGIKA UTAMA PROSES SPLIT ---
     const handleProcess = async () => {
         if (!fileWithBuffer) return;
         
@@ -155,6 +160,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setProcessingMessage('Memproses PDF...');
         try {
             if (splitMode === 'all') {
+                // Mode 1: Pisahkan Semua Halaman -> ZIP
+                // Setiap halaman disimpan sebagai file terpisah dan dibungkus dalam ZIP
                 const zip = new JSZip();
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
@@ -174,6 +181,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 setOutput({ url, filename: finalZipName, isZip: true });
 
             } else if (splitMode === 'extract') {
+                // Mode 2: Ekstrak Halaman Terpilih -> Single PDF
+                // Mengambil halaman yang dipilih dan menggabungkannya menjadi satu file baru
                 if (selectedPages.size === 0) {
                     addToast('Pilih setidaknya satu halaman untuk diekstrak.', 'warning');
                     setIsProcessing(false);
@@ -182,6 +191,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const pdfBytes = fileWithBuffer.buffer;
                 const originalPdf = await PDFDocument.load(pdfBytes);
                 const newPdf = await PDFDocument.create();
+                // Urutkan indeks halaman agar PDF tersusun rapi
                 const pageIndices = Array.from(selectedPages).map(p => Number(p) - 1).sort((a,b) => Number(a) - Number(b));
                 
                 const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
@@ -202,6 +212,8 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                 setOutput({ url, filename: finalFilename, isZip: false });
             } else if (splitMode === 'fixed') {
+                // Mode 3: Rentang Tetap (misal tiap 5 halaman) -> ZIP
+                // Memecah PDF menjadi beberapa bagian dengan jumlah halaman yang sama
                 if (fixedRange < 1) {
                     addToast('Rentang halaman harus minimal 1.', 'warning');
                     setIsProcessing(false);
@@ -253,6 +265,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
     };
     
+    // UI Render...
     const getButtonText = () => {
         if (isProcessing) return 'Memproses...';
         if (splitMode === 'all') return `Pisahkan ${numPages} Halaman`;
@@ -310,7 +323,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
             ) : (
                 <div className="flex flex-col md:flex-row gap-8">
-                    {/* Panel Opsi */}
+                    {/* Panel Opsi (Kiri) */}
                     <div className="w-full md:w-1/3 lg:w-1/4">
                         <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4">Opsi Pemisahan</h3>
                         <div className="space-y-4">
@@ -328,6 +341,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             </label>
                         </div>
 
+                        {/* Input Dinamis Berdasarkan Mode */}
                         {splitMode === 'extract' && (
                             <div className="mt-6 space-y-4 animate-fade-in">
                                 <div>
@@ -390,7 +404,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                     </div>
 
-                    {/* Panel Pratinjau */}
+                    {/* Panel Pratinjau (Kanan) */}
                     <div className="w-full md:w-2/3 lg:w-3/4 bg-gray-100 dark:bg-slate-900 p-4 rounded-lg border border-gray-200 dark:border-slate-700 max-h-[60vh] overflow-y-auto">
                         <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
                             <span className="truncate font-medium text-gray-700 dark:text-gray-200" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</span>
@@ -405,6 +419,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
 
                         {splitMode === 'fixed' && fixedRange > 0 ? (
+                            // Tampilan untuk mode Rentang Tetap (Dikelompokkan)
                             <div className="flex flex-col gap-6">
                                 {Array.from({ length: Math.ceil(numPages / fixedRange) }, (_, groupIndex) => {
                                     const startPage = groupIndex * fixedRange + 1;
@@ -444,6 +459,7 @@ const SplitPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 })}
                             </div>
                         ) : (
+                            // Tampilan Grid untuk mode Ekstrak & Semua
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                 {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNumber => (
                                     <div key={pageNumber} onClick={() => splitMode === 'extract' && handleTogglePage(pageNumber)} className={`relative rounded-lg border-2 bg-white dark:bg-slate-800 shadow-sm overflow-hidden ${selectedPages.has(pageNumber) ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900' : 'border-transparent'} ${splitMode === 'extract' ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}>

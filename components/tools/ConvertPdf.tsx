@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, FileWordIcon, FileExcelIcon, FilePptIcon, FileJpgIcon, ZipIcon, FilePdfIcon } from '../icons';
@@ -7,9 +6,9 @@ import { useToast } from '../../contexts/ToastContext';
 declare const pdfjsLib: any;
 declare const JSZip: any;
 
-// --- CONFIGURATION ---
-// Backend URL for high-fidelity conversions
-// Pastikan tidak ada garis miring (/) di akhir URL ini
+// --- KONFIGURASI SERVER ---
+// URL Backend API untuk konversi format tinggi (high-fidelity).
+// Server ini menangani konversi PDF ke Office dan Gambar yang kompleks.
 const BACKEND_URL = 'https://pdf-backend-api.onrender.com'; 
 
 interface PdfFileWithBuffer {
@@ -17,7 +16,8 @@ interface PdfFileWithBuffer {
   buffer: ArrayBuffer;
 }
 
-type ConvertFormat = 'word' | 'excel' | 'ppt' | 'jpg'; // 'jpg' acts as the generic 'Image' category
+// Format yang didukung
+type ConvertFormat = 'word' | 'excel' | 'ppt' | 'jpg'; // 'jpg' bertindak sebagai kategori umum Gambar
 type ImageFormat = 'jpg' | 'jpeg' | 'png';
 
 const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -61,7 +61,8 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  // --- BACKEND INTEGRATION ---
+  // --- INTEGRASI BACKEND ---
+  // Fungsi utama untuk mengirim file ke server dan menerima hasil konversi sebagai Blob
   const convertWithBackend = async (format: string, imageOutputFormat?: string): Promise<{ blob: Blob, ext: string }> => {
       if (!fileWithBuffer) throw new Error("No file");
       
@@ -71,7 +72,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       let endpoint = '';
       let ext = '';
 
-      // Map formats to backend endpoints
+      // Pemetaan format pilihan ke endpoint backend yang sesuai
       if (format === 'word') {
           endpoint = '/convert/pdf-to-docx';
           ext = 'docx';
@@ -82,18 +83,18 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           endpoint = '/convert/pdf-to-ppt';
           ext = 'pptx';
       } else if (format === 'image') {
-          // Menggunakan query param untuk format gambar sesuai instruksi
+          // Menambahkan parameter format output ke URL query string untuk konversi gambar
           const fmt = imageOutputFormat || 'jpg';
           endpoint = `/convert/pdf-to-image?output_format=${fmt}`;
-          ext = 'zip'; // Server mengembalikan zip berisi gambar
+          ext = 'zip'; // Server mengembalikan zip berisi kumpulan gambar
       } else {
           throw new Error("Format ini belum didukung oleh server.");
       }
 
       try {
-          // Set timeout for fetch to handle slow server response gracefully
+          // Menyiapkan timeout agar request tidak menggantung selamanya (batas 3 menit)
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes timeout (images can take time)
+          const timeoutId = setTimeout(() => controller.abort(), 180000); 
 
           const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
           const fullUrl = `${cleanBackendUrl}${endpoint}`;
@@ -109,6 +110,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           clearTimeout(timeoutId);
 
           if (!response.ok) {
+              // Penanganan error HTTP standar
               if (response.status === 404) {
                   throw new Error(`Endpoint ${endpoint} tidak ditemukan (404). Periksa konfigurasi server.`);
               } else if (response.status === 500) {
@@ -120,6 +122,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               throw new Error(errData.detail || errData.error || `Gagal memproses di server (Status: ${response.status})`);
           }
 
+          // Mengambil hasil sebagai Blob (Binary Large Object) untuk unduhan
           const blob = await response.blob();
           
           return { blob, ext };
@@ -144,9 +147,8 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         let result: { blob: Blob, ext: string };
 
         switch (selectedFormat) {
-            case 'jpg': // 'jpg' is the key for the Image category button
+            case 'jpg': // Menangani kategori 'Gambar'
                 setProcessingMessage(`Konversi ke Gambar (${selectedImageFormat.toUpperCase()})...`);
-                // Menggunakan server backend dengan parameter format gambar
                 result = await convertWithBackend('image', selectedImageFormat);
                 break;
             case 'word':
@@ -180,6 +182,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const renderContent = () => {
+    // Tampilan Berhasil
     if (outputUrl) {
       return (
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
@@ -198,6 +201,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
+    // Tampilan Loading
     if (isProcessing) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -207,9 +211,11 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
+    // Tampilan Pilihan Format
     if (fileWithBuffer) {
       return (
         <div className="flex flex-col gap-8 animate-fade-in">
+             {/* Info File */}
              <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-lg flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                     <span className="text-red-500 font-bold text-2xl"><FilePdfIcon /></span>
@@ -263,6 +269,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </button>
                 </div>
                 
+                {/* Opsi tambahan untuk gambar */}
                 {selectedFormat === 'jpg' && (
                     <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800 animate-fade-in">
                         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Pilih Format Gambar:</h4>
@@ -298,6 +305,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
 
+    // Tampilan Upload Default
     return (
         <div
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
@@ -311,13 +319,13 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Pilih File
             </button>
-            <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
         </div>
     );
   };
 
   return (
     <ToolContainer title="Konversi PDF" onBack={onBack}>
+      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
       {renderContent()}
     </ToolContainer>
   );

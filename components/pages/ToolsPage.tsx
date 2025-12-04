@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../../types';
 import { 
@@ -22,6 +21,7 @@ interface ToolItemProps {
   onClick: () => void;
 }
 
+// Komponen item individual untuk grid alat
 const ToolItem: React.FC<ToolItemProps> = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -45,6 +45,7 @@ const ToolItem: React.FC<ToolItemProps> = ({ icon, label, active, onClick }) => 
   </button>
 );
 
+// Halaman yang menampilkan semua alat yang tersedia dalam kategori
 const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
   const { addToast } = useToast();
 
@@ -52,6 +53,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
     addToast(`Fitur "${label}" sedang kami siapkan untuk update berikutnya! Nantikan ya.`, 'info');
   };
 
+  // Konfigurasi Kategori dan Alat
   const categories = [
     {
       title: "Esensial & Populer",

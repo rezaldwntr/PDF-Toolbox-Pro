@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, DrawIcon, UploadImageIcon, ZoomInIcon, ZoomOutIcon, FilePdfIcon } from '../icons';
@@ -21,6 +20,7 @@ interface PagePreview {
   pdfHeight: number;
 }
 
+// Representasi tanda tangan yang disimpan dalam memori
 interface Signature {
   id: string;
   dataUrl: string; // base64 encoded image
@@ -28,6 +28,7 @@ interface Signature {
   height: number;
 }
 
+// Representasi tanda tangan yang sudah ditempatkan di halaman PDF
 interface PlacedSignature {
   id: string;
   signatureId: string;
@@ -61,7 +62,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawingColor, setDrawingColor] = useState('#000000'); // Black, Blue, Red
+  const [drawingColor, setDrawingColor] = useState('#000000'); // Default Hitam
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // --- State for smooth dragging & resizing ---
@@ -127,15 +128,14 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const editorContainer = editorContainerRef.current;
     if (!editorContainer) return;
 
+    // Menangani pinch-to-zoom dengan trackpad
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) { // This is the key for pinch-zoom on trackpads and ctrl+scroll on mice
+      if (e.ctrlKey) { 
         e.preventDefault();
-        
-        // Adjust zoom based on wheel delta
-        const zoomAmount = e.deltaY * -0.001; // Small multiplier for smooth zoom
+        const zoomAmount = e.deltaY * -0.001;
         setZoom(prevZoom => {
           const newZoom = prevZoom + zoomAmount;
-          return Math.max(0.2, Math.min(3.0, newZoom)); // Clamp between 0.2 and 3.0
+          return Math.max(0.2, Math.min(3.0, newZoom));
         });
       }
     };
@@ -147,12 +147,11 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         editorContainer.removeEventListener('wheel', handleWheel);
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
-  // --- Drawing Logic ---
+  // --- Drawing Logic (Canvas) ---
   const getMousePos = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.TouchEvent) => {
     const rect = canvas.getBoundingClientRect();
-    
     let clientX, clientY;
     if (e.nativeEvent instanceof MouseEvent) {
         clientX = e.nativeEvent.clientX;
@@ -194,7 +193,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const pos = getMousePos(canvas, e);
     ctx.lineTo(pos.x, pos.y);
     ctx.strokeStyle = drawingColor;
-    ctx.lineWidth = 5; // Disesuaikan untuk kanvas resolusi tinggi
+    ctx.lineWidth = 5; 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -218,6 +217,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
   
+  // Menyimpan tanda tangan dari kanvas ke state
   const saveSignature = () => {
     if (signatureMode === 'draw') {
       const canvas = canvasRef.current;
@@ -235,7 +235,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         id: `sig-${Date.now()}`,
         dataUrl,
         width: 150,
-        height: 60, // Pertahankan rasio aspek kanvas resolusi tinggi (1200:480 -> 2.5:1)
+        height: 60, // Rasio aspek default
       };
       setSignatures(prev => [...prev, newSig]);
       clearCanvas();
@@ -296,7 +296,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   
   const handleResizeStart = (e: React.MouseEvent, sig: PlacedSignature) => {
     e.preventDefault();
-    e.stopPropagation(); // Important: Prevent triggering the drag handler
+    e.stopPropagation(); 
     setResizeState({
         id: sig.id,
         startX: e.clientX,
@@ -421,6 +421,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const renderContent = () => {
+    // ... UI Rendering Code ...
     if (outputUrl) {
        return (
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">

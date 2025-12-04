@@ -1,12 +1,12 @@
-
 import React from 'react';
 import { View } from '../types';
-import { MergeIcon, CompressIcon, ConvertIcon, SignatureIcon, SearchIcon, FilePdfIcon } from './icons';
+import { MergeIcon, CompressIcon, ConvertIcon, SignatureIcon, SearchIcon } from './icons';
 
 interface LandingPageProps {
   onSelectView: (view: View) => void;
 }
 
+// Komponen kartu kecil untuk akses cepat ke fitur populer
 const QuickActionCard: React.FC<{
   icon: React.ReactNode;
   title: string;
@@ -27,12 +27,13 @@ const QuickActionCard: React.FC<{
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
   return (
     <div className="flex flex-col pb-20 animate-fade-in">
-      {/* Greeting & Search */}
+      {/* Bagian Salam & Pencarian */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6">
           Hai, Apa yang ingin <br/> <span className="text-blue-600 dark:text-blue-400">Anda lakukan hari ini?</span>
         </h1>
         
+        {/* Input Pencarian (Saat ini visual, fungsionalitas belum diimplementasikan penuh) */}
         <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <SearchIcon className="text-gray-400 group-focus-within:text-blue-500 transition-colors" />
@@ -45,7 +46,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Bagian Aksi Cepat (Fitur Unggulan) */}
       <section className="mb-10">
         <div className="flex justify-between items-center mb-4 px-1">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Aksi Cepat</h2>

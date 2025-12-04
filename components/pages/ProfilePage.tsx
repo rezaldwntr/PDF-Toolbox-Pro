@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { UserIcon, ShieldIcon, LockIcon, BellIcon } from '../icons';
 
+// Halaman Profil Pengguna (Saat ini statis sebagai placeholder)
 const ProfilePage: React.FC = () => {
   return (
     <div className="pb-20 animate-fade-in">
@@ -43,16 +43,26 @@ const ProfilePage: React.FC = () => {
             <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400"><ShieldIcon /></div>
             <div className="flex-1">
               <h4 className="text-gray-800 dark:text-gray-200 font-medium">Privasi Data</h4>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Baca kebijakan privasi kami</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Kelola pengaturan privasi Anda</p>
             </div>
           </button>
-           <button className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-left">
-            <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400"><LockIcon /></div>
+
+          <button className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-left">
+            <div className="p-2 bg-red-50 dark:bg-red-900/30 rounded-lg text-red-600 dark:text-red-400"><LockIcon /></div>
             <div className="flex-1">
-              <h4 className="text-gray-800 dark:text-gray-200 font-medium">Keamanan Aplikasi</h4>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Versi 1.0.0 (Beta)</p>
+              <h4 className="text-gray-800 dark:text-gray-200 font-medium">Kata Sandi</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ubah kata sandi akun</p>
             </div>
           </button>
+        </div>
+        
+        <div className="mt-8 text-center">
+            <button 
+                onClick={() => alert("Fitur Login/Register akan hadir segera!")}
+                className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+            >
+                Keluar (Demo)
+            </button>
         </div>
       </div>
     </div>

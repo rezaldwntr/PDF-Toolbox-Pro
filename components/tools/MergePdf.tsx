@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { PDFDocument } from 'pdf-lib';
@@ -10,31 +9,37 @@ interface MergePdfProps {
   onBack: () => void;
 }
 
+// Struktur data untuk menyimpan file PDF yang diunggah
+// Menggunakan ArrayBuffer karena pdf-lib membutuhkan data biner
 interface PdfFile {
-  id: string;
-  file: File;
-  buffer: ArrayBuffer;
+  id: string;      // ID unik untuk keperluan Drag-and-Drop
+  file: File;      // Objek File asli
+  buffer: ArrayBuffer; // Data biner file
 }
 
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false); // State untuk efek visual saat drag file ke area upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
-  // Refs for drag and drop
+  // Refs untuk logika pengurutan ulang (reordering) Drag-and-Drop pada list file
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false);
 
+  // Menangani pemilihan file dari input atau drop
   const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
+      // Filter hanya file PDF
       const newFiles = Array.from(selectedFiles).filter(file => file.type === 'application/pdf');
+      
+      // Membaca file menjadi ArrayBuffer secara asinkron
       const processedFiles: PdfFile[] = await Promise.all(
         newFiles.map(async (file) => ({
-          id: `${file.name}-${file.lastModified}-${file.size}`,
+          id: `${file.name}-${file.lastModified}-${file.size}`, // Membuat ID unik sederhana
           file,
           buffer: await file.arrayBuffer(),
         }))
@@ -43,6 +48,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     }
   };
   
+  // Handlers untuk area Upload Drag-and-Drop (Zona Upload Utama)
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -66,21 +72,22 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
+  // --- Logika Drag-and-Drop untuk Pengurutan Ulang Item (Reordering) ---
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
     setDragging(true);
 
+    // Membuat elemen "hantu" visual saat didrag agar terlihat menarik
     const target = e.currentTarget;
     const ghost = target.cloneNode(true) as HTMLElement;
 
     ghost.style.width = `${target.offsetWidth}px`;
     ghost.style.height = `${target.offsetHeight}px`;
-
     ghost.classList.add('drag-ghost');
     document.body.appendChild(ghost);
-    
     e.dataTransfer.setDragImage(ghost, target.offsetWidth / 2, target.offsetHeight / 2);
 
+    // Hapus ghost dari DOM segera setelah drag dimulai (karena browser sudah mengambil gambarnya)
     setTimeout(() => {
         if (ghost.parentNode) {
             ghost.parentNode.removeChild(ghost);
@@ -91,6 +98,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
      e.preventDefault();
      dragOverItemIndex.current = index;
+     // Menambahkan efek visual pada item yang berada di bawah kursor
      const draggedOverEl = e.currentTarget;
      draggedOverEl.classList.add('drag-over-indicator');
   };
@@ -99,30 +107,29 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       e.currentTarget.classList.remove('drag-over-indicator');
   };
 
-
   const handleDropOnList = () => {
     if (draggedItemIndex.current === null || dragOverItemIndex.current === null) return;
     
+    // Bersihkan indikator visual
     document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
     
     if (draggedItemIndex.current === dragOverItemIndex.current) {
-        draggedItemIndex.current = null;
-        dragOverItemIndex.current = null;
         setDragging(false);
         return;
     }
 
+    // Lakukan pengurutan ulang array file
     const newFiles = [...files];
     const draggedFile = newFiles.splice(draggedItemIndex.current, 1)[0];
     newFiles.splice(dragOverItemIndex.current, 0, draggedFile);
 
     setFiles(newFiles);
-    
+    setDragging(false);
     draggedItemIndex.current = null;
     dragOverItemIndex.current = null;
-    setDragging(false);
   };
 
+  // --- Logika Inti Penggabungan PDF menggunakan pdf-lib ---
   const handleMerge = async () => {
     if (files.length < 2) {
       addToast('Silakan pilih setidaknya dua file PDF untuk digabungkan.', 'warning');
@@ -133,14 +140,22 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setMergedPdfUrl(null);
 
     try {
+      // 1. Membuat dokumen PDF baru yang kosong
       const mergedPdf = await PDFDocument.create();
+      
+      // 2. Iterasi setiap file dan menyalin halamannya ke dokumen baru
       for (const { buffer } of files) {
+        // Muat PDF dari buffer
         const pdf = await PDFDocument.load(buffer.slice(0));
+        // Salin semua halaman
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        // Tambahkan halaman ke dokumen baru
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
       
+      // 3. Simpan dokumen baru sebagai array bytes
       const mergedPdfBytes = await mergedPdf.save();
+      // 4. Buat Blob dan URL objek untuk diunduh
       const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       setMergedPdfUrl(url);
@@ -163,6 +178,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setMergedPdfUrl(null);
   };
 
+  // Tampilan Hasil (Jika konversi berhasil)
   if (mergedPdfUrl) {
     return (
       <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack}>
@@ -187,6 +203,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     )
   }
 
+  // Tampilan Utama (Upload & List File)
   return (
     <ToolContainer title="Gabungkan PDF" onBack={onBack}>
        <input
@@ -198,6 +215,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
         onChange={(e) => handleFileChange(e.target.files)}
       />
       
+      {/* Area Upload (Muncul jika belum ada file) */}
       {files.length === 0 && (
         <div 
             className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
@@ -217,6 +235,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
         </div>
       )}
       
+      {/* Daftar File (Muncul jika file sudah dipilih) */}
       {files.length > 0 && (
         <>
             <div className="mb-6 flex justify-center">
@@ -248,6 +267,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                             <TrashIcon />
                         </button>
                         </div>
+                        {/* Komponen Preview PDF Halaman Pertama */}
                         <PdfPreview buffer={buffer} />
                         <div className="text-center">
                         <p className="text-gray-700 dark:text-gray-200 truncate text-xs font-medium" title={file.name}>{file.name}</p>

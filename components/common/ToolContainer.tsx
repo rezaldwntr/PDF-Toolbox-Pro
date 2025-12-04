@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowLeftIcon } from '../icons';
 
@@ -6,9 +5,11 @@ interface ToolContainerProps {
   title: string;
   onBack: () => void;
   children: React.ReactNode;
-  maxWidth?: string;
+  maxWidth?: string; // Opsional: mengatur lebar maksimum kontainer agar responsif
 }
 
+// Komponen pembungkus (Wrapper) yang digunakan oleh semua alat PDF.
+// Menyediakan layout konsisten, tombol kembali, judul, dan animasi masuk.
 const ToolContainer: React.FC<ToolContainerProps> = ({ title, onBack, children, maxWidth = 'max-w-4xl' }) => {
   return (
     <div className="animate-fade-in">

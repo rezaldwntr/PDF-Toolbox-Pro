@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../types';
 import { HomeIcon, GridIcon, UserIcon } from './icons';
@@ -8,6 +7,7 @@ interface BottomNavProps {
   onTabChange: (tab: View) => void;
 }
 
+// Komponen navigasi bawah yang hanya muncul pada tampilan mobile
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: View.HOME_TAB, label: 'Beranda', icon: <HomeIcon className="w-6 h-6" /> },

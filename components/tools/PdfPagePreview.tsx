@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 
 // Tipe sederhana untuk objek dokumen pdf.js
@@ -11,6 +10,8 @@ interface PdfPagePreviewProps {
   pageNumber: number;
 }
 
+// Komponen untuk merender halaman spesifik dari objek dokumen PDF.js yang sudah dimuat
+// Digunakan di alat SplitPdf untuk menampilkan grid halaman
 const PdfPagePreview: React.FC<PdfPagePreviewProps> = ({ pdfDoc, pageNumber }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -45,7 +46,6 @@ const PdfPagePreview: React.FC<PdfPagePreviewProps> = ({ pdfDoc, pageNumber }) =
         await page.render(renderContext).promise;
       } catch (error) {
         console.error(`Gagal merender halaman ${pageNumber}:`, error);
-        // Anda bisa menambahkan state untuk menampilkan pesan error di canvas jika diperlukan
       }
     };
 

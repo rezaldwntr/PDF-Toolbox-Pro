@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, TextColorIcon, AddIcon, RotateIcon, ZoomInIcon, ZoomOutIcon, TextBoxBackgroundIcon, TextIcon } from '../icons';
@@ -13,11 +12,12 @@ interface PdfFileWithBuffer {
   buffer: ArrayBuffer;
 }
 
+// Representasi elemen teks dalam editor
 interface TextElement {
   id: string;
-  pageIndex: number;
+  pageIndex: number; // Halaman tempat teks berada
   text: string;
-  x: number;
+  x: number; // Posisi relatif terhadap halaman
   y: number;
   width: number;
   height: number;
@@ -34,14 +34,15 @@ interface TextElement {
 }
 
 interface PagePreview {
-  url: string;
+  url: string; // URL gambar pratinjau halaman
   width: number;
   height: number;
-  pdfWidth: number;
+  pdfWidth: number; // Ukuran asli PDF (untuk penskalaan koordinat)
   pdfHeight: number;
   rotation: number;
 }
 
+// Daftar font yang didukung, termasuk URL untuk font kustom (Google Fonts)
 const FONT_MAP: Record<string, { name: string, url?: string, italicUrl?: string, boldUrl?: string, boldItalicUrl?: string }> = {
   'Arial': { name: 'Helvetica' },
   'Helvetica': { name: 'Helvetica' },
@@ -57,6 +58,7 @@ const FONT_MAP: Record<string, { name: string, url?: string, italicUrl?: string,
 const fontCache = new Map<string, ArrayBuffer>();
 
 // --- Helper Functions ---
+// Mengunduh dan menyimpan font di memori agar tidak perlu fetch berulang
 const fetchAndCacheFont = async (url: string) => {
   if (fontCache.has(url)) return fontCache.get(url);
   const fontBytes = await fetch(url).then(res => res.arrayBuffer());
@@ -200,9 +202,10 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       })));
   };
 
+  // --- Drag and Drop Logic ---
   const handleMouseDownOnText = (e: React.MouseEvent<HTMLTextAreaElement>, text: TextElement) => {
     const target = e.currentTarget;
-    // Jangan mulai seret jika pengguna mengklik pegangan pengubah ukuran
+    // Jangan mulai seret jika pengguna mengklik pegangan pengubah ukuran (sudut kanan bawah)
     if (e.nativeEvent.offsetX > target.offsetWidth - 15 && e.nativeEvent.offsetY > target.offsetHeight - 15) {
         return;
     }
@@ -222,6 +225,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         
         e.preventDefault();
 
+        // Cari halaman mana yang sedang di-hover oleh kursor
         const pageElements = Array.from(editorPagesContainerRef.current.children) as HTMLElement[];
         let targetPageIndex = -1;
         let targetPageBounds: DOMRect | null = null;
@@ -239,6 +243,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const currentElement = textElementsRef.current.find(el => el.id === dragState.id);
         if (!currentElement) return;
 
+        // Jika tidak di atas halaman manapun, tetap di halaman asalnya
         if (targetPageIndex === -1) {
             targetPageIndex = currentElement.pageIndex;
             targetPageBounds = pageElements[targetPageIndex]?.getBoundingClientRect() ?? null;
@@ -271,17 +276,17 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
   }, [dragState, zoom]);
 
-  // Effect to handle keyboard delete
+  // Efek untuk menangani tombol hapus keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedElementId && (e.key === 'Delete' || e.key === 'Backspace')) {
         const activeEl = document.activeElement;
-        // Don't delete element if user is typing in a textarea or input.
+        // Jangan hapus jika user sedang mengetik di textarea
         if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
           return;
         }
         
-        e.preventDefault(); // Prevents browser back navigation on backspace.
+        e.preventDefault(); 
         
         handleDeleteElement();
       }
@@ -294,7 +299,8 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
   }, [selectedElementId]);
 
-
+  // --- Simpan PDF ---
+  // Menggabungkan elemen teks ke dalam file PDF asli
   const handleSave = async () => {
       if (!fileWithBuffer) return;
       setIsProcessing(true);
@@ -304,6 +310,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           const pdfDoc = await PDFDocument.load(pdfBytes);
           const pages = pdfDoc.getPages();
 
+          // Terapkan rotasi halaman jika ada perubahan
           for (let i = 0; i < pagePreviews.length; i++) {
               const preview = pagePreviews[i];
               const page = pages[i];
@@ -315,12 +322,14 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
           setProcessingMessage('Menyematkan font...');
           const embeddedFonts: Record<string, any> = {};
+          
+          // Sematkan hanya font yang digunakan
           for (const el of textElements) {
               const fontInfo = FONT_MAP[el.fontFamily];
               const variantKey = `${fontInfo.name}-${el.isBold}-${el.isItalic}`;
               if(embeddedFonts[variantKey]) continue;
 
-              if (fontInfo.url) { // Custom font
+              if (fontInfo.url) { // Font Kustom
                   let urlToFetch = fontInfo.url;
                   if (el.isBold && el.isItalic && fontInfo.boldItalicUrl) urlToFetch = fontInfo.boldItalicUrl;
                   else if (el.isBold && fontInfo.boldUrl) urlToFetch = fontInfo.boldUrl;
@@ -328,7 +337,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   
                   const fontBytes = await fetchAndCacheFont(urlToFetch);
                   embeddedFonts[variantKey] = await pdfDoc.embedFont(fontBytes!);
-              } else { // Standard font
+              } else { // Font Standar PDF
                   let fontKey: keyof typeof StandardFonts;
                   const baseFont = fontInfo.name;
 
@@ -337,7 +346,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       else if (el.isBold) fontKey = 'TimesRomanBold';
                       else if (el.isItalic) fontKey = 'TimesRomanItalic';
                       else fontKey = 'TimesRoman';
-                  } else if (baseFont === 'Helvetica') { // For Helvetica
+                  } else if (baseFont === 'Helvetica') { 
                       if (el.isBold && el.isItalic) fontKey = 'HelveticaBoldOblique';
                       else if (el.isBold) fontKey = 'HelveticaBold';
                       else if (el.isItalic) fontKey = 'HelveticaOblique';
@@ -357,10 +366,11 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               const page = pages[el.pageIndex];
               const preview = pagePreviews[el.pageIndex];
               const { width: pageWidth, height: pageHeight } = page.getSize();
+              // Hitung skala koordinat dari layar ke PDF asli
               const scaleX = pageWidth / preview.width;
               const scaleY = pageHeight / preview.height;
 
-              // Draw background if needed
+              // Gambar background jika ada
               if (el.backgroundColor !== 'transparent') {
                 const bgColor = hexToRgb(el.backgroundColor);
                 page.drawRectangle({
@@ -380,7 +390,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               const options = {
                   font,
                   x: el.x * scaleX,
-                  y: pageHeight - (el.y * scaleY) - (el.fontSize * scaleY),
+                  y: pageHeight - (el.y * scaleY) - (el.fontSize * scaleY), // PDF origin ada di kiri bawah
                   size: el.fontSize * scaleY,
                   color: rgb(color.r, color.g, color.b),
                   lineHeight: el.fontSize * scaleY * el.lineHeight,
@@ -389,6 +399,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               };
               page.drawText(el.text, options);
               
+              // Gambar garis bawah atau coret tengah
               if (el.isUnderline || el.isStrikethrough) {
                 const textWidth = font.widthOfTextAtSize(el.text, el.fontSize * scaleY);
                 const textHeight = font.heightAtSize(el.fontSize * scaleY);
@@ -425,6 +436,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const selectedTextElement = textElements.find(el => el.id === selectedElementId);
 
   const renderContent = () => {
+    // ... UI Rendering Code ...
     if (outputUrl) {
       return (
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">

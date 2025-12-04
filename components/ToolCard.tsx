@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface ToolCardProps {
@@ -8,6 +7,7 @@ interface ToolCardProps {
   onClick: () => void;
 }
 
+// Komponen kartu yang digunakan untuk menampilkan daftar alat PDF di halaman ToolsPage
 const ToolCard: React.FC<ToolCardProps> = ({ icon, title, description, onClick }) => {
   return (
     <div
