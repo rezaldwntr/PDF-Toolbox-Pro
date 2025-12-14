@@ -9,7 +9,8 @@ declare const JSZip: any;
 // --- KONFIGURASI SERVER ---
 // URL Backend API untuk konversi format tinggi (high-fidelity).
 // Server ini menangani konversi PDF ke Office dan Gambar yang kompleks.
-const BACKEND_URL = 'https://pdf-backend-api.onrender.com'; 
+// Catatan: Pastikan server mengizinkan CORS dari domain frontend ini.
+const BACKEND_URL = 'http://143.198.211.35'; 
 
 interface PdfFileWithBuffer {
   file: File;
