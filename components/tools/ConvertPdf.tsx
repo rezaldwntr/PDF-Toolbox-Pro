@@ -10,7 +10,7 @@ declare const JSZip: any;
 // URL Backend API untuk konversi format tinggi (high-fidelity).
 // Server ini menangani konversi PDF ke Office dan Gambar yang kompleks.
 // Catatan: Pastikan server mengizinkan CORS dari domain frontend ini.
-const BACKEND_URL = 'http://143.198.211.35'; 
+const BACKEND_URL = 'https://api-backend.club'; 
 
 interface PdfFileWithBuffer {
   file: File;
@@ -262,7 +262,7 @@ const ConvertPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     
                      <button
                         onClick={() => setSelectedFormat('jpg')}
-                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'jpg' ? 'bg-purple-50 border-purple-500 shadow-md dark:bg-purple-900/20 dark:border-purple-500' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
+                        className={`p-6 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${selectedFormat === 'jpg' ? 'bg-purple-50 border-purple-500 shadow-md dark:bg-purple-900/20 dark:border-blue-500' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'}`}
                     >
                         <FileJpgIcon className="w-12 h-12 text-purple-600" />
                         <span className="font-bold text-gray-800 dark:text-gray-200">Gambar</span>
