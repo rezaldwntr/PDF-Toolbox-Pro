@@ -25,7 +25,8 @@ const ToolItem: React.FC<{ icon: React.ReactNode; label: string; active: boolean
     }`}
   >
     <div className={`mb-2 ${active ? 'text-blue-600' : 'text-gray-400'}`}>
-      {React.cloneElement(icon as React.ReactElement, { className: 'w-8 h-8' })}
+      {/* Fix: Explicitly cast the icon element to accept className prop for cloning */}
+      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })}
     </div>
     <span className={`text-[11px] font-bold text-center leading-tight ${active ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400'}`}>
       {label}

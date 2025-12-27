@@ -7,7 +7,9 @@ import {
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 
-const BACKEND_URL = 'https://api-backend.club'; 
+// Catatan: Jika menggunakan proxy Vite, kita bisa menggunakan path relatif '/convert'.
+// Namun tetap menyediakan fallback ke URL absolut jika diperlukan.
+const BACKEND_URL = ''; // String kosong agar menggunakan proxy lokal (relatif) atau isi dengan base URL
 
 interface PdfFileWithBuffer {
   file: File;
@@ -88,26 +90,22 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           ext = 'zip';
       }
 
-      try {
-          /**
-           * INTEGRASI TIMEOUT LANJUTAN:
-           * Kami meningkatkan timeout menjadi 10 menit (600.000 ms).
-           * Browser modern biasanya memiliki limit socket timeout yang bervariasi,
-           * namun dengan AbortController ini, kita secara eksplisit meminta browser
-           * untuk tetap menjaga request aktif selama mungkin.
-           */
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 600000); 
+      // INTEGRASI TIMEOUT 5 MENIT DENGAN ABORTCONTROLLER
+      const controller = new AbortController();
+      // Set timeout manual 5 menit (300.000 ms)
+      const timeoutId = setTimeout(() => controller.abort(), 300000); 
 
-          const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
-          const fullUrl = `${cleanBackendUrl}${endpoint}`;
+      try {
+          const fullUrl = BACKEND_URL ? `${BACKEND_URL}${endpoint}` : endpoint;
 
           const response = await fetch(fullUrl, {
               method: 'POST',
               body: formData,
               signal: controller.signal,
-              // Memberitahu browser untuk menjaga koneksi tetap hidup
-              keepalive: true 
+              headers: {
+                // Header keep-alive untuk instruksi browser (opsional/terbatas di browser)
+                'Connection': 'keep-alive'
+              }
           });
           
           clearTimeout(timeoutId);
@@ -120,8 +118,11 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           const blob = await response.blob();
           return { blob, ext };
       } catch (error: any) {
+          clearTimeout(timeoutId);
           if (error.name === 'AbortError') {
-              throw new Error("Waktu habis! Server memerlukan waktu lebih dari 10 menit untuk memproses. Ini biasanya terjadi pada file yang sangat besar atau kompleks.");
+              throw new Error("Time limit exceeded! Server memerlukan waktu lebih dari 5 menit untuk memproses dokumen ini.");
+          } else if (error.message.includes('Failed to fetch')) {
+              throw new Error("Connection lost, server is processing heavy file. Silakan periksa koneksi internet Anda atau coba file yang lebih kecil.");
           }
           throw error;
       }
@@ -130,7 +131,8 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const handleConvert = async () => {
     if (!fileWithBuffer) return;
     setIsProcessing(true);
-    setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()}...`);
+    // Update pesan loading untuk memberikan kepastian waktu kepada pengguna
+    setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()}... (Dapat memakan waktu hingga 2 menit)`);
     
     try {
         const result = await convertWithBackend();
@@ -183,7 +185,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
                         PENTING: Jangan menutup atau menyegarkan halaman ini.
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                        Server kami sedang bekerja keras memproses dokumen Anda. File yang besar atau memiliki banyak gambar mungkin memerlukan waktu hingga 10 menit. Kami menjaga koneksi Anda tetap aktif.
+                        Dokumen besar (70+ halaman) memerlukan waktu pemrosesan lebih lama (~100 detik). Kami menjaga koneksi Anda tetap aktif hingga konversi selesai.
                     </p>
                 </div>
             </div>
@@ -229,15 +231,32 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
                 </div>
             )}
 
-            <button onClick={handleConvert} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md">
-                Konversi Sekarang
-            </button>
+            <div className="space-y-4">
+                <button 
+                  onClick={handleConvert} 
+                  disabled={isProcessing}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md flex items-center justify-center gap-2"
+                >
+                    {isProcessing ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Memproses... (Hingga 2 Menit)
+                        </>
+                    ) : (
+                        'Konversi Sekarang'
+                    )}
+                </button>
+                <p className="text-center text-xs text-gray-500 dark:text-gray-400 italic">
+                  Jangan tutup jendela ini. File besar (70+ halaman) memerlukan waktu sekitar 100-120 detik.
+                </p>
+            </div>
+
             <div className="text-center space-y-1">
               <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
                 Pemrosesan Server Aman
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Waktu tunggu telah ditingkatkan untuk mendukung file ukuran besar.
+                Waktu tunggu telah ditingkatkan hingga 5 menit untuk mendukung file kompleks.
               </p>
             </div>
         </div>
