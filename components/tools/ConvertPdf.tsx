@@ -7,9 +7,8 @@ import {
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 
-// Catatan: Jika menggunakan proxy Vite, kita bisa menggunakan path relatif '/convert'.
-// Namun tetap menyediakan fallback ke URL absolut jika diperlukan.
-const BACKEND_URL = ''; // String kosong agar menggunakan proxy lokal (relatif) atau isi dengan base URL
+// Menggunakan string kosong agar permintaan menggunakan proxy Vite (relatif path '/convert')
+const BACKEND_URL = ''; 
 
 interface PdfFileWithBuffer {
   file: File;
@@ -90,9 +89,8 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           ext = 'zip';
       }
 
-      // INTEGRASI TIMEOUT 5 MENIT DENGAN ABORTCONTROLLER
+      // INTEGRASI TIMEOUT 5 MENIT (300.000 ms) DENGAN ABORTCONTROLLER
       const controller = new AbortController();
-      // Set timeout manual 5 menit (300.000 ms)
       const timeoutId = setTimeout(() => controller.abort(), 300000); 
 
       try {
@@ -103,7 +101,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
               body: formData,
               signal: controller.signal,
               headers: {
-                // Header keep-alive untuk instruksi browser (opsional/terbatas di browser)
                 'Connection': 'keep-alive'
               }
           });
@@ -131,7 +128,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const handleConvert = async () => {
     if (!fileWithBuffer) return;
     setIsProcessing(true);
-    // Update pesan loading untuk memberikan kepastian waktu kepada pengguna
     setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()}... (Dapat memakan waktu hingga 2 menit)`);
     
     try {
