@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { 
@@ -90,8 +89,15 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       }
 
       try {
+          /**
+           * INTEGRASI TIMEOUT LANJUTAN:
+           * Kami meningkatkan timeout menjadi 10 menit (600.000 ms).
+           * Browser modern biasanya memiliki limit socket timeout yang bervariasi,
+           * namun dengan AbortController ini, kita secara eksplisit meminta browser
+           * untuk tetap menjaga request aktif selama mungkin.
+           */
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 180000); 
+          const timeoutId = setTimeout(() => controller.abort(), 600000); 
 
           const cleanBackendUrl = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL;
           const fullUrl = `${cleanBackendUrl}${endpoint}`;
@@ -99,7 +105,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           const response = await fetch(fullUrl, {
               method: 'POST',
               body: formData,
-              signal: controller.signal
+              signal: controller.signal,
+              // Memberitahu browser untuk menjaga koneksi tetap hidup
+              keepalive: true 
           });
           
           clearTimeout(timeoutId);
@@ -112,7 +120,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           const blob = await response.blob();
           return { blob, ext };
       } catch (error: any) {
-          if (error.name === 'AbortError') throw new Error("Waktu habis! File terlalu besar.");
+          if (error.name === 'AbortError') {
+              throw new Error("Waktu habis! Server memerlukan waktu lebih dari 10 menit untuk memproses. Ini biasanya terjadi pada file yang sangat besar atau kompleks.");
+          }
           throw error;
       }
   };
@@ -156,8 +166,34 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     if (isProcessing) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
-          <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <p className="text-lg text-gray-800 dark:text-gray-200 font-semibold">{processingMessage}</p>
+          <div className="relative mb-6">
+            <svg className="animate-spin h-14 w-14 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+            </div>
+          </div>
+          
+          <h4 className="text-xl text-gray-800 dark:text-gray-200 font-bold mb-2">{processingMessage}</h4>
+          
+          <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 max-w-sm shadow-sm">
+            <div className="flex gap-3 text-left">
+                <span className="text-amber-500 text-xl font-bold">!</span>
+                <div className="space-y-2">
+                    <p className="text-sm text-amber-800 dark:text-amber-300 font-bold">
+                        PENTING: Jangan menutup atau menyegarkan halaman ini.
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                        Server kami sedang bekerja keras memproses dokumen Anda. File yang besar atau memiliki banyak gambar mungkin memerlukan waktu hingga 10 menit. Kami menjaga koneksi Anda tetap aktif.
+                    </p>
+                </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 flex gap-1 justify-center">
+             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+             <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+             <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></div>
+          </div>
         </div>
       );
     }
@@ -196,6 +232,14 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
             <button onClick={handleConvert} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md">
                 Konversi Sekarang
             </button>
+            <div className="text-center space-y-1">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
+                Pemrosesan Server Aman
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Waktu tunggu telah ditingkatkan untuk mendukung file ukuran besar.
+              </p>
+            </div>
         </div>
       );
     }
@@ -208,7 +252,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
         >
             <div className="mb-4">{config.icon}</div>
-            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas PDF untuk diubah ke {mode === 'ppt' ? 'PowerPoint' : mode.toUpperCase()}</p>
+            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2 text-center">Seret & lepas PDF untuk diubah ke {mode === 'ppt' ? 'PowerPoint' : mode.toUpperCase()}</p>
             <button onClick={() => fileInputRef.current?.click()} className="mt-4 bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors">
                 Pilih File PDF
             </button>
