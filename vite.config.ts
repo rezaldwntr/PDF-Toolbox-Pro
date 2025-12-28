@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -7,7 +8,7 @@ export default defineConfig({
     proxy: {
       // Menangani proxy untuk endpoint konversi ke backend VPS
       '/convert': {
-        target: 'http://167.99.74.204:8000',
+        target: 'https://www.api-backend.club',
         changeOrigin: true,
         secure: false,
         // Meningkatkan timeout hingga 5 menit (300.000 ms) untuk mendukung file besar

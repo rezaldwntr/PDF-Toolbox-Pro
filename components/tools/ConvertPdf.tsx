@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { 
@@ -7,8 +8,11 @@ import {
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 
-// Menggunakan string kosong agar permintaan menggunakan proxy Vite (relatif path '/convert')
-const BACKEND_URL = ''; 
+// Deklarasi global untuk library PDF.js yang dimuat via CDN
+declare const pdfjsLib: any;
+
+// Mengatur URL Backend ke alamat baru
+const BACKEND_URL = 'https://www.api-backend.club'; 
 
 interface PdfFileWithBuffer {
   file: File;
@@ -25,6 +29,7 @@ interface ConvertPdfProps {
 
 const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
+  const [pageCount, setPageCount] = useState<number>(0); // State untuk menyimpan jumlah halaman
   const [selectedImageFormat, setSelectedImageFormat] = useState<ImageFormat>('jpg');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
@@ -33,6 +38,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+
+  // Tentukan apakah file dianggap "Berat" (Lebih dari 10MB atau 70+ Halaman)
+  const isHeavyDocument = (fileWithBuffer?.file.size || 0) > 10 * 1024 * 1024 || pageCount >= 70;
 
   const getModeConfig = () => {
     switch (mode) {
@@ -47,6 +55,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
   const resetState = useCallback(() => {
     setFileWithBuffer(null);
+    setPageCount(0);
     setSelectedImageFormat('jpg');
     setIsProcessing(false);
     setProcessingMessage('');
@@ -59,12 +68,18 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Membaca file...');
+    setProcessingMessage('Menganalisis file...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
+      
+      // Hitung jumlah halaman menggunakan PDF.js
+      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+      setPageCount(pdfDoc.numPages);
+
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
     } catch (error) {
+      console.error(error);
       addToast("Gagal memuat file PDF.", 'error');
       resetState();
     } finally {
@@ -94,6 +109,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       const timeoutId = setTimeout(() => controller.abort(), 300000); 
 
       try {
+          // Menggunakan BACKEND_URL jika didefinisikan, jika tidak menggunakan relative path (untuk proxy)
           const fullUrl = BACKEND_URL ? `${BACKEND_URL}${endpoint}` : endpoint;
 
           const response = await fetch(fullUrl, {
@@ -128,7 +144,10 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const handleConvert = async () => {
     if (!fileWithBuffer) return;
     setIsProcessing(true);
-    setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()}... (Dapat memakan waktu hingga 2 menit)`);
+    
+    // Sesuaikan pesan loading
+    const timeEstimate = isHeavyDocument ? "Dapat memakan waktu hingga 2-3 menit" : "Mohon tunggu sebentar";
+    setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()}... (${timeEstimate})`);
     
     try {
         const result = await convertWithBackend();
@@ -173,19 +192,22 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           
           <h4 className="text-xl text-gray-800 dark:text-gray-200 font-bold mb-2">{processingMessage}</h4>
           
-          <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 max-w-sm shadow-sm">
-            <div className="flex gap-3 text-left">
-                <span className="text-amber-500 text-xl font-bold">!</span>
-                <div className="space-y-2">
-                    <p className="text-sm text-amber-800 dark:text-amber-300 font-bold">
-                        PENTING: Jangan menutup atau menyegarkan halaman ini.
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                        Dokumen besar (70+ halaman) memerlukan waktu pemrosesan lebih lama (~100 detik). Kami menjaga koneksi Anda tetap aktif hingga konversi selesai.
-                    </p>
+          {/* HANYA TAMPILKAN PERINGATAN ORANYE JIKA FILE BERAT */}
+          {isHeavyDocument && (
+            <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 max-w-sm shadow-sm animate-fade-in">
+                <div className="flex gap-3 text-left">
+                    <span className="text-amber-500 text-xl font-bold">!</span>
+                    <div className="space-y-2">
+                        <p className="text-sm text-amber-800 dark:text-amber-300 font-bold">
+                            PENTING: Jangan menutup atau menyegarkan halaman ini.
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                            Dokumen besar ({pageCount}+ halaman) memerlukan waktu pemrosesan lebih lama (~100 detik). Kami menjaga koneksi Anda tetap aktif hingga konversi selesai.
+                        </p>
+                    </div>
                 </div>
             </div>
-          </div>
+          )}
           
           <div className="mt-8 flex gap-1 justify-center">
              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
@@ -204,7 +226,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
                     <FilePdfIcon />
                     <div className="text-left">
                         <p className="text-gray-800 dark:text-gray-200 font-medium truncate max-w-[200px]" title={fileWithBuffer.file.name}>{fileWithBuffer.file.name}</p>
-                        <p className="text-gray-500 dark:text-gray-400 text-sm">{(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">
+                            {(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB • {pageCount} Halaman
+                        </p>
                     </div>
                 </div>
                 <button onClick={resetState} className="p-1 text-gray-400 hover:text-red-500"><TrashIcon /></button>
@@ -236,24 +260,30 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
                     {isProcessing ? (
                         <>
                             <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Memproses... (Hingga 2 Menit)
+                            Memproses...
                         </>
                     ) : (
                         'Konversi Sekarang'
                     )}
                 </button>
-                <p className="text-center text-xs text-gray-500 dark:text-gray-400 italic">
-                  Jangan tutup jendela ini. File besar (70+ halaman) memerlukan waktu sekitar 100-120 detik.
-                </p>
+                
+                {/* HANYA TAMPILKAN TEKS PERINGATAN JIKA FILE BERAT */}
+                {isHeavyDocument && (
+                    <p className="text-center text-xs text-gray-500 dark:text-gray-400 italic animate-fade-in">
+                    Jangan tutup jendela ini. File besar ({pageCount} halaman) memerlukan waktu sekitar 100-120 detik.
+                    </p>
+                )}
             </div>
 
             <div className="text-center space-y-1">
               <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
                 Pemrosesan Server Aman
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Waktu tunggu telah ditingkatkan hingga 5 menit untuk mendukung file kompleks.
-              </p>
+              {isHeavyDocument && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Waktu tunggu telah ditingkatkan hingga 5 menit untuk mendukung file kompleks.
+                </p>
+              )}
             </div>
         </div>
       );
