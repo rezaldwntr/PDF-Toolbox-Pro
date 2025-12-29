@@ -12,7 +12,7 @@ import { useToast } from '../../contexts/ToastContext';
 declare const pdfjsLib: any;
 
 // Mengatur URL Backend ke alamat baru
-const BACKEND_URL = 'https://www.api-backend.club'; 
+const BACKEND_URL = 'https://api-backend.club'; 
 
 interface PdfFileWithBuffer {
   file: File;
