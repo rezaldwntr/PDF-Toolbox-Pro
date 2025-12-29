@@ -1,14 +1,15 @@
+
 {
   "short_name": "Zentridox",
   "name": "Zentridox - PDF Tools",
   "icons": [
     {
-      "src": "/src/logozen.png",
+      "src": "https://placehold.co/192x192/0f172a/ffffff.png?text=PDF",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/src/logozen.png",
+      "src": "https://placehold.co/512x512/0f172a/ffffff.png?text=PDF",
       "type": "image/png",
       "sizes": "512x512"
     }

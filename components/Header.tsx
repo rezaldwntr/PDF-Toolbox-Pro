@@ -1,15 +1,8 @@
+
 import React, { useState } from 'react';
 import { View } from '../types';
-import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon } from './icons';
+import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon, FilePdfIcon } from './icons';
 import { useTheme } from '../contexts/ThemeContext';
-
-// Daftar path logo untuk menangani kemungkinan masalah loading path di berbagai environment
-const logoPaths = [
-  'logozen.png',
-  '/logozen.png',
-  '/src/logozen.png',
-  'src/logozen.png'
-];
 
 interface HeaderProps {
   onGoHome: () => void;
@@ -25,9 +18,6 @@ const navItems = [
 const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
   // State untuk mengontrol visibilitas menu di tampilan mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // State untuk menangani fallback jika gambar logo gagal dimuat
-  const [logoError, setLogoError] = useState(false);
-  const [currentPathIndex, setCurrentPathIndex] = useState(0);
   // Mengambil tema dan fungsi toggle dari Context
   const { theme, toggleTheme } = useTheme();
 
@@ -41,33 +31,20 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
     setIsMobileMenuOpen(false);
   };
 
-  // Mencoba path logo berikutnya jika yang sekarang gagal dimuat
-  const handleLogoError = () => {
-    const nextIndex = currentPathIndex + 1;
-    if (nextIndex < logoPaths.length) {
-      setCurrentPathIndex(nextIndex);
-    } else {
-      setLogoError(true); // Menyerah dan tampilkan teks
-    }
-  };
-
   return (
     <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50 border-b border-gray-200 dark:border-slate-700 transition-colors duration-300">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        {/* Logo Section */}
-        <button onClick={handleGoHome} className="cursor-pointer flex items-center gap-2">
-          {!logoError ? (
-            <img 
-              src={logoPaths[currentPathIndex]}
-              alt="Zentridox Logo" 
-              className={`h-10 md:h-12 object-contain ${theme === 'dark' ? 'invert' : ''}`} // Membalik warna logo di mode gelap jika logo berwarna hitam
-              onError={handleLogoError}
-            />
-          ) : (
-             <span className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-              Zentridox
-             </span>
-          )}
+        {/* Logo Section - Menggunakan SVG Icon pengganti Image untuk menghindari 404 */}
+        <button onClick={handleGoHome} className="cursor-pointer flex items-center gap-2 group">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform duration-200">
+             {/* Menggunakan ikon PDF yang sudah ada */}
+             <svg className="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            Zentridox
+          </span>
         </button>
         
         <div className="flex items-center gap-4">
