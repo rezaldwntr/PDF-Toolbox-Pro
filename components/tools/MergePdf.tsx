@@ -1,45 +1,40 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
-import { PDFDocument } from 'pdf-lib';
 import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
+
+const BACKEND_URL = 'https://api-backend.club';
 
 interface MergePdfProps {
   onBack: () => void;
 }
 
-// Struktur data untuk menyimpan file PDF yang diunggah
-// Menggunakan ArrayBuffer karena pdf-lib membutuhkan data biner
 interface PdfFile {
-  id: string;      // ID unik untuk keperluan Drag-and-Drop
-  file: File;      // Objek File asli
-  buffer: ArrayBuffer; // Data biner file
+  id: string;
+  file: File;
+  buffer: ArrayBuffer;
 }
 
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false); // State untuk efek visual saat drag file ke area upload
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
-  // Refs untuk logika pengurutan ulang (reordering) Drag-and-Drop pada list file
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  // Menangani pemilihan file dari input atau drop
   const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
-      // Filter hanya file PDF
       const newFiles = Array.from(selectedFiles).filter(file => file.type === 'application/pdf');
-      
-      // Membaca file menjadi ArrayBuffer secara asinkron
       const processedFiles: PdfFile[] = await Promise.all(
         newFiles.map(async (file) => ({
-          id: `${file.name}-${file.lastModified}-${file.size}`, // Membuat ID unik sederhana
+          id: `${file.name}-${file.lastModified}-${file.size}-${Math.random()}`,
           file,
           buffer: await file.arrayBuffer(),
         }))
@@ -48,22 +43,18 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     }
   };
   
-  // Handlers untuk area Upload Drag-and-Drop (Zona Upload Utama)
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDragOver(false);
   }, []);
 
   const handleDropOnUploader = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
     setIsDragOver(false);
     await handleFileChange(e.dataTransfer.files);
   }, []);
@@ -72,35 +63,16 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
-  // --- Logika Drag-and-Drop untuk Pengurutan Ulang Item (Reordering) ---
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
     setDragging(true);
-
-    // Membuat elemen "hantu" visual saat didrag agar terlihat menarik
-    const target = e.currentTarget;
-    const ghost = target.cloneNode(true) as HTMLElement;
-
-    ghost.style.width = `${target.offsetWidth}px`;
-    ghost.style.height = `${target.offsetHeight}px`;
-    ghost.classList.add('drag-ghost');
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, target.offsetWidth / 2, target.offsetHeight / 2);
-
-    // Hapus ghost dari DOM segera setelah drag dimulai (karena browser sudah mengambil gambarnya)
-    setTimeout(() => {
-        if (ghost.parentNode) {
-            ghost.parentNode.removeChild(ghost);
-        }
-    }, 0);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
      e.preventDefault();
      dragOverItemIndex.current = index;
-     // Menambahkan efek visual pada item yang berada di bawah kursor
-     const draggedOverEl = e.currentTarget;
-     draggedOverEl.classList.add('drag-over-indicator');
+     e.currentTarget.classList.add('drag-over-indicator');
   };
   
   const handleDragLeaveList = (e: React.DragEvent<HTMLDivElement>) => {
@@ -109,61 +81,51 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
   const handleDropOnList = () => {
     if (draggedItemIndex.current === null || dragOverItemIndex.current === null) return;
-    
-    // Bersihkan indikator visual
     document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
     
-    if (draggedItemIndex.current === dragOverItemIndex.current) {
-        setDragging(false);
-        return;
-    }
-
-    // Lakukan pengurutan ulang array file
     const newFiles = [...files];
     const draggedFile = newFiles.splice(draggedItemIndex.current, 1)[0];
     newFiles.splice(dragOverItemIndex.current, 0, draggedFile);
-
     setFiles(newFiles);
     setDragging(false);
     draggedItemIndex.current = null;
     dragOverItemIndex.current = null;
   };
 
-  // --- Logika Inti Penggabungan PDF menggunakan pdf-lib ---
   const handleMerge = async () => {
     if (files.length < 2) {
-      addToast('Silakan pilih setidaknya dua file PDF untuk digabungkan.', 'warning');
+      addToast('Silakan pilih setidaknya dua file PDF.', 'warning');
       return;
     }
 
     setIsMerging(true);
-    setMergedPdfUrl(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
 
     try {
-      // 1. Membuat dokumen PDF baru yang kosong
-      const mergedPdf = await PDFDocument.create();
-      
-      // 2. Iterasi setiap file dan menyalin halamannya ke dokumen baru
-      for (const { buffer } of files) {
-        // Muat PDF dari buffer
-        const pdf = await PDFDocument.load(buffer.slice(0));
-        // Salin semua halaman
-        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-        // Tambahkan halaman ke dokumen baru
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
-      }
-      
-      // 3. Simpan dokumen baru sebagai array bytes
-      const mergedPdfBytes = await mergedPdf.save();
-      // 4. Buat Blob dan URL objek untuk diunduh
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setMergedPdfUrl(url);
-      addToast('PDF berhasil digabungkan!', 'success');
+      const formData = new FormData();
+      // Appending all files to the same key 'files' to be sent as a list
+      files.forEach(f => formData.append('files', f.file));
 
-    } catch (error) {
-      console.error('Error merging PDFs:', error);
-      addToast('Terjadi kesalahan saat menggabungkan PDF. Silakan coba lagi.', 'error');
+      const response = await fetch(`${BACKEND_URL}/tools/merge-pdf`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || "Gagal menggabungkan PDF.");
+      }
+
+      const blob = await response.blob();
+      setMergedPdfUrl(URL.createObjectURL(blob));
+      addToast('PDF berhasil digabungkan!', 'success');
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      addToast(error.name === 'AbortError' ? "Waktu habis (5 menit)." : error.message, 'error');
     } finally {
       setIsMerging(false);
     }
@@ -172,129 +134,67 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const reset = () => {
     setFiles([]);
     setIsMerging(false);
-    if(mergedPdfUrl) {
-        URL.revokeObjectURL(mergedPdfUrl);
-    }
+    if(mergedPdfUrl) URL.revokeObjectURL(mergedPdfUrl);
     setMergedPdfUrl(null);
   };
 
-  // Tampilan Hasil (Jika konversi berhasil)
   if (mergedPdfUrl) {
     return (
       <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack}>
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6">
-          <p className="text-lg">File Anda telah berhasil disatukan.</p>
-          <a
-            href={mergedPdfUrl}
-            download={`gabung-pdf-${Date.now()}.pdf`}
-            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-sm shadow-blue-200 dark:shadow-none"
-          >
-            <DownloadIcon />
+          <DownloadIcon className="w-16 h-16 text-green-500" />
+          <p className="text-lg">File Anda telah berhasil disatukan melalui server kami.</p>
+          <a href={mergedPdfUrl} download={`merged-${Date.now()}.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg shadow-md w-full max-w-sm">
             Unduh PDF Gabungan
           </a>
-          <button
-            onClick={reset}
-            className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-          >
-            Gabungkan PDF Lainnya
-          </button>
+          <button onClick={reset} className="font-medium text-gray-500 hover:text-blue-600">Gabungkan PDF Lainnya</button>
         </div>
       </ToolContainer>
     )
   }
 
-  // Tampilan Utama (Upload & List File)
   return (
-    <ToolContainer title="Gabungkan PDF" onBack={onBack}>
-       <input
-        type="file"
-        multiple
-        accept=".pdf"
-        ref={fileInputRef}
-        className="hidden"
-        onChange={(e) => handleFileChange(e.target.files)}
-      />
+    <ToolContainer title="Gabungkan PDF (Server)" onBack={onBack}>
+       <input type="file" multiple accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
       
-      {/* Area Upload (Muncul jika belum ada file) */}
       {files.length === 0 && (
         <div 
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
+            className={`flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/50'}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDropOnUploader}
         >
-            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
-            <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-            >
-            Pilih File
-            </button>
+            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
+            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas PDF di sini</p>
+            <button onClick={() => fileInputRef.current?.click()} className="mt-2 bg-gray-800 text-white font-bold py-2 px-6 rounded-lg">Pilih File</button>
         </div>
       )}
       
-      {/* Daftar File (Muncul jika file sudah dipilih) */}
       {files.length > 0 && (
         <>
             <div className="mb-6 flex justify-center">
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-                >
-                Tambah File Lain
-                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-slate-600 font-bold py-2 px-4 rounded-lg">Tambah File</button>
             </div>
-            <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">File yang akan digabungkan ({files.length}):</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Seret dan lepas untuk mengatur urutan file.</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 transition-all duration-300">
-                    {files.map(({ id, file, buffer }, index) => (
-                    <div
-                        key={id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragEnter={(e) => handleDragEnter(e, index)}
-                        onDragLeave={handleDragLeaveList}
-                        onDragEnd={handleDropOnList}
-                        onDragOver={(e) => e.preventDefault()}
-                        className={`bg-gray-50 dark:bg-slate-800 p-2 rounded-lg flex flex-col gap-2 cursor-grab active:cursor-grabbing border border-gray-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 list-item-enter-active shadow-sm ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
-                    >
-                        <div className="flex items-center justify-between text-xs">
-                        <span className="bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-slate-600 font-bold rounded-full w-6 h-6 flex items-center justify-center">{index + 1}</span>
-                        <button onClick={() => removeFile(index)} className="p-1 text-gray-400 hover:text-red-500 rounded-full transition-colors">
-                            <TrashIcon />
-                        </button>
-                        </div>
-                        {/* Komponen Preview PDF Halaman Pertama */}
-                        <PdfPreview buffer={buffer} />
-                        <div className="text-center">
-                        <p className="text-gray-700 dark:text-gray-200 truncate text-xs font-medium" title={file.name}>{file.name}</p>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                    </div>
-                    ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {files.map(({ id, file, buffer }, index) => (
+                <div key={id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragEnter={(e) => handleDragEnter(e, index)} onDragLeave={handleDragLeaveList} onDragEnd={handleDropOnList} onDragOver={(e) => e.preventDefault()} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm relative group cursor-move">
+                    <button onClick={() => removeFile(index)} className="absolute top-1 right-1 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm"><TrashIcon className="w-4 h-4"/></button>
+                    <PdfPreview buffer={buffer} />
+                    <p className="text-[10px] truncate mt-1 text-center font-bold text-gray-600 dark:text-gray-300">{file.name}</p>
                 </div>
+                ))}
             </div>
 
-            <div className="mt-8 flex flex-col items-center">
-                <button 
-                    onClick={handleMerge}
-                    disabled={isMerging || files.length < 2}
-                    className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md"
-                >
+            <div className="mt-8">
+                <button onClick={handleMerge} disabled={isMerging || files.length < 2} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50">
                 {isMerging ? (
                     <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w.3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Menggabungkan...
+                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      Sedang Menggabungkan (Server)...
                     </>
-                ) : `Gabungkan ${files.length} PDF`}
+                ) : `Gabungkan ${files.length} PDF Sekarang`}
                 </button>
-                {files.length < 2 && <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">Silakan tambahkan setidaknya 2 file untuk digabungkan.</p>}
+                <p className="text-center text-[10px] text-gray-400 mt-2 uppercase tracking-tight">Diproses aman di server backend</p>
             </div>
         </>
       )}

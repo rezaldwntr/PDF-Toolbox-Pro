@@ -1,5 +1,5 @@
 {
-  "name": "Zentridox",
-  "description": "A powerful set of tools to merge, split, compress, edit, and organize your PDF files with ease. Built with React and Tailwind CSS.",
+  "name": "PDF Toolbox Pro",
+  "description": "Powerful server-side tools to merge, split, compress, and convert your PDF files with professional quality. Fast, secure, and reliable.",
   "requestFramePermissions": []
 }

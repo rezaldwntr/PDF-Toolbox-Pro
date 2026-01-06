@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { View } from '../types';
-import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon, FilePdfIcon } from './icons';
+import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon } from './icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface HeaderProps {
@@ -16,75 +16,57 @@ const navItems = [
 ];
 
 const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
-  // State untuk mengontrol visibilitas menu di tampilan mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Mengambil tema dan fungsi toggle dari Context
   const { theme, toggleTheme } = useTheme();
 
   const handleNavigate = (view: View) => {
     onNavigate(view);
-    setIsMobileMenuOpen(false); // Tutup menu mobile setelah navigasi
-  };
-
-  const handleGoHome = () => {
-    onGoHome();
     setIsMobileMenuOpen(false);
   };
 
   return (
     <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50 border-b border-gray-200 dark:border-slate-700 transition-colors duration-300">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        {/* Logo Section - Menggunakan SVG Icon pengganti Image untuk menghindari 404 */}
-        <button onClick={handleGoHome} className="cursor-pointer flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform duration-200">
-             {/* Menggunakan ikon PDF yang sudah ada */}
-             <svg className="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
+        <button onClick={onGoHome} className="cursor-pointer flex items-center gap-2 group">
+          <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-500/30 group-hover:rotate-12 transition-all duration-300">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </div>
-          <span className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Zentridox
+          <span className="text-xl font-black text-gray-900 dark:text-white tracking-tighter">
+            PDF TOOLBOX <span className="text-red-600">PRO</span>
           </span>
         </button>
         
         <div className="flex items-center gap-4">
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6 text-sm">
             {navItems.map(item => (
                 <button 
                     key={item.label} 
                     onClick={() => handleNavigate(item.view)} 
-                    className={`font-medium transition-colors ${item.label === 'Alat PDF' ? 'px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm shadow-blue-200 dark:shadow-none' : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                    className="font-bold text-gray-600 dark:text-gray-300 hover:text-red-600 transition-colors"
                 >
                     {item.label}
                 </button>
             ))}
             </nav>
 
-            {/* Tombol Ganti Tema (Dark/Light) */}
             <button 
                 onClick={toggleTheme} 
                 className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
-                aria-label="Toggle Theme"
             >
                 {theme === 'light' ? <MoonIcon /> : <SunIcon />}
             </button>
             
-            {/* Tombol Menu Mobile */}
-            <div className="md:hidden">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 p-2 -mr-2">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-gray-600 dark:text-gray-300 p-2">
                 {isMobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
             </button>
-            </div>
         </div>
       </div>
       
-      {/* Menu Navigasi Mobile (Dropdown) */}
       {isMobileMenuOpen && (
-        <div className="md:hidden animate-fade-in-down bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 absolute w-full left-0 shadow-lg">
-            <nav className="px-4 pt-2 pb-4 flex flex-col items-start gap-2">
+        <div className="md:hidden animate-fade-in-down bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700">
+            <nav className="px-4 py-4 flex flex-col gap-2">
               {navItems.map(item => (
-                <button key={item.label} onClick={() => handleNavigate(item.view)} className="w-full text-left font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-md transition-colors py-3 px-3 border-b border-gray-100 dark:border-slate-800 last:border-0">
+                <button key={item.label} onClick={() => handleNavigate(item.view)} className="w-full text-left font-bold text-gray-700 dark:text-gray-200 py-3 px-3 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-lg">
                     {item.label}
                 </button>
               ))}
