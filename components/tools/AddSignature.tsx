@@ -1,8 +1,10 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, DrawIcon, UploadImageIcon, ZoomInIcon, ZoomOutIcon, FilePdfIcon } from '../icons';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 declare const pdfjsLib: any;
 
@@ -55,7 +57,6 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [signatureMode, setSignatureMode] = useState<SignatureMode>('draw');
   const [zoom, setZoom] = useState(1.0);
 
-  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadSignatureInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
@@ -88,7 +89,8 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setOutputUrl(null);
   }, [outputUrl]);
 
-  const handleFileChange = async (selectedFile: File | null) => {
+  const handleFileChange = async (files: FileList | null) => {
+    const selectedFile = files ? files[0] : null;
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
@@ -448,19 +450,11 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     if (!fileWithBuffer) {
       return (
-         <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
-        >
-            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Pilih File
-            </button>
-        </div>
+        <FileUploader 
+            onFileSelect={handleFileChange} 
+            label="Pilih PDF untuk Ditandatangani"
+            description="Seret & lepas file PDF di sini untuk mulai menandatangani"
+        />
       );
     }
 
@@ -604,7 +598,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Tambahkan Tanda Tangan" onBack={onBack} maxWidth="max-w-7xl">
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
+      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files : null)} />
       {renderContent()}
     </ToolContainer>
   );

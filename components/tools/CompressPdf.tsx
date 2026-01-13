@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 const BACKEND_URL = 'https://api-backend.club';
 
@@ -12,11 +13,10 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [targetSizeKb, setTargetSizeKb] = useState<number>(500);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
-  const handleFileChange = (selectedFile: File | null) => {
+  const handleFileChange = (files: FileList | null) => {
+    const selectedFile = files ? files[0] : null;
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
       setResultUrl(null);
@@ -81,19 +81,13 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Kompres PDF (Server)" onBack={onBack}>
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
       
       {!file ? (
-        <div 
-          className={`p-12 border-2 border-dashed rounded-xl text-center transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/50'}`}
-          onDragOver={(e) => {e.preventDefault(); setIsDragOver(true)}}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={(e) => {e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0])}}
-        >
-          <UploadIcon className="mx-auto mb-4" />
-          <p className="font-bold text-gray-700 dark:text-gray-200">Seret file PDF ke sini untuk kompresi</p>
-          <button onClick={() => fileInputRef.current?.click()} className="mt-4 bg-gray-800 dark:bg-slate-700 text-white py-2 px-6 rounded-lg font-bold">Pilih File</button>
-        </div>
+        <FileUploader 
+            onFileSelect={handleFileChange} 
+            label="Pilih PDF untuk Dikompres"
+            description="Seret file PDF ke sini untuk memperkecil ukurannya"
+        />
       ) : (
         <div className="space-y-6 animate-fade-in">
           <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg flex items-center justify-between border border-gray-200 dark:border-slate-700">

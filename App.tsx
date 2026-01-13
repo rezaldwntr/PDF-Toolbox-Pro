@@ -28,7 +28,7 @@ import { WrenchIcon } from './components/icons';
 
 function App() {
   const [activeView, setActiveView] = useState<View>(View.HOME_TAB);
-  const [showDevModal, setShowDevModal] = useState(true);
+  const [showDevModal, setShowDevModal] = useState(false); // Default false for production feel
 
   useEffect(() => {
     window.history.replaceState({ view: View.HOME_TAB }, '');
@@ -80,25 +80,15 @@ function App() {
 
   return (
     <ToastProvider>
-      <div className="bg-gray-50 dark:bg-slate-900 min-h-screen text-gray-900 dark:text-white antialiased flex flex-col relative transition-colors duration-300">
+      <div className="bg-[#F3F4F6] dark:bg-[#0f172a] min-h-screen text-gray-900 dark:text-white antialiased flex flex-col relative transition-colors duration-300 font-sans">
         <Header onGoHome={() => navigateTo(View.HOME_TAB)} onNavigate={navigateTo} />
-        <main className="container mx-auto px-4 py-8 flex-grow max-w-5xl">
+        
+        {/* Main Content Area */}
+        <main className="flex-grow w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {renderActiveView()}
         </main>
+
         {!isToolOrPageActive && <BottomNav activeTab={activeView} onTabChange={navigateTo} />}
-        {!isToolOrPageActive && (
-          <footer className="text-center py-10 text-gray-500 dark:text-gray-400 text-sm border-t border-gray-200 dark:border-slate-800 mb-16 md:mb-0 bg-white dark:bg-slate-900">
-               <nav className="flex justify-center gap-8 flex-wrap mb-6 font-bold uppercase tracking-tighter">
-                <button onClick={() => navigateTo(View.ABOUT)} className="hover:text-red-600 transition-colors">Tentang</button>
-                <button onClick={() => navigateTo(View.PRIVACY)} className="hover:text-red-600 transition-colors">Privasi</button>
-                <button onClick={() => navigateTo(View.CONTACT)} className="hover:text-red-600 transition-colors">Kontak</button>
-                <button onClick={() => navigateTo(View.FAQ)} className="hover:text-red-600 transition-colors">FAQ</button>
-                <button onClick={() => navigateTo(View.BLOG)} className="hover:text-red-600 transition-colors">Blog</button>
-              </nav>
-              <p className="px-4 mb-2">Seluruh pemrosesan file dilakukan pada server backend yang aman dengan enkripsi SSL.</p>
-              <p className="font-bold text-gray-400">© 2024 PDF Toolbox Pro</p>
-          </footer>
-        )}
         
         {showDevModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
@@ -109,7 +99,7 @@ function App() {
                     </div>
                     <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tighter uppercase">Beta Access</h3>
                     <p className="text-gray-600 dark:text-gray-300 text-sm mb-8 leading-relaxed">
-                        Selamat datang di <strong>PDF Toolbox Pro</strong>. Platform ini menggunakan pemrosesan server penuh. Mohon maklumi jika terjadi keterlambatan pada file yang sangat besar.
+                        Selamat datang di <strong>PDF Toolbox Pro</strong>. Platform ini menggunakan pemrosesan server penuh.
                     </p>
                     <button 
                         onClick={() => setShowDevModal(false)}

@@ -4,6 +4,7 @@ import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 const BACKEND_URL = 'https://api-backend.club';
 
@@ -21,8 +22,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Kept for "Tambah File" button logic
   const { addToast } = useToast();
 
   const draggedItemIndex = useRef<number | null>(null);
@@ -42,22 +42,6 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       setFiles(prevFiles => [...prevFiles, ...processedFiles]);
     }
   };
-  
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDropOnUploader = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    await handleFileChange(e.dataTransfer.files);
-  }, []);
 
   const removeFile = (indexToRemove: number) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
@@ -155,23 +139,20 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Gabungkan PDF (Server)" onBack={onBack}>
-       <input type="file" multiple accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
-      
       {files.length === 0 && (
-        <div 
-            className={`flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/50'}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDropOnUploader}
-        >
-            <UploadIcon className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas PDF di sini</p>
-            <button onClick={() => fileInputRef.current?.click()} className="mt-2 bg-gray-800 text-white font-bold py-2 px-6 rounded-lg">Pilih File</button>
-        </div>
+        <FileUploader 
+            onFileSelect={handleFileChange} 
+            multiple={true}
+            label="Gabungkan Beberapa PDF"
+            description="Seret banyak file PDF ke sini untuk disatukan"
+        />
       )}
       
       {files.length > 0 && (
         <>
+            {/* Hidden Input for Add More */}
+            <input type="file" multiple accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
+            
             <div className="mb-6 flex justify-center">
                 <button onClick={() => fileInputRef.current?.click()} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-slate-600 font-bold py-2 px-4 rounded-lg">Tambah File</button>
             </div>

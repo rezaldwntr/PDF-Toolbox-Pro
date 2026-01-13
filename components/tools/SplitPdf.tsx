@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, TrashIcon, FilePdfIcon, CheckCircleIcon, ZipIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 // Deklarasi global untuk pdfjsLib dari CDN
 declare const pdfjsLib: any;
@@ -29,7 +30,6 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [outputFileType, setOutputFileType] = useState<'pdf' | 'zip'>('pdf');
-  const [isDragOver, setIsDragOver] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   
   // Split Configuration State
@@ -52,7 +52,8 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
     setOutputFileType('pdf');
   };
 
-  const handleFileChange = async (selectedFile: File | null) => {
+  const handleFileChange = async (files: FileList | null) => {
+    const selectedFile = files ? files[0] : null;
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
       setOutputUrl(null);
@@ -214,31 +215,18 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Pisahkan PDF Pro" onBack={onBack} maxWidth="max-w-6xl">
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
-      
       {!file ? (
-        <div 
-          className={`p-16 border-2 border-dashed rounded-2xl text-center transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/50'}`}
-          onDragOver={(e) => {e.preventDefault(); setIsDragOver(true)}}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={(e) => {e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0])}}
-        >
-          {isLoadingFile ? (
-             <div className="flex flex-col items-center">
-                <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <p className="font-medium text-gray-600 dark:text-gray-300">{processingMessage}</p>
-             </div>
-          ) : (
-            <>
-                <UploadIcon className="mx-auto mb-4 w-16 h-16 text-gray-400" />
-                <h3 className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-2">Seret & Lepas PDF Di Sini</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">atau klik tombol di bawah untuk memilih file</p>
-                <button onClick={() => fileInputRef.current?.click()} className="bg-gray-900 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">
-                    Pilih File PDF
-                </button>
-            </>
-          )}
-        </div>
+         isLoadingFile ? (
+            <div className="flex flex-col items-center justify-center p-16">
+               <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+               <p className="font-medium text-gray-600 dark:text-gray-300">{processingMessage}</p>
+            </div>
+         ) : (
+            <FileUploader 
+                onFileSelect={handleFileChange} 
+                label="Pilih PDF untuk Dipisahkan"
+            />
+         )
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
           {/* Sidebar Controls */}
@@ -253,6 +241,7 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
                     <button onClick={resetState} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><TrashIcon className="w-4 h-4"/></button>
                 </div>
 
+                {/* Rest of the controls code remains same... */}
                 <h3 className="font-bold text-gray-900 dark:text-white mb-3">Pilih Mode Pemisahan</h3>
                 <div className="flex flex-col gap-2 mb-6">
                     <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${mode === 'range' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500' : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>

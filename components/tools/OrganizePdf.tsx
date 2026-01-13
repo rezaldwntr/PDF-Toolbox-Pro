@@ -1,8 +1,10 @@
+
 import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon, DuplicateIcon } from '../icons';
 import { PDFDocument, degrees } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 declare const pdfjsLib: any;
 
@@ -27,7 +29,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
@@ -284,19 +286,12 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     if (filesWithBuffer.length === 0) {
       return (
-        <div
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition-colors duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 bg-gray-50 dark:bg-slate-800/50'}`}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleAddFiles(e.dataTransfer.files); }}
-        >
-            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-2">Seret & lepas file PDF Anda di sini</p>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">atau</p>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Pilih File
-            </button>
-        </div>
+        <FileUploader 
+            onFileSelect={handleAddFiles} 
+            multiple={true}
+            label="Pilih PDF untuk Diatur"
+            description="Seret satu atau lebih file PDF untuk mulai mengatur halaman"
+        />
       );
     }
 

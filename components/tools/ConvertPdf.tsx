@@ -7,6 +7,7 @@ import {
   ZipIcon, FilePdfIcon 
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import FileUploader from '../common/FileUploader';
 
 // pdfjsLib is loaded from CDN in index.html
 declare const pdfjsLib: any;
@@ -34,7 +35,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState<string>('');
-  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
 
@@ -62,7 +62,8 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setOutputFilename('');
   }, [outputUrl]);
 
-  const handleFileChange = async (selectedFile: File | null) => {
+  const handleFileChange = async (files: FileList | null) => {
+    const selectedFile = files ? files[0] : null;
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
@@ -212,24 +213,17 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     }
 
     return (
-        <div
-            className={`flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl transition-all duration-300 ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-slate-800/50' : 'border-gray-300 dark:border-slate-600 hover:border-gray-400 bg-gray-50 dark:bg-slate-800/50'}`}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files[0]); }}
-        >
-            <div className="mb-4">{config.icon}</div>
-            <p className="text-gray-700 dark:text-gray-200 font-bold text-lg mb-2 text-center">Seret & lepas PDF untuk diubah ke {mode === 'ppt' ? 'PowerPoint' : mode.toUpperCase()}</p>
-            <button onClick={() => fileInputRef.current?.click()} className="mt-4 bg-gray-800 hover:bg-gray-700 dark:bg-slate-700 text-white font-bold py-2.5 px-6 rounded-lg transition-colors">
-                Pilih File PDF
-            </button>
-        </div>
+        <FileUploader 
+            onFileSelect={handleFileChange} 
+            label={`Pilih PDF untuk Diubah ke ${mode === 'ppt' ? 'PowerPoint' : mode.toUpperCase()}`}
+            description="Seret & lepas file PDF Anda untuk memulai konversi"
+        />
     );
   };
 
   return (
     <ToolContainer title={config.title} onBack={onBack}>
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)} />
+      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
       {renderContent()}
     </ToolContainer>
   );

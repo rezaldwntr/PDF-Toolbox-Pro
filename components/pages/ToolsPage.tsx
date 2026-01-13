@@ -15,25 +15,38 @@ interface ToolsPageProps {
   onSelectTool: (view: View) => void;
 }
 
-const ToolItem: React.FC<{ icon: React.ReactNode; label: string; active: boolean; onClick: () => void }> = ({ icon, label, active, onClick }) => (
+interface ToolConfig {
+    label: string;
+    icon: React.ReactNode;
+    active: boolean;
+    view?: View;
+}
+
+interface CategoryConfig {
+    title: string;
+    tools: ToolConfig[];
+}
+
+const ToolItem: React.FC<{ tool: ToolConfig; onClick: () => void }> = ({ tool, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 h-28 w-full ${
-      active 
-        ? 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-blue-500 hover:shadow-md cursor-pointer' 
-        : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 cursor-default opacity-60'
-    }`}
+    disabled={!tool.active}
+    className={`
+        relative flex flex-col items-center justify-center p-6 rounded-2xl border transition-all duration-300 w-full aspect-[4/3] group
+        ${tool.active 
+            ? 'bg-white dark:bg-[#1e293b] border-gray-100 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 cursor-pointer' 
+            : 'bg-gray-50 dark:bg-slate-800/50 border-transparent dark:border-slate-800 cursor-not-allowed opacity-70'}
+    `}
   >
-    <div className={`mb-2 ${active ? 'text-blue-600' : 'text-gray-400'}`}>
-      {/* Fix: Explicitly cast the icon element to accept className prop for cloning */}
-      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })}
+    <div className={`mb-3 transition-transform duration-300 group-hover:scale-110 ${tool.active ? 'text-blue-600 dark:text-blue-500' : 'text-gray-400 dark:text-slate-600'}`}>
+      {React.cloneElement(tool.icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8 md:w-10 md:h-10' })}
     </div>
-    <span className={`text-[11px] font-bold text-center leading-tight ${active ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400'}`}>
-      {label}
+    <span className={`text-xs md:text-sm font-bold text-center leading-tight ${tool.active ? 'text-gray-800 dark:text-white' : 'text-gray-400 dark:text-slate-500'}`}>
+      {tool.label}
     </span>
-    {!active && (
-      <span className="mt-1 text-[8px] uppercase font-black text-gray-500 bg-gray-200 dark:bg-slate-700 px-1 rounded">
-        Segera
+    {!tool.active && (
+      <span className="absolute top-3 right-3 text-[9px] font-bold text-gray-500 dark:text-slate-500 bg-gray-200 dark:bg-slate-700/50 px-1.5 py-0.5 rounded border border-gray-300 dark:border-slate-600">
+        SEGERA
       </span>
     )}
   </button>
@@ -42,7 +55,7 @@ const ToolItem: React.FC<{ icon: React.ReactNode; label: string; active: boolean
 const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
   const { addToast } = useToast();
 
-  const categories = [
+  const categories: CategoryConfig[] = [
     {
       title: "Esensial & Populer",
       tools: [
@@ -84,26 +97,23 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
   ];
 
   return (
-    <div className="pb-20 animate-fade-in">
-      <div className="mb-8 px-2 text-center md:text-left">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Semua Alat PDF</h2>
-        <p className="text-gray-500 dark:text-gray-400">Solusi lengkap untuk produktivitas dokumen Anda.</p>
-      </div>
-
-      <div className="space-y-10">
+    <div className="pb-20 animate-fade-in pt-4">
+      <div className="space-y-12">
         {categories.map((category, idx) => (
           <section key={idx}>
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-2 border-l-4 border-blue-600 pl-3">
-              {category.title}
-            </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
+                <h3 className="text-xs font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">
+                {category.title}
+                </h3>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
               {category.tools.map((tool, tIdx) => (
                 <ToolItem 
                   key={tIdx}
-                  icon={tool.icon}
-                  label={tool.label}
-                  active={tool.active}
-                  onClick={() => tool.active && tool.view ? onSelectTool(tool.view) : addToast("Segera hadir!", "info")}
+                  tool={tool}
+                  onClick={() => tool.active && tool.view ? onSelectTool(tool.view) : addToast("Fitur ini akan segera hadir!", "info")}
                 />
               ))}
             </div>

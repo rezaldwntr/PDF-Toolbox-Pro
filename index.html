@@ -18,23 +18,51 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
             },
+            colors: {
+                brand: {
+                    dark: '#0f172a',
+                    green: '#10B981',
+                    purple: '#8B5CF6',
+                    yellow: '#F59E0B',
+                }
+            }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-      body { font-family: 'Inter', sans-serif; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+      body { 
+          font-family: 'Inter', sans-serif; 
+          background-color: #F3F4F6; /* Light gray background like the reference */
+      }
+      .dark body {
+          background-color: #0f172a;
+      }
       @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
       .animate-fade-in-down { animation: fadeInDown 200ms ease-out forwards; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       .animate-fade-in { animation: fadeIn 300ms ease-out forwards; }
-      .drag-over-indicator { outline: 2px dashed #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
+      
+      /* Custom Scrollbar for dashboard feel */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
+      }
     </style>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     
     <script type="importmap">
 {
