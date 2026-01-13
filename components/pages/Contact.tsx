@@ -19,49 +19,33 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
     e.preventDefault();
     setFormStatus('submitting');
     try {
-      // Menggunakan email Anda: rezaldewantara@gmail.com
       const response = await fetch('https://formsubmit.co/ajax/rezaldewantara@gmail.com', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            message: formData.message,
-            _subject: "Pesan Baru dari Website Zentridox", // Subjek email agar mudah dicari
-            _template: "table", // Format email tabel agar lebih rapi
-            _captcha: "false" // Mematikan captcha bawaan jika mengganggu (opsional)
+            ...formData,
+            _subject: "Pesan Baru dari Website PDF Toolbox Pro",
+            _template: "table",
+            _captcha: "false"
         }),
       });
-
-      if (response.ok) {
-        setFormStatus('success');
-        setFormData({ name: '', email: '', message: '' });
-      } else {
-        const data = await response.json();
-        throw new Error(data.message || 'Pengiriman formulir gagal');
-      }
-    } catch (error) {
-      console.error(error);
-      setFormStatus('error');
-    }
+      if (response.ok) { setFormStatus('success'); setFormData({ name: '', email: '', message: '' }); } 
+      else { throw new Error('Gagal mengirim'); }
+    } catch (error) { setFormStatus('error'); }
   };
 
   if (formStatus === 'success') {
     return (
-      <ToolContainer title="Pesan Terkirim!" onBack={onBack} maxWidth="max-w-2xl">
-        <div className="text-center text-gray-700 dark:text-gray-300 space-y-4 animate-fade-in">
-          <svg className="w-16 h-16 text-green-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-lg">Terima kasih atas masukan Anda. Kami akan segera merespons jika diperlukan.</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">(Pastikan Anda sudah mengaktifkan form ini melalui email konfirmasi pertama kali)</p>
-          <button
-            onClick={() => setFormStatus('idle')}
-            className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors pt-4"
-          >
+      <ToolContainer title="Pesan Terkirim!" onBack={onBack} maxWidth="max-w-xl">
+        <div className="text-center py-10">
+          <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/20">
+            <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Terima Kasih!</h3>
+          <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
+            Pesan Anda telah kami terima. Tim kami akan mencoba merespons dalam waktu 24 jam.
+          </p>
+          <button onClick={() => setFormStatus('idle')} className="text-blue-600 font-bold hover:underline hover:text-blue-700 transition-colors">
             Kirim pesan lain
           </button>
         </div>
@@ -71,73 +55,42 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
 
   return (
     <ToolContainer title="Hubungi Kami" onBack={onBack} maxWidth="max-w-2xl">
-      <div className="text-center text-gray-600 dark:text-gray-300 mb-8">
-        <p>Punya pertanyaan, masukan, atau saran? Kami ingin sekali mendengar dari Anda. Silakan isi formulir di bawah ini.</p>
+      <div className="text-center mb-10">
+        <p className="text-slate-500 dark:text-slate-400 text-lg">
+            Ada kendala teknis? Atau punya saran fitur baru?<br/>
+            Kami senang mendengar masukan dari Anda.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Nama Anda</label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm placeholder-gray-400 dark:placeholder-gray-400"
-            placeholder="Nama Anda"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+                <label htmlFor="name" className="block text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Nama Lengkap</label>
+                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required
+                    className="w-full px-5 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:text-white placeholder-slate-400" placeholder="Contoh: Budi Santoso" />
+            </div>
+            <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Alamat Email</label>
+                <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} required
+                    className="w-full px-5 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:text-white placeholder-slate-400" placeholder="nama@email.com" />
+            </div>
         </div>
 
-        <div>
-          <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Email Anda</label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm placeholder-gray-400 dark:placeholder-gray-400"
-            placeholder="anda@email.com"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="message" className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Pesan</label>
-          <textarea
-            name="message"
-            id="message"
-            rows={6}
-            value={formData.message}
-            onChange={handleChange}
-            required
-            className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 transition-colors shadow-sm placeholder-gray-400 dark:placeholder-gray-400"
-            placeholder="Tinggalkan pesan Anda di sini..."
-          />
+        <div className="space-y-2">
+          <label htmlFor="message" className="block text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Pesan Anda</label>
+          <textarea name="message" id="message" rows={6} value={formData.message} onChange={handleChange} required
+            className="w-full px-5 py-3.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:text-white resize-none placeholder-slate-400" placeholder="Ceritakan detail masalah atau saran Anda di sini..." />
         </div>
 
         {formStatus === 'error' && (
-          <p className="text-sm text-red-500 text-center">
-            Maaf, terjadi kesalahan saat mengirim pesan Anda. Silakan coba lagi nanti.
-          </p>
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-center text-sm font-medium border border-red-100 dark:border-red-900/30">
+                Maaf, gagal mengirim pesan saat ini. Silakan coba lagi nanti.
+            </div>
         )}
 
-        <button
-          type="submit"
-          disabled={formStatus === 'submitting'}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center shadow-md"
-        >
-          {formStatus === 'submitting' ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Mengirim...
-            </>
-          ) : 'Kirim Pesan'}
+        <button type="submit" disabled={formStatus === 'submitting'}
+          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-4">
+          {formStatus === 'submitting' ? 'Sedang Mengirim...' : 'Kirim Pesan Sekarang'}
         </button>
       </form>
     </ToolContainer>

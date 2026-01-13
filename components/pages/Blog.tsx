@@ -2,41 +2,52 @@
 import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 
-interface BlogProps {
-  onBack: () => void;
-}
-
 const blogPosts = [
-  {
-    title: '5 Tips Mengompres PDF Tanpa Kehilangan Kualitas',
-    summary: 'Pelajari rahasia untuk membuat file PDF Anda lebih kecil dan mudah dibagikan melalui email, tanpa mengubah gambar Anda menjadi buram.',
-    link: '#',
+  { 
+    title: 'Tips Menggabungkan Dokumen Lamaran Kerja', 
+    summary: 'Jangan kirim banyak file terpisah. Pelajari cara menggabungkan CV, Surat Lamaran, dan Portofolio menjadi satu PDF profesional.', 
+    color: 'bg-blue-100 text-blue-600',
+    readTime: '3 min baca'
   },
-  {
-    title: 'Mengapa Anda Harus Menggunakan Tanda Tangan Digital untuk Dokumen Anda',
-    summary: 'Temukan manfaat menandatangani dokumen secara digital, mulai dari keamanan yang ditingkatkan hingga efisiensi alur kerja yang lebih baik.',
-    link: '#',
+  { 
+    title: 'Kompres PDF: Hemat Ruang Tanpa Buram', 
+    summary: 'Bagaimana cara kerja algoritma kompresi kami mengurangi ukuran file hingga 50% tanpa merusak keterbacaan teks dan gambar.', 
+    color: 'bg-green-100 text-green-600',
+    readTime: '4 min baca'
   },
-  {
-    title: 'Mengatur PDF Anda: Panduan untuk Memisahkan, Menggabungkan, dan Mengurutkan Halaman',
-    summary: 'Atasi dokumen-dokumen kacau Anda. Panduan ini menunjukkan cara menggunakan alat kami untuk membuat file PDF yang terorganisir sempurna untuk tujuan apa pun.',
-    link: '#',
+  { 
+    title: 'Ubah PDF ke Word untuk Edit Ulang', 
+    summary: 'Salah ketik di dokumen PDF? Jangan khawatir. Konversi ke Word, perbaiki kesalahan, dan simpan kembali dengan mudah.', 
+    color: 'bg-purple-100 text-purple-600',
+    readTime: '2 min baca'
+  },
+  { 
+    title: 'Tanda Tangan Digital vs Basah', 
+    summary: 'Mengapa beralih ke tanda tangan digital lebih aman, legal, dan ramah lingkungan dibandingkan mencetak dokumen.', 
+    color: 'bg-orange-100 text-orange-600',
+    readTime: '5 min baca'
   },
 ];
 
-const Blog: React.FC<BlogProps> = ({ onBack }) => {
+const Blog: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
-    <ToolContainer title="Blog & Artikel" onBack={onBack} maxWidth="max-w-5xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <ToolContainer title="Blog & Wawasan" onBack={onBack} maxWidth="max-w-6xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {blogPosts.map((post, index) => (
-          <div key={index} className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 flex flex-col items-start hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all duration-300">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{post.title}</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm flex-grow">{post.summary}</p>
-            <button
-                onClick={() => alert('Detail artikel akan segera hadir!')}
-                className="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-            >
-              Baca Selengkapnya &rarr;
+          <div key={index} className="group bg-white dark:bg-slate-800 p-8 rounded-[2rem] border border-gray-100 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 flex flex-col items-start cursor-pointer h-full">
+            <div className="flex justify-between w-full items-start mb-4">
+                <div className={`w-14 h-14 ${post.color} dark:bg-opacity-20 rounded-2xl flex items-center justify-center font-bold text-xl`}>
+                    {index + 1}
+                </div>
+                <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">{post.readTime}</span>
+            </div>
+            
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 group-hover:text-blue-600 transition-colors leading-tight">{post.title}</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 flex-grow leading-relaxed">{post.summary}</p>
+            
+            <button className="text-sm font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2 group/btn">
+                Baca Selengkapnya 
+                <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
             </button>
           </div>
         ))}

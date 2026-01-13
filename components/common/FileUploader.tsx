@@ -14,8 +14,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   onFileSelect, 
   accept = ".pdf", 
   multiple = false,
-  label = "Seret & lepas file PDF Anda di sini",
-  description = "atau klik tombol di bawah untuk memilih file"
+  label = "Upload File PDF",
+  description = "Seret file ke sini atau klik untuk memilih"
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,23 +41,19 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     }
   }, [onFileSelect]);
 
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
-
   return (
     <div
-      onClick={handleClick}
+      onClick={() => fileInputRef.current?.click()}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
         relative group cursor-pointer flex flex-col items-center justify-center 
-        p-10 md:p-16 rounded-3xl border-2 border-dashed transition-all duration-300 ease-in-out
-        min-h-[300px] w-full
+        p-10 md:p-14 rounded-[2rem] border-2 border-dashed transition-all duration-300 ease-out
+        min-h-[320px] w-full overflow-hidden
         ${isDragOver 
-          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 scale-[1.01]' 
-          : 'border-gray-300 dark:border-slate-600 bg-white/50 dark:bg-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-500'
+          ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-900/20 scale-[1.02] shadow-xl shadow-blue-500/10' 
+          : 'border-gray-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50'
         }
       `}
     >
@@ -70,39 +66,34 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         onChange={(e) => onFileSelect(e.target.files)}
       />
 
+      {/* Background Decor (Glow Effect) */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-blue-50/30 to-transparent dark:via-blue-900/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+      {/* Icon Container */}
       <div className={`
-        mb-6 p-4 rounded-full transition-transform duration-300 bg-white dark:bg-slate-700 shadow-sm
-        ${isDragOver ? 'scale-110 text-blue-500' : 'text-gray-400 dark:text-slate-400 group-hover:scale-110 group-hover:text-gray-600 dark:group-hover:text-slate-200'}
+        relative mb-6 p-5 rounded-2xl transition-all duration-300 shadow-sm
+        ${isDragOver 
+            ? 'bg-blue-600 text-white rotate-6 scale-110 shadow-blue-500/30' 
+            : 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 group-hover:scale-110 group-hover:-rotate-3 shadow-gray-200 dark:shadow-none'
+        }
       `}>
-        <UploadIcon className="w-10 h-10 md:w-12 md:h-12" />
+        <UploadIcon className="w-10 h-10" />
       </div>
 
-      <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white mb-3 text-center transition-colors">
+      <h3 className="relative text-xl md:text-2xl font-bold text-slate-800 dark:text-white mb-2 text-center">
         {label}
       </h3>
       
-      <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-8 text-center max-w-sm mx-auto leading-relaxed">
+      <p className="relative text-slate-500 dark:text-slate-400 text-center max-w-xs mb-8 text-sm leading-relaxed">
         {description}
       </p>
 
       <button 
         type="button"
-        className={`
-          px-8 py-3.5 rounded-xl font-bold text-sm md:text-base shadow-lg shadow-blue-500/20 transition-all duration-300
-          ${isDragOver 
-            ? 'bg-blue-600 text-white scale-105' 
-            : 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-500 hover:-translate-y-1'
-          }
-        `}
+        className="relative px-8 py-3 rounded-xl font-bold text-sm bg-blue-600 text-white shadow-lg shadow-blue-600/20 group-hover:bg-blue-700 transition-colors"
       >
-        Pilih File {multiple ? 'PDF' : ''}
+        Pilih File {multiple && '(Multi)'}
       </button>
-
-      {multiple && (
-        <div className="absolute top-4 right-4 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-          Multi-File
-        </div>
-      )}
     </div>
   );
 };

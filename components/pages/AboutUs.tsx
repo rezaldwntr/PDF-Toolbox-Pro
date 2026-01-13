@@ -2,31 +2,48 @@
 import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 
-interface AboutUsProps {
-  onBack: () => void;
-}
-
-const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
+const AboutUs: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <ToolContainer title="Tentang Kami" onBack={onBack} maxWidth="max-w-3xl">
-      <div className="prose prose-gray dark:prose-invert prose-lg max-w-none text-gray-700 dark:text-gray-300 space-y-6">
-        <p className="lead">
-          Selamat datang di Zentridox! Misi kami sederhana: menyediakan seperangkat alat PDF yang cepat, gratis, aman, dan mudah digunakan untuk semua orang.
-        </p>
-        
-        <h4>Apa yang Kami Tawarkan?</h4>
-        <p>
-          Zentridox adalah solusi lengkap untuk semua kebutuhan PDF Anda. Kami percaya bahwa manajemen dokumen yang kuat harus dapat diakses oleh semua orang, tanpa iklan yang mengganggu.
-        </p>
-        <ul className="list-disc list-inside">
-            <li><strong>Gratis:</strong> Semua alat kami 100% gratis untuk digunakan.</li>
-            <li><strong>Privasi & Keamanan:</strong> Untuk sebagian besar alat (seperti gabungkan, pisahkan, kompres), pemrosesan dilakukan langsung di browser Anda. Untuk konversi format lanjutan (seperti PDF ke Word), kami menggunakan server aman untuk memproses file Anda tanpa menyimpannya secara permanen.</li>
-            <li><strong>Mudah Digunakan:</strong> Tidak perlu mengunduh atau menginstal perangkat lunak apa pun. Cukup buka di browser Anda dan mulai bekerja.</li>
-        </ul>
+      <div className="prose prose-lg dark:prose-invert max-w-none text-slate-600 dark:text-slate-300">
+        <div className="text-center mb-10">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">PDF Toolbox Pro</h3>
+            <p className="text-blue-600 font-medium">Solusi Dokumen Cerdas & Sederhana</p>
+        </div>
 
         <p>
-          Kami berdedikasi untuk terus meningkatkan platform ini dengan fitur-fitur baru yang bermanfaat bagi produktivitas Anda. Terima kasih telah memilih Zentridox sebagai alat manajemen dokumen Anda!
+          Kami percaya bahwa bekerja dengan dokumen PDF seharusnya tidak rumit atau mahal. 
+          <strong>PDF Toolbox Pro</strong> lahir dari kebutuhan akan alat manipulasi dokumen yang andal, cepat, dan menghormati privasi penggunanya.
         </p>
+
+        <div className="grid sm:grid-cols-3 gap-4 not-prose my-8">
+            <div className="p-4 bg-white dark:bg-slate-700 rounded-2xl text-center border border-gray-100 dark:border-slate-600 shadow-sm">
+                <div className="text-3xl mb-2">⚡</div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Cepat</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Optimasi performa tinggi</p>
+            </div>
+            <div className="p-4 bg-white dark:bg-slate-700 rounded-2xl text-center border border-gray-100 dark:border-slate-600 shadow-sm">
+                <div className="text-3xl mb-2">🛡️</div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Aman</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Enkripsi & Hapus Otomatis</p>
+            </div>
+            <div className="p-4 bg-white dark:bg-slate-700 rounded-2xl text-center border border-gray-100 dark:border-slate-600 shadow-sm">
+                <div className="text-3xl mb-2">💎</div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Gratis</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Fitur premium untuk semua</p>
+            </div>
+        </div>
+        
+        <h3>Misi Kami</h3>
+        <p>
+            Mempermudah pekerjaan administratif pelajar, profesional, dan bisnis kecil dengan menyediakan seperangkat alat PDF kelas enterprise tanpa biaya langganan yang membebani.
+        </p>
+        
+        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-3xl mt-8">
+            <p className="text-sm m-0 italic text-center">
+                "Produktivitas bukan tentang bekerja lebih keras, tapi bekerja lebih cerdas dengan alat yang tepat."
+            </p>
+        </div>
       </div>
     </ToolContainer>
   );

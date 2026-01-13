@@ -2,63 +2,45 @@
 import React, { useState } from 'react';
 import ToolContainer from '../common/ToolContainer';
 
-interface FaqProps {
-  onBack: () => void;
-}
+interface FaqProps { onBack: () => void; }
 
 const faqData = [
-  {
-    question: 'Apakah Zentridox benar-benar gratis?',
-    answer: 'Ya, semua alat yang tersedia di Zentridox 100% gratis untuk digunakan. Layanan ini didukung oleh iklan untuk membantu kami membayar biaya pemeliharaan dan pengembangan agar tetap gratis untuk Anda.',
+  { 
+    q: 'Apakah layanan ini benar-benar gratis?', 
+    a: 'Ya, PDF Toolbox Pro 100% gratis untuk digunakan. Kami membiayai operasional server dan pengembangan melalui iklan yang tidak mengganggu.' 
   },
-  {
-    question: 'Apakah file saya aman dan di mana file diproses?',
-    answer: 'Ya, file Anda aman. Untuk sebagian besar alat (seperti Gabungkan, Pisahkan, Kompres), file diproses langsung di browser Anda dan tidak pernah meninggalkan perangkat Anda. Untuk alat Konversi (seperti PDF ke Word), file diproses secara aman di server kami dan dihapus segera setelah proses selesai.',
+  { 
+    q: 'Apakah file saya aman?', 
+    a: 'Keamanan adalah prioritas kami. Kami menggunakan teknologi Hybrid: Alat seperti "Atur PDF" dan "Tambah Teks" memproses file langsung di browser Anda (tidak diupload). Alat seperti "Konversi" dan "Kompres" memproses file di server aman kami yang secara otomatis menghapus file setelah selesai.' 
   },
-  {
-    question: 'Apakah saya perlu menginstal perangkat lunak?',
-    answer: 'Tidak. Zentridox adalah aplikasi berbasis web sepenuhnya. Anda tidak perlu mengunduh atau menginstal apa pun. Cukup buka situs kami di browser apa pun (seperti Chrome, Firefox, atau Safari) dan Anda siap menggunakannya.',
+  { 
+    q: 'Berapa batas ukuran file yang bisa diupload?', 
+    a: 'Untuk pemrosesan server (seperti Konversi), kami menyarankan file di bawah 50MB untuk kinerja optimal. Untuk pemrosesan lokal (seperti Organisir), batasnya bergantung pada RAM perangkat Anda.' 
   },
-  {
-    question: 'Mengapa pemrosesan file saya gagal atau lambat?',
-    answer: 'Kinerja bergantung pada koneksi internet (untuk alat konversi) dan spesifikasi perangkat Anda (untuk alat lokal). Jika file sangat besar atau kompleks, proses mungkin memakan waktu lebih lama. Pastikan koneksi internet Anda stabil saat menggunakan fitur konversi.',
+  { 
+    q: 'Mengapa konversi PDF ke Word memakan waktu?', 
+    a: 'Konversi dokumen kompleks membutuhkan analisis struktur layout, font, dan gambar yang mendalam di server kami untuk memastikan hasil Word yang bisa diedit dengan rapi.' 
   },
-   {
-    question: 'Bagaimana cara kerja kompresi PDF?',
-    answer: 'Alat kami mengurangi ukuran file dengan mengoptimalkan gambar dan menghapus data yang berlebihan di dalam PDF. Pengaturan "Direkomendasikan" memberikan keseimbangan yang baik antara ukuran dan kualitas, sementara "Lanjutan" memberi Anda lebih banyak kontrol.',
-  },
-  {
-    question: 'Bagaimana cara menghubungi Anda jika saya menemukan bug atau punya saran?',
-    answer: 'Kami sangat menghargai masukan Anda! Silakan kunjungi halaman "Kontak" kami untuk mengirimkan pesan kepada kami. Sertakan deskripsi masalah yang Anda temui agar kami dapat memperbaikinya.',
+  { 
+    q: 'Bisakah saya menggunakan ini di HP?', 
+    a: 'Tentu saja! Desain kami responsif dan mendukung semua perangkat modern, baik desktop, tablet, maupun smartphone (Android & iOS).' 
   },
 ];
 
 const FaqItem: React.FC<{ q: string; a: string; }> = ({ q, a }) => {
   const [isOpen, setIsOpen] = useState(false);
-
   return (
-    <div className="border-b border-gray-200 dark:border-slate-700">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex justify-between items-center w-full py-5 text-left font-semibold text-gray-800 dark:text-gray-200"
-      >
-        <span>{q}</span>
-        <svg
-          className={`w-5 h-5 transition-transform duration-300 text-gray-500 dark:text-gray-400 ${isOpen ? 'transform rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+    <div className="mb-4">
+      <button onClick={() => setIsOpen(!isOpen)}
+        className={`flex justify-between items-center w-full p-6 text-left transition-all duration-300 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 ${isOpen ? 'rounded-t-[1.5rem] border-b-0' : 'rounded-[1.5rem] hover:shadow-md'}`}>
+        <span className="font-bold text-slate-800 dark:text-white text-lg pr-4">{q}</span>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' : 'bg-slate-100 text-slate-500 dark:bg-slate-700'}`}>
+             <span className={`transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+        </div>
       </button>
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-      >
-        <div className="overflow-hidden">
-            <p className="pb-5 pr-10 text-gray-600 dark:text-gray-300">
-                {a}
-            </p>
+      <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+        <div className="overflow-hidden bg-slate-50 dark:bg-slate-700/30 rounded-b-[1.5rem] border border-t-0 border-gray-100 dark:border-slate-700">
+            <p className="p-6 text-slate-600 dark:text-slate-300 leading-relaxed text-base">{a}</p>
         </div>
       </div>
     </div>
@@ -67,11 +49,13 @@ const FaqItem: React.FC<{ q: string; a: string; }> = ({ q, a }) => {
 
 const Faq: React.FC<FaqProps> = ({ onBack }) => {
   return (
-    <ToolContainer title="Pertanyaan yang Sering Diajukan (FAQ)" onBack={onBack} maxWidth="max-w-3xl">
-      <div className="space-y-4">
-        {faqData.map((item, index) => (
-          <FaqItem key={index} q={item.question} a={item.answer} />
-        ))}
+    <ToolContainer title="Tanya Jawab (FAQ)" onBack={onBack} maxWidth="max-w-3xl">
+      <div className="space-y-1">
+        {faqData.map((item, index) => <FaqItem key={index} q={item.q} a={item.a} />)}
+      </div>
+      <div className="mt-10 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-3xl text-center border border-blue-100 dark:border-blue-900/30">
+        <p className="text-slate-600 dark:text-slate-300 mb-4">Masih memiliki pertanyaan teknis atau masalah?</p>
+        <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-500/20">Hubungi Tim Support</button>
       </div>
     </ToolContainer>
   );
