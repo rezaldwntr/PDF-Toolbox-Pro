@@ -21,12 +21,6 @@ const ThreeDCubeIcon = () => (
     </div>
 );
 
-const ThreeDShapeIcon = ({ color }: { color: string }) => (
-    <div className={`w-12 h-12 rounded-full ${color} flex items-center justify-center text-white shadow-lg`}>
-        <div className="w-6 h-6 border-4 border-white rounded-full opacity-50"></div>
-    </div>
-);
-
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 animate-fade-in pb-20 pt-4">
@@ -143,8 +137,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
                     ].map((item, i) => (
                         <div key={i} className="grid grid-cols-1 md:grid-cols-4 items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-2xl transition-colors cursor-pointer group" onClick={item.onClick}>
                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.name}&backgroundColor=e5e7eb`} alt="" className="w-10 h-10 rounded-full" />
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform ${item.bg} dark:bg-opacity-10`}>
+                                    {React.cloneElement(item.icon as React.ReactElement, { className: `w-6 h-6 ${item.color}` })}
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-gray-900 dark:text-white text-sm">{item.name}</h4>
