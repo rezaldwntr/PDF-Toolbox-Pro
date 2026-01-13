@@ -5,9 +5,8 @@ import {
   MergeIcon, SplitIcon, CompressIcon, 
   FileWordIcon, FileExcelIcon, FilePptIcon, FileJpgIcon,
   TextIcon, SignatureIcon, OrganizeIcon, OcrIcon, 
-  CropIcon, LockIcon, UnlockIcon, ShieldIcon, 
-  EyeOffIcon, WrenchIcon, GlobeIcon, EditDocIcon,
-  PageNumberIcon, WatermarkIcon
+  CropIcon, LockIcon, UnlockIcon, 
+  GlobeIcon, EditDocIcon, WatermarkIcon
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -32,23 +31,24 @@ const ToolItem: React.FC<{ tool: ToolConfig; onClick: () => void }> = ({ tool, o
     onClick={onClick}
     disabled={!tool.active}
     className={`
-        relative flex flex-col items-center justify-center p-6 rounded-2xl border transition-all duration-300 w-full aspect-[4/3] group
+        relative flex flex-col items-start p-6 rounded-3xl border transition-all duration-300 w-full group text-left min-h-[160px] justify-between
         ${tool.active 
-            ? 'bg-white dark:bg-[#1e293b] border-gray-100 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 cursor-pointer' 
-            : 'bg-gray-50 dark:bg-slate-800/50 border-transparent dark:border-slate-800 cursor-not-allowed opacity-70'}
+            ? 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 cursor-pointer' 
+            : 'bg-slate-50 dark:bg-slate-800/50 border-transparent opacity-50 cursor-not-allowed grayscale'}
     `}
   >
-    <div className={`mb-3 transition-transform duration-300 group-hover:scale-110 ${tool.active ? 'text-blue-600 dark:text-blue-500' : 'text-gray-400 dark:text-slate-600'}`}>
-      {React.cloneElement(tool.icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8 md:w-10 md:h-10' })}
+    <div className={`p-3 rounded-2xl transition-colors duration-300 ${tool.active ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-slate-200 text-slate-400'}`}>
+        {React.cloneElement(tool.icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })}
     </div>
-    <span className={`text-xs md:text-sm font-bold text-center leading-tight ${tool.active ? 'text-gray-800 dark:text-white' : 'text-gray-400 dark:text-slate-500'}`}>
-      {tool.label}
-    </span>
-    {!tool.active && (
-      <span className="absolute top-3 right-3 text-[9px] font-bold text-gray-500 dark:text-slate-500 bg-gray-200 dark:bg-slate-700/50 px-1.5 py-0.5 rounded border border-gray-300 dark:border-slate-600">
-        SEGERA
-      </span>
-    )}
+    
+    <div>
+        <span className={`text-base font-bold block mb-1 ${tool.active ? 'text-slate-800 dark:text-white' : 'text-slate-500'}`}>
+            {tool.label}
+        </span>
+        <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
+            {tool.active ? "Proses sekarang" : "Segera hadir"}
+        </span>
+    </div>
   </button>
 );
 
@@ -97,13 +97,13 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
   ];
 
   return (
-    <div className="pb-20 animate-fade-in pt-4">
+    <div className="pb-20 animate-fade-in pt-4 px-2">
       <div className="space-y-12">
         {categories.map((category, idx) => (
           <section key={idx}>
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
-                <h3 className="text-xs font-black text-gray-400 dark:text-slate-400 uppercase tracking-widest">
+                <h3 className="text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">
                 {category.title}
                 </h3>
             </div>

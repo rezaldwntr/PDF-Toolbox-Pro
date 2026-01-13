@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import ToolsPage from './components/pages/ToolsPage';
 import ProfilePage from './components/pages/ProfilePage';
 import BottomNav from './components/BottomNav';
+import Footer from './components/Footer';
 
 import MergePdf from './components/tools/MergePdf';
 import SplitPdf from './components/tools/SplitPdf';
@@ -28,7 +29,7 @@ import { WrenchIcon } from './components/icons';
 
 function App() {
   const [activeView, setActiveView] = useState<View>(View.HOME_TAB);
-  const [showDevModal, setShowDevModal] = useState(false); // Default false for production feel
+  const [showDevModal, setShowDevModal] = useState(false); 
 
   useEffect(() => {
     window.history.replaceState({ view: View.HOME_TAB }, '');
@@ -47,6 +48,7 @@ function App() {
     if (newView === activeView) return;
     window.history.pushState({ view: newView }, '');
     setActiveView(newView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const renderActiveView = () => {
@@ -87,6 +89,8 @@ function App() {
         <main className="flex-grow w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {renderActiveView()}
         </main>
+
+        <Footer onNavigate={navigateTo} />
 
         {!isToolOrPageActive && <BottomNav activeTab={activeView} onTabChange={navigateTo} />}
         
