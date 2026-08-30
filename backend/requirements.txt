@@ -1,0 +1,10 @@
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
+opencv-python-headless>=4.8.0
+pdf2docx>=0.5.8
+pymupdf<1.24.0
+pdfplumber>=0.11.0
+pandas>=2.2.0
+openpyxl>=3.1.2
+python-pptx>=0.6.23

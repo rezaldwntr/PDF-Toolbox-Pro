@@ -1,0 +1,36 @@
+name: Deploy ke DigitalOcean
+
+on:
+  push:
+    branches:
+      - main  # Robot akan bekerja setiap ada push ke branch main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            # 1. Masuk ke folder aplikasi
+            cd app
+            
+            # 2. Tarik kodingan terbaru dari GitHub
+            git pull origin main
+            
+            # 3. Rakit ulang Docker Image (Build)
+            docker build -t pdf-backend .
+            
+            # 4. Matikan & Hapus Container Lama (Supaya tidak bentrok)
+            docker stop zentridox-app || true
+            docker rm zentridox-app || true
+            
+            # 5. Jalankan Container Baru (Run) di Port 8000
+            docker run -d -p 8000:8000 --restart always --name zentridox-app pdf-backend
+            
+            # 6. Bersihkan sampah Docker (Image bekas) agar disk tidak penuh
+            docker image prune -f

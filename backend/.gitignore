@@ -1,0 +1,17 @@
+# Folder Python yang digenerate otomatis
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Editor & IDE Config
+.idx/
+.vscode/
+.idea/
+
+# OS Junk Files
+.DS_Store
+Thumbs.db
