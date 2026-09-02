@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../../types';
 import { 
@@ -31,21 +30,21 @@ const ToolItem: React.FC<{ tool: ToolConfig; onClick: () => void }> = ({ tool, o
     onClick={onClick}
     disabled={!tool.active}
     className={`
-        relative flex flex-col items-start p-6 rounded-3xl border transition-all duration-300 w-full group text-left min-h-[160px] justify-between
+        flex flex-col items-start p-[24px] rounded-lg border transition-colors duration-300 w-full text-left min-h-[180px] justify-between
         ${tool.active 
-            ? 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 cursor-pointer' 
-            : 'bg-slate-50 dark:bg-slate-800/50 border-transparent opacity-50 cursor-not-allowed grayscale'}
+            ? 'bg-apple-canvas dark:bg-[#272729] border-apple-hairline dark:border-[#333333] hover:border-apple-primary dark:hover:border-apple-primary cursor-pointer' 
+            : 'bg-apple-parchment dark:bg-[#2a2a2c] border-transparent opacity-50 cursor-not-allowed grayscale'}
     `}
   >
-    <div className={`p-3 rounded-2xl transition-colors duration-300 ${tool.active ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-slate-200 text-slate-400'}`}>
+    <div className={`p-3 rounded-md transition-colors duration-300 ${tool.active ? 'bg-apple-parchment dark:bg-[#333333] text-apple-ink dark:text-white' : 'bg-transparent text-[#7a7a7a]'}`}>
         {React.cloneElement(tool.icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })}
     </div>
     
     <div>
-        <span className={`text-base font-bold block mb-1 ${tool.active ? 'text-slate-800 dark:text-white' : 'text-slate-500'}`}>
+        <span className={`text-[17px] font-semibold tracking-tight-md block mb-1 ${tool.active ? 'text-apple-ink dark:text-white' : 'text-apple-inkMuted80 dark:text-[#7a7a7a]'}`}>
             {tool.label}
         </span>
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
+        <span className="text-[14px] text-apple-inkMuted80 dark:text-[#a1a1a6] font-normal tracking-caption">
             {tool.active ? "Proses sekarang" : "Segera hadir"}
         </span>
     </div>
@@ -97,18 +96,17 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
   ];
 
   return (
-    <div className="pb-20 animate-fade-in pt-4 px-2">
-      <div className="space-y-12">
+    <div className="pb-20 animate-fade-in px-4 sm:px-6 lg:px-8 mt-[48px] max-w-[1440px] mx-auto w-full">
+      <div className="space-y-[80px]">
         {categories.map((category, idx) => (
           <section key={idx}>
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
-                <h3 className="text-xs font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">
+            <div className="mb-8 border-b border-apple-hairline dark:border-[#333333] pb-2">
+                <h3 className="text-[34px] font-semibold text-apple-ink dark:text-white tracking-tight-md font-display">
                 {category.title}
                 </h3>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {category.tools.map((tool, tIdx) => (
                 <ToolItem 
                   key={tIdx}

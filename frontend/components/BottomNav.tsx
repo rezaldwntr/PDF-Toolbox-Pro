@@ -16,27 +16,22 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <nav className="fixed bottom-6 left-4 right-4 z-50 md:hidden">
-      {/* Container Floating dengan efek Glassmorphism */}
-      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl shadow-blue-900/10 flex justify-around items-center p-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-apple-canvas/80 dark:bg-[#000000]/80 backdrop-blur-xl border-t border-apple-hairline dark:border-[#333333] pb-safe">
+      <div className="flex justify-around items-center px-2 py-2 h-[64px]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.label}
               onClick={() => onTabChange(tab.id)}
-              className={`relative flex items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ${
-                isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-200 ${
+                isActive ? 'text-apple-primary' : 'text-[#7a7a7a]'
               }`}
             >
-              <div className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100'}`}>
+              <div className="mb-1">
                  {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, { className: 'w-6 h-6' })}
               </div>
-              
-              {/* Indikator Aktif (Dot kecil) */}
-              {isActive && (
-                  <span className="absolute -bottom-1 w-1 h-1 bg-blue-600 rounded-full mb-2"></span>
-              )}
+              <span className="text-[10px] tracking-micro font-medium leading-none">{tab.label}</span>
             </button>
           );
         })}

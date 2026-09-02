@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { View } from '../types';
 import { HamburgerIcon, CloseIcon, SunIcon, MoonIcon } from './icons';
@@ -20,56 +19,53 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
   ];
 
   return (
-    <header className="sticky top-0 z-50 pt-4 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-gray-200 dark:border-slate-800 rounded-2xl shadow-sm px-6 py-3 flex justify-between items-center transition-all duration-300">
-        
-        {/* Logo */}
-        <button onClick={onGoHome} className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">
-             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-          </div>
-          <span className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">PDF<span className="text-blue-600">Toolbox</span></span>
+    <header className="sticky top-0 z-50 bg-[#000000] text-[#f5f5f7] h-[44px] flex items-center justify-between px-4 sm:px-6 lg:px-8 text-[12px] tracking-fine font-normal font-sans w-full">
+        {/* Mobile Hamburger (Left on mobile, hidden on desktop) */}
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-[#f5f5f7] opacity-80 hover:opacity-100 transition-opacity">
+            {isMobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
+        </button>
+
+        {/* Logo (Centered on mobile, Left on desktop) */}
+        <button onClick={onGoHome} className="flex items-center group opacity-90 hover:opacity-100 transition-opacity absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
+          <span className="font-semibold tracking-wide text-sm">PDF<span className="text-apple-primaryOnDark">Toolbox</span></span>
         </button>
         
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-[24px]">
             {navLinks.map((link) => (
                 <button
                     key={link.label}
                     onClick={() => onNavigate(link.view)}
-                    className="text-sm font-medium text-slate-600 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 transition-colors"
+                    className="opacity-80 hover:opacity-100 transition-opacity"
                 >
                     {link.label}
                 </button>
             ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        {/* Actions (Right) */}
+        <div className="flex items-center gap-4">
             <button 
                 onClick={toggleTheme} 
-                className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="opacity-80 hover:opacity-100 transition-opacity"
             >
-                {theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
+                {theme === 'light' ? <MoonIcon className="w-[14px] h-[14px]" /> : <SunIcon className="w-[14px] h-[14px]" />}
             </button>
             
             <button 
                 onClick={() => onNavigate(View.PROFILE_TAB)}
-                className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white dark:ring-slate-700 shadow-sm ml-2"
+                className="opacity-80 hover:opacity-100 transition-opacity flex items-center"
             >
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" className="w-full h-full object-cover" />
-            </button>
-
-             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-slate-600 dark:text-slate-300 p-2">
-                {isMobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
+                <div className="w-[16px] h-[16px] rounded-full overflow-hidden bg-white/20">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" className="w-full h-full object-cover" />
+                </div>
             </button>
         </div>
-      </div>
       
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-800 p-4 absolute left-4 right-4 z-50 animate-fade-in-down">
-            <nav className="flex flex-col gap-2">
+        <div className="absolute top-[44px] left-0 right-0 bg-[#000000] z-50 animate-fade-in-down border-t border-[#333333]">
+            <nav className="flex flex-col px-6 py-4 gap-4">
               {navLinks.map(item => (
                 <button 
                     key={item.label} 
@@ -77,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ onGoHome, onNavigate }) => {
                         onNavigate(item.view);
                         setIsMobileMenuOpen(false);
                     }} 
-                    className="w-full text-left font-medium py-3 px-4 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    className="text-left text-[17px] tracking-tight-md text-[#f5f5f7] py-2 border-b border-[#333333] last:border-0 opacity-90 hover:opacity-100 transition-opacity"
                 >
                     {item.label}
                 </button>

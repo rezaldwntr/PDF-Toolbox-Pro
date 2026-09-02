@@ -16,49 +16,83 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['SF Pro Text', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+              display: ['SF Pro Display', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
             },
             colors: {
-                brand: {
-                    dark: '#0f172a',
-                    green: '#10B981',
-                    purple: '#8B5CF6',
-                    yellow: '#F59E0B',
+                apple: {
+                    primary: '#0066cc',
+                    primaryFocus: '#0071e3',
+                    primaryOnDark: '#2997ff',
+                    ink: '#1d1d1f',
+                    inkMuted80: '#333333',
+                    inkMuted48: '#7a7a7a',
+                    dividerSoft: '#f0f0f0',
+                    hairline: '#e0e0e0',
+                    canvas: '#ffffff',
+                    parchment: '#f5f5f7',
+                    pearl: '#fafafc',
+                    tile1: '#272729',
+                    tile2: '#2a2a2c',
+                    tile3: '#252527',
+                    black: '#000000',
+                    chipTranslucent: 'rgba(210, 210, 215, 0.64)',
                 }
+            },
+            spacing: {
+                'xxs': '4px',
+                'xs': '8px',
+                'sm': '12px',
+                'md': '17px',
+                'lg': '24px',
+                'xl': '32px',
+                'xxl': '48px',
+                'section': '80px',
+            },
+            borderRadius: {
+                'none': '0px',
+                'xs': '5px',
+                'sm': '8px',
+                'md': '11px',
+                'lg': '18px',
+                'pill': '9999px',
+                'full': '9999px',
+            },
+            boxShadow: {
+                'product': '0 5px 30px 0 rgba(0, 0, 0, 0.22)',
             }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+      
       body { 
-          font-family: 'Inter', sans-serif; 
-          background-color: #F3F4F6; /* Light gray background like the reference */
+          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+          background-color: #ffffff; /* Apple canvas */
+          color: #1d1d1f; /* Apple ink */
       }
       .dark body {
-          background-color: #0f172a;
+          background-color: #000000;
+          color: #ffffff;
       }
+      
+      /* Utilities for typography tracking */
+      .tracking-hero { letter-spacing: -0.28px; }
+      .tracking-display { letter-spacing: 0; }
+      .tracking-tight-md { letter-spacing: -0.374px; }
+      .tracking-lead { letter-spacing: 0.196px; }
+      .tracking-tagline { letter-spacing: 0.231px; }
+      .tracking-caption { letter-spacing: -0.224px; }
+      .tracking-fine { letter-spacing: -0.12px; }
+      
       @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
       .animate-fade-in-down { animation: fadeInDown 200ms ease-out forwards; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       .animate-fade-in { animation: fadeIn 300ms ease-out forwards; }
       
-      /* Custom Scrollbar for dashboard feel */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8; 
-      }
+      /* No scrollbar customization to keep native OS feel, or very minimal */
     </style>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">

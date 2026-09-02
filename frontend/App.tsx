@@ -82,11 +82,11 @@ function App() {
 
   return (
     <ToastProvider>
-      <div className="bg-[#F3F4F6] dark:bg-[#0f172a] min-h-screen text-gray-900 dark:text-white antialiased flex flex-col relative transition-colors duration-300 font-sans">
+      <div className="min-h-screen text-apple-ink dark:text-white antialiased flex flex-col relative transition-colors duration-300 font-sans">
         <Header onGoHome={() => navigateTo(View.HOME_TAB)} onNavigate={navigateTo} />
         
         {/* Main Content Area */}
-        <main className="flex-grow w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-grow w-full">
           {renderActiveView()}
         </main>
 
