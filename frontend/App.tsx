@@ -73,7 +73,7 @@ function App() {
         
         {/* Desktop Area */}
         <div 
-            className="absolute inset-0 pt-[28px] pb-[70px] z-10 flex justify-between p-8"
+            className="absolute inset-0 pt-[28px] pb-[70px] z-10 flex flex-col lg:flex-row justify-start lg:justify-between p-4 lg:p-8"
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     setFocusedWindow(null);
@@ -81,22 +81,22 @@ function App() {
             }}
         >
             {/* Left Sidebar: Desktop Icons */}
-            <div className="flex flex-col gap-6 pt-4 pointer-events-none">
+            <div className="flex flex-row flex-wrap lg:flex-col content-start gap-4 lg:gap-6 pt-0 lg:pt-4 pointer-events-none w-full lg:w-auto">
                {[
-                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]', icon: <Home size={32} /> },
-                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]', icon: <User size={32} /> },
-                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]', icon: <Wrench size={32} /> },
-                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]', icon: <FolderKanban size={32} /> },
+                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]', icon: <Home className="w-6 h-6 lg:w-8 lg:h-8" /> },
+                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]', icon: <User className="w-6 h-6 lg:w-8 lg:h-8" /> },
+                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]', icon: <Wrench className="w-6 h-6 lg:w-8 lg:h-8" /> },
+                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]', icon: <FolderKanban className="w-6 h-6 lg:w-8 lg:h-8" /> },
                ].map(item => (
                    <div 
                      key={item.id}
-                     className="flex flex-col items-center gap-2 cursor-pointer group pointer-events-auto"
+                     className="flex flex-col items-center gap-1.5 lg:gap-2 cursor-pointer group pointer-events-auto w-[64px] lg:w-auto"
                      onClick={(e) => { e.stopPropagation(); openWindow(item.id); }}
                    >
-                     <div className={`w-[72px] h-[72px] ${item.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
+                     <div className={`w-[56px] h-[56px] lg:w-[72px] lg:h-[72px] ${item.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
                         {item.icon}
                      </div>
-                     <span className="text-white text-[13px] text-shadow drop-shadow-md font-medium tracking-tight">{item.label}</span>
+                     <span className="text-white text-[11px] lg:text-[13px] text-shadow drop-shadow-md font-medium tracking-tight text-center leading-tight">{item.label}</span>
                    </div>
                ))}
             </div>
