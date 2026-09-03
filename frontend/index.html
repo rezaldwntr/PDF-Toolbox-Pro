@@ -16,83 +16,85 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['SF Pro Text', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
-              display: ['SF Pro Display', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+              sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'Roboto', 'sans-serif'],
+              display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
+              mono: ['Menlo', 'Monaco', 'Consolas', 'monospace'],
             },
             colors: {
-                apple: {
-                    primary: '#0066cc',
-                    primaryFocus: '#0071e3',
-                    primaryOnDark: '#2997ff',
-                    ink: '#1d1d1f',
-                    inkMuted80: '#333333',
-                    inkMuted48: '#7a7a7a',
-                    dividerSoft: '#f0f0f0',
-                    hairline: '#e0e0e0',
-                    canvas: '#ffffff',
-                    parchment: '#f5f5f7',
-                    pearl: '#fafafc',
-                    tile1: '#272729',
-                    tile2: '#2a2a2c',
-                    tile3: '#252527',
-                    black: '#000000',
-                    chipTranslucent: 'rgba(210, 210, 215, 0.64)',
+                rios: {
+                    primary: '#007aff',
+                    primaryDark: '#0a84ff',
+                    desktopLight: '#f0f0f5',
+                    desktopDark: '#141414',
+                    windowLight: 'rgba(255, 255, 255, 0.65)',
+                    windowDark: 'rgba(30, 30, 30, 0.65)',
+                    menuLight: 'rgba(255, 255, 255, 0.35)',
+                    menuDark: 'rgba(30, 30, 30, 0.35)',
+                    textLight: '#1d1d1f',
+                    textDark: '#f5f5f7',
+                    mutedLight: '#86868b',
+                    mutedDark: '#a1a1a6',
+                    borderGlass: 'rgba(255, 255, 255, 0.2)',
+                    borderGlassDark: 'rgba(255, 255, 255, 0.1)',
+                    close: '#ff5f56',
+                    minimize: '#ffbd2e',
+                    maximize: '#27c93f',
+                    dockLight: 'rgba(255, 255, 255, 0.4)',
+                    dockDark: 'rgba(0, 0, 0, 0.4)',
+                    selection: 'rgba(0, 122, 255, 0.3)',
                 }
             },
             spacing: {
-                'xxs': '4px',
-                'xs': '8px',
-                'sm': '12px',
-                'md': '17px',
-                'lg': '24px',
-                'xl': '32px',
-                'xxl': '48px',
-                'section': '80px',
+                'menu-height': '28px',
+                'dock-padding': '8px',
             },
             borderRadius: {
-                'none': '0px',
-                'xs': '5px',
-                'sm': '8px',
-                'md': '11px',
-                'lg': '18px',
-                'pill': '9999px',
-                'full': '9999px',
+                'squircle': '22.5%',
             },
             boxShadow: {
-                'product': '0 5px 30px 0 rgba(0, 0, 0, 0.22)',
+                'window-inactive': '0 10px 30px rgba(0,0,0,0.15)',
+                'window-active': '0 20px 50px rgba(0,0,0,0.3)',
             }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-      
+      /* Base OS Canvas */
       body { 
-          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-          background-color: #ffffff; /* Apple canvas */
-          color: #1d1d1f; /* Apple ink */
-      }
-      .dark body {
-          background-color: #000000;
-          color: #ffffff;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; 
+          background: linear-gradient(135deg, #1c1c1e 0%, #000000 100%);
+          color: #f5f5f7;
+          overflow: hidden; /* Desktop OS has no body scroll */
+          margin: 0;
+          padding: 0;
+          height: 100vh;
+          width: 100vw;
+          user-select: none; /* Make it feel like an OS */
       }
       
-      /* Utilities for typography tracking */
-      .tracking-hero { letter-spacing: -0.28px; }
-      .tracking-display { letter-spacing: 0; }
-      .tracking-tight-md { letter-spacing: -0.374px; }
-      .tracking-lead { letter-spacing: 0.196px; }
-      .tracking-tagline { letter-spacing: 0.231px; }
-      .tracking-caption { letter-spacing: -0.224px; }
-      .tracking-fine { letter-spacing: -0.12px; }
+      .light body {
+          background: linear-gradient(135deg, #d2d2d7 0%, #f5f5f7 100%);
+          color: #1d1d1f;
+      }
       
-      @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-      .animate-fade-in-down { animation: fadeInDown 200ms ease-out forwards; }
+      /* Utilities for typography */
+      .tracking-menu { letter-spacing: -0.01em; }
+      .tracking-display { letter-spacing: -0.02em; }
+      
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       .animate-fade-in { animation: fadeIn 300ms ease-out forwards; }
+      @keyframes popIn { 
+          0% { opacity: 0; transform: scale(0.95); } 
+          100% { opacity: 1; transform: scale(1); } 
+      }
+      .animate-pop-in { animation: popIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       
-      /* No scrollbar customization to keep native OS feel, or very minimal */
+      /* Custom Scrollbar for windows */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(134, 134, 139, 0.3); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(134, 134, 139, 0.5); }
     </style>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -1,120 +1,110 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View } from './types';
-import Header from './components/Header';
-import LandingPage from './components/LandingPage';
-import ToolsPage from './components/pages/ToolsPage';
-import ProfilePage from './components/pages/ProfilePage';
-import BottomNav from './components/BottomNav';
-import Footer from './components/Footer';
+import GlobalMenuBar from './components/GlobalMenuBar';
+import Dock from './components/Dock';
+import WindowModal from './components/WindowModal';
 
+// Pages & Tools
 import MergePdf from './components/tools/MergePdf';
 import SplitPdf from './components/tools/SplitPdf';
 import CompressPdf from './components/tools/CompressPdf';
+import ConvertPdf from './components/tools/ConvertPdf';
 import AddText from './components/tools/AddText';
 import AddSignature from './components/tools/AddSignature';
 import OrganizePdf from './components/tools/OrganizePdf';
-import ConvertPdf from './components/tools/ConvertPdf';
+
+import ToolsPage from './components/pages/ToolsPage';
+import ProfilePage from './components/pages/ProfilePage';
+import LandingPage from './components/LandingPage';
 
 import { ToastProvider } from './contexts/ToastContext';
-import Blog from './components/pages/Blog';
-import Faq from './components/pages/Faq';
-import PrivacyPolicy from './components/pages/PrivacyPolicy';
-import AboutUs from './components/pages/AboutUs';
-import Contact from './components/pages/Contact';
-
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { WrenchIcon } from './components/icons';
 
 function App() {
-  const [activeView, setActiveView] = useState<View>(View.HOME_TAB);
-  const [showDevModal, setShowDevModal] = useState(false); 
+  const [openWindows, setOpenWindows] = useState<View[]>([]);
+  const [focusedWindow, setFocusedWindow] = useState<View | null>(null);
 
-  useEffect(() => {
-    window.history.replaceState({ view: View.HOME_TAB }, '');
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state && typeof event.state.view === 'number') {
-        setActiveView(event.state.view);
-      } else {
-        setActiveView(View.HOME_TAB);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const navigateTo = (newView: View) => {
-    if (newView === activeView) return;
-    window.history.pushState({ view: newView }, '');
-    setActiveView(newView);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const openWindow = (view: View) => {
+    if (!openWindows.includes(view)) {
+      setOpenWindows([...openWindows, view]);
+    }
+    setFocusedWindow(view);
   };
 
-  const renderActiveView = () => {
-    const backToTools = () => navigateTo(View.TOOLS_TAB);
-    const backToHome = () => navigateTo(View.HOME_TAB);
-
-    switch (activeView) {
-      case View.HOME_TAB: return <LandingPage onSelectView={navigateTo} />;
-      case View.TOOLS_TAB: return <ToolsPage onSelectTool={navigateTo} />;
-      case View.PROFILE_TAB: return <ProfilePage />;
-      case View.MERGE: return <MergePdf onBack={backToTools} />;
-      case View.SPLIT: return <SplitPdf onBack={backToTools} />;
-      case View.COMPRESS: return <CompressPdf onBack={backToTools} />;
-      case View.PDF_TO_WORD: return <ConvertPdf mode="word" onBack={backToTools} />;
-      case View.PDF_TO_EXCEL: return <ConvertPdf mode="excel" onBack={backToTools} />;
-      case View.PDF_TO_PPT: return <ConvertPdf mode="ppt" onBack={backToTools} />;
-      case View.PDF_TO_IMAGE: return <ConvertPdf mode="image" onBack={backToTools} />;
-      case View.ADD_TEXT: return <AddText onBack={backToTools} />;
-      case View.ADD_SIGNATURE: return <AddSignature onBack={backToTools} />;
-      case View.ORGANIZE: return <OrganizePdf onBack={backToTools} />;
-      case View.BLOG: return <Blog onBack={backToHome} />;
-      case View.FAQ: return <Faq onBack={backToHome} />;
-      case View.PRIVACY: return <PrivacyPolicy onBack={backToHome} />;
-      case View.ABOUT: return <AboutUs onBack={backToHome} />;
-      case View.CONTACT: return <Contact onBack={backToHome} />;
-      default: return <LandingPage onSelectView={navigateTo} />;
+  const closeWindow = (view: View) => {
+    setOpenWindows(openWindows.filter(v => v !== view));
+    if (focusedWindow === view) {
+      setFocusedWindow(openWindows.length > 1 ? openWindows[openWindows.length - 2] : null);
     }
   };
 
-  const isToolOrPageActive = activeView > View.PROFILE_TAB;
+  const getWindowContent = (view: View) => {
+    const handleBack = () => closeWindow(view);
+    
+    switch (view) {
+      case View.HOME_TAB: return { title: 'Finder', component: <LandingPage onSelectView={openWindow} /> };
+      case View.TOOLS_TAB: return { title: 'Launchpad', component: <ToolsPage onSelectTool={openWindow} /> };
+      case View.PROFILE_TAB: return { title: 'System Preferences', component: <ProfilePage /> };
+      case View.MERGE: return { title: 'Merge PDF', component: <MergePdf onBack={handleBack} /> };
+      case View.SPLIT: return { title: 'Split PDF', component: <SplitPdf onBack={handleBack} /> };
+      case View.COMPRESS: return { title: 'Compress PDF', component: <CompressPdf onBack={handleBack} /> };
+      case View.PDF_TO_WORD: return { title: 'Convert to Word', component: <ConvertPdf mode="word" onBack={handleBack} /> };
+      case View.PDF_TO_EXCEL: return { title: 'Convert to Excel', component: <ConvertPdf mode="excel" onBack={handleBack} /> };
+      case View.PDF_TO_PPT: return { title: 'Convert to PPT', component: <ConvertPdf mode="ppt" onBack={handleBack} /> };
+      case View.PDF_TO_IMAGE: return { title: 'Convert to Image', component: <ConvertPdf mode="image" onBack={handleBack} /> };
+      case View.ADD_TEXT: return { title: 'Add Text', component: <AddText onBack={handleBack} /> };
+      case View.ADD_SIGNATURE: return { title: 'Sign PDF', component: <AddSignature onBack={handleBack} /> };
+      case View.ORGANIZE: return { title: 'Organize PDF', component: <OrganizePdf onBack={handleBack} /> };
+      default: return { title: 'App', component: <div className="p-8">Coming Soon</div> };
+    }
+  };
 
   return (
     <ToastProvider>
-      <div className="min-h-screen text-apple-ink dark:text-white antialiased flex flex-col relative transition-colors duration-300 font-sans">
-        <Header onGoHome={() => navigateTo(View.HOME_TAB)} onNavigate={navigateTo} />
+      {/* The background is handled in index.html CSS, this wrapper just isolates z-index */}
+      <div className="relative w-full h-full overflow-hidden">
+        <GlobalMenuBar />
         
-        {/* Main Content Area */}
-        <main className="flex-grow w-full">
-          {renderActiveView()}
-        </main>
-
-        <Footer onNavigate={navigateTo} />
-
-        {!isToolOrPageActive && <BottomNav activeTab={activeView} onTabChange={navigateTo} />}
-        
-        {showDevModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-sm w-full p-8 border border-gray-200 dark:border-slate-700">
-                <div className="flex flex-col items-center text-center">
-                    <div className="p-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 rounded-2xl mb-4">
-                        <WrenchIcon className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tighter uppercase">Beta Access</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-8 leading-relaxed">
-                        Selamat datang di <strong>PDF Toolbox Pro</strong>. Platform ini menggunakan pemrosesan server penuh.
-                    </p>
-                    <button 
-                        onClick={() => setShowDevModal(false)}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 px-6 rounded-2xl transition-all shadow-lg shadow-red-500/20"
-                    >
-                        Mulai Sekarang
-                    </button>
-                </div>
+        {/* Desktop Area */}
+        <div 
+            className="absolute inset-0 pt-[28px] pb-[70px] z-10"
+            onClick={() => setFocusedWindow(null)} // Click background to unfocus windows
+        >
+            {/* Desktop Icons could go here */}
+            <div className="p-4 grid grid-cols-1 gap-4 w-[100px]">
+               {/* Example desktop shortcut */}
+               <div 
+                 className="flex flex-col items-center gap-1 cursor-pointer group"
+                 onDoubleClick={() => openWindow(View.TOOLS_TAB)}
+               >
+                 <div className="w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm border border-white/30 group-hover:bg-rios-selection transition-colors flex items-center justify-center text-white shadow-lg">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                 </div>
+                 <span className="text-white text-[12px] text-shadow drop-shadow-md">Apps</span>
+               </div>
             </div>
-          </div>
-        )}
+
+            {/* Window Manager */}
+            {openWindows.map(view => {
+                const { title, component } = getWindowContent(view);
+                return (
+                    <WindowModal
+                        key={view}
+                        id={view}
+                        title={title}
+                        isFocused={focusedWindow === view}
+                        onClose={closeWindow}
+                        onFocus={setFocusedWindow}
+                    >
+                        {component}
+                    </WindowModal>
+                );
+            })}
+        </div>
+
+        <Dock activeWindows={openWindows} focusedWindow={focusedWindow} onOpenWindow={openWindow} />
+        
         <Analytics />
         <SpeedInsights />
       </div>
