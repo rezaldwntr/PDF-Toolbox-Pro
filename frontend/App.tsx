@@ -27,30 +27,20 @@ function App() {
   const [minimizedWindows, setMinimizedWindows] = useState<View[]>([]);
 
   const openWindow = (view: View) => {
-    if (!openWindows.includes(view)) {
-      setOpenWindows([...openWindows, view]);
-    }
-    if (minimizedWindows.includes(view)) {
-      setMinimizedWindows(minimizedWindows.filter(v => v !== view));
-    }
+    setOpenWindows(prev => prev.includes(view) ? prev : [...prev, view]);
+    setMinimizedWindows(prev => prev.filter(v => v !== view));
     setFocusedWindow(view);
   };
 
   const closeWindow = (view: View) => {
-    setOpenWindows(openWindows.filter(v => v !== view));
-    setMinimizedWindows(minimizedWindows.filter(v => v !== view));
-    if (focusedWindow === view) {
-      setFocusedWindow(openWindows.length > 1 ? openWindows[openWindows.length - 2] : null);
-    }
+    setOpenWindows(prev => prev.filter(v => v !== view));
+    setMinimizedWindows(prev => prev.filter(v => v !== view));
+    setFocusedWindow(prev => prev === view ? null : prev);
   };
 
   const minimizeWindow = (view: View) => {
-    if (!minimizedWindows.includes(view)) {
-      setMinimizedWindows([...minimizedWindows, view]);
-    }
-    if (focusedWindow === view) {
-      setFocusedWindow(null);
-    }
+    setMinimizedWindows(prev => prev.includes(view) ? prev : [...prev, view]);
+    setFocusedWindow(prev => prev === view ? null : prev);
   };
 
   const getWindowContent = (view: View) => {

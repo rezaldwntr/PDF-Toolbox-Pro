@@ -66,14 +66,13 @@ const WindowModal: React.FC<WindowModalProps> = ({
     };
   }, [isDragging, dragOffset]);
 
-  if (isMinimized) return null; // Simplified for now, just hide it
-
   return (
     <div 
       className={`absolute flex flex-col rounded-xl overflow-hidden transition-all duration-200 
         ${isFocused ? 'shadow-window-active z-[100]' : 'shadow-window-inactive z-[50]'}
         ${isMaximized ? 'inset-0 mt-[28px] !rounded-none !w-full !h-[calc(100vh-28px)]' : ''}
-        bg-rios-windowLight dark:bg-rios-windowDark backdrop-blur-2xl border border-rios-borderGlass dark:border-rios-borderGlassDark animate-pop-in
+        ${isMinimized ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100 scale-100'}
+        bg-rios-windowLight dark:bg-rios-windowDark backdrop-blur-2xl border border-rios-borderGlass dark:border-rios-borderGlassDark
       `}
       style={!isMaximized ? {
         left: `${position.x}px`,
