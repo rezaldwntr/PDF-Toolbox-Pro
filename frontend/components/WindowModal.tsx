@@ -68,9 +68,9 @@ const WindowModal: React.FC<WindowModalProps> = ({
 
   return (
     <div 
-      className={`absolute flex flex-col rounded-xl overflow-hidden transition-all duration-200 
+      className={`absolute flex flex-col rounded-[24px] lg:rounded-xl overflow-hidden transition-all duration-200 
         ${isFocused ? 'shadow-window-active z-[100]' : 'shadow-window-inactive z-[50]'}
-        ${isMaximized ? 'inset-0 mt-[28px] !rounded-none !w-full !h-[calc(100vh-28px)]' : ''}
+        ${isMaximized ? 'inset-0 mt-[28px] !rounded-none !w-full !h-[calc(100vh-28px)]' : 'max-lg:!inset-x-4 max-lg:!top-[40px] max-lg:!bottom-[90px] max-lg:!w-auto max-lg:!h-auto'}
         ${isMinimized ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100 scale-100'}
         bg-rios-windowLight dark:bg-rios-windowDark backdrop-blur-2xl border border-rios-borderGlass dark:border-rios-borderGlassDark
       `}

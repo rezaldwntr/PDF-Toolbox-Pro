@@ -73,32 +73,59 @@ function App() {
         
         {/* Desktop Area */}
         <div 
-            className="absolute inset-0 pt-[28px] pb-[70px] z-10 flex flex-col lg:flex-row justify-start lg:justify-between p-4 lg:p-8"
+            className="absolute inset-0 pt-[40px] lg:pt-[28px] pb-[90px] lg:pb-[70px] z-10 flex flex-col lg:flex-row justify-start lg:justify-between p-6 lg:p-8 overflow-y-auto overflow-x-hidden"
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     setFocusedWindow(null);
                 }
             }}
         >
-            {/* Left Sidebar: Desktop Icons */}
-            <div className="flex flex-row flex-wrap lg:flex-col content-start gap-4 lg:gap-6 pt-0 lg:pt-4 pointer-events-none w-full lg:w-auto">
-               {[
-                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]', icon: <Home className="w-6 h-6 lg:w-8 lg:h-8" /> },
-                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]', icon: <User className="w-6 h-6 lg:w-8 lg:h-8" /> },
-                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]', icon: <Wrench className="w-6 h-6 lg:w-8 lg:h-8" /> },
-                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]', icon: <FolderKanban className="w-6 h-6 lg:w-8 lg:h-8" /> },
-               ].map(item => (
-                   <div 
-                     key={item.id}
-                     className="flex flex-col items-center gap-1.5 lg:gap-2 cursor-pointer group pointer-events-auto w-[64px] lg:w-auto"
-                     onClick={(e) => { e.stopPropagation(); openWindow(item.id); }}
-                   >
-                     <div className={`w-[56px] h-[56px] lg:w-[72px] lg:h-[72px] ${item.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
-                        {item.icon}
-                     </div>
-                     <span className="text-white text-[11px] lg:text-[13px] text-shadow drop-shadow-md font-medium tracking-tight text-center leading-tight">{item.label}</span>
+            {/* --- MOBILE ONLY WIDGETS --- */}
+            <div className="flex lg:hidden gap-3 mb-6 w-full pointer-events-none">
+                <div className="bg-[#cfab78] rounded-[24px] p-4 flex flex-col pointer-events-auto w-[120px] shadow-lg shrink-0 text-[#1a1a1a]">
+                   <span className="text-[9px] font-bold tracking-widest opacity-60 mb-2 uppercase">Today</span>
+                   <span className="text-[42px] font-light leading-none tracking-tighter mb-1">7</span>
+                   <span className="text-[10px] font-semibold uppercase mt-auto opacity-80">August</span>
+                </div>
+                <div className="flex-1 bg-[#ece9df] rounded-[24px] p-4 flex flex-col pointer-events-auto shadow-lg text-[#1a1a1a] justify-center relative overflow-hidden">
+                   <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-black/10 flex items-center justify-center overflow-hidden shrink-0">
+                         <User size={14} className="opacity-60" />
+                      </div>
+                      <div className="flex flex-col">
+                         <span className="font-semibold text-[11px] leading-tight">Welcome to PDF/OS</span>
+                         <span className="text-[9px] opacity-60 leading-tight">Now</span>
+                      </div>
                    </div>
-               ))}
+                   <p className="text-[11px] font-medium leading-snug mt-1 opacity-80">A different way to explore PDF tools.</p>
+                   <div className="absolute bottom-3 right-3 w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
+                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                   </div>
+                </div>
+            </div>
+
+            {/* --- DESKTOP ICONS --- */}
+            <div className="flex flex-col w-full lg:w-auto">
+               <span className="text-[10px] font-bold text-gray-500 tracking-widest mb-4 lg:hidden uppercase ml-2">Applications</span>
+               <div className="grid grid-cols-3 lg:flex lg:flex-col gap-x-4 gap-y-6 lg:gap-6 pointer-events-none w-full lg:w-auto place-items-center lg:place-items-start">
+                  {[
+                      { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]', icon: <Home className="w-6 h-6 lg:w-8 lg:h-8 text-[#1a1a1a]" /> },
+                      { id: View.ABOUT, label: 'About me', color: 'bg-[#e5ecf6]', icon: <User className="w-6 h-6 lg:w-8 lg:h-8 text-[#1a1a1a]" /> },
+                      { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]', icon: <Wrench className="w-6 h-6 lg:w-8 lg:h-8 text-[#1a1a1a]" /> },
+                      { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]', icon: <FolderKanban className="w-6 h-6 lg:w-8 lg:h-8 text-[#1a1a1a]" /> },
+                  ].map(item => (
+                      <div 
+                        key={item.id}
+                        className="flex flex-col items-center gap-2 cursor-pointer group pointer-events-auto"
+                        onClick={(e) => { e.stopPropagation(); openWindow(item.id); }}
+                      >
+                        <div className={`w-[60px] h-[60px] lg:w-[72px] lg:h-[72px] ${item.color} rounded-[24px] flex items-center justify-center shadow-lg group-hover:brightness-110 transition-all`}>
+                           {item.icon}
+                        </div>
+                        <span className="text-white text-[11px] lg:text-[13px] text-shadow drop-shadow-md font-medium tracking-tight text-center leading-tight">{item.label}</span>
+                      </div>
+                  ))}
+               </div>
             </div>
 
             {/* Right Sidebar: Widgets */}
