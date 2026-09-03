@@ -19,8 +19,8 @@ const Dock: React.FC<DockProps> = ({ activeWindows, focusedWindow, onOpenWindow 
   ];
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 flex justify-center z-[9000]">
-      <div className="bg-[#1a1a1a]/40 backdrop-blur-xl border border-white/10 rounded-[28px] p-[10px] flex items-end gap-3 shadow-2xl h-[76px]">
+    <div className="fixed bottom-4 left-0 right-0 flex justify-center z-[9000] pointer-events-none">
+      <div className="bg-[#1a1a1a]/40 backdrop-blur-xl border border-white/10 rounded-[28px] p-[10px] flex items-end gap-3 shadow-2xl h-[76px] pointer-events-auto">
         {dockItems.map((item) => {
           const isOpen = activeWindows.includes(item.id);
           return (
