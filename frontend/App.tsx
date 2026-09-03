@@ -24,18 +24,32 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 function App() {
   const [openWindows, setOpenWindows] = useState<View[]>([]);
   const [focusedWindow, setFocusedWindow] = useState<View | null>(null);
+  const [minimizedWindows, setMinimizedWindows] = useState<View[]>([]);
 
   const openWindow = (view: View) => {
     if (!openWindows.includes(view)) {
       setOpenWindows([...openWindows, view]);
+    }
+    if (minimizedWindows.includes(view)) {
+      setMinimizedWindows(minimizedWindows.filter(v => v !== view));
     }
     setFocusedWindow(view);
   };
 
   const closeWindow = (view: View) => {
     setOpenWindows(openWindows.filter(v => v !== view));
+    setMinimizedWindows(minimizedWindows.filter(v => v !== view));
     if (focusedWindow === view) {
       setFocusedWindow(openWindows.length > 1 ? openWindows[openWindows.length - 2] : null);
+    }
+  };
+
+  const minimizeWindow = (view: View) => {
+    if (!minimizedWindows.includes(view)) {
+      setMinimizedWindows([...minimizedWindows, view]);
+    }
+    if (focusedWindow === view) {
+      setFocusedWindow(null);
     }
   };
 
@@ -136,8 +150,10 @@ function App() {
                         id={view}
                         title={title}
                         isFocused={focusedWindow === view}
+                        isMinimized={minimizedWindows.includes(view)}
                         onClose={closeWindow}
                         onFocus={setFocusedWindow}
+                        onMinimize={minimizeWindow}
                     >
                         {component}
                     </WindowModal>

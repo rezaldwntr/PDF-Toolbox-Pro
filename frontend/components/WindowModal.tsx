@@ -5,29 +5,23 @@ interface WindowModalProps {
   id: View;
   title: string;
   isFocused: boolean;
+  isMinimized?: boolean;
   onClose: (id: View) => void;
   onFocus: (id: View) => void;
+  onMinimize?: (id: View) => void;
   children: React.ReactNode;
   initialWidth?: number;
   initialHeight?: number;
 }
 
 const WindowModal: React.FC<WindowModalProps> = ({ 
-  id, title, isFocused, onClose, onFocus, children,
+  id, title, isFocused, isMinimized, onClose, onFocus, onMinimize, children,
   initialWidth = 800, initialHeight = 600
 }) => {
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-
-  // Un-minimize when focused from dock
-  useEffect(() => {
-    if (isFocused && isMinimized) {
-      setIsMinimized(false);
-    }
-  }, [isFocused, isMinimized]);
 
   // Randomize initial position slightly so windows don't overlap perfectly
   useEffect(() => {
@@ -106,7 +100,7 @@ const WindowModal: React.FC<WindowModalProps> = ({
             <span className="opacity-0 group-hover:opacity-100 text-[8px] font-bold text-black/50">x</span>
           </button>
           <button 
-            onClick={(e) => { e.stopPropagation(); setIsMinimized(true); }}
+            onClick={(e) => { e.stopPropagation(); onMinimize?.(id); }}
             className="w-3 h-3 rounded-full bg-rios-minimize flex items-center justify-center group"
           >
             <span className="opacity-0 group-hover:opacity-100 text-[8px] font-bold text-black/50">-</span>
