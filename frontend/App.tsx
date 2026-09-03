@@ -68,21 +68,63 @@ function App() {
         
         {/* Desktop Area */}
         <div 
-            className="absolute inset-0 pt-[28px] pb-[70px] z-10"
-            onClick={() => setFocusedWindow(null)} // Click background to unfocus windows
+            className="absolute inset-0 pt-[28px] pb-[70px] z-10 flex justify-between p-8"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    setFocusedWindow(null);
+                }
+            }}
         >
-            {/* Desktop Icons could go here */}
-            <div className="p-4 grid grid-cols-1 gap-4 w-[100px]">
-               {/* Example desktop shortcut */}
-               <div 
-                 className="flex flex-col items-center gap-1 cursor-pointer group"
-                 onDoubleClick={() => openWindow(View.TOOLS_TAB)}
-               >
-                 <div className="w-16 h-16 bg-white/20 rounded-xl backdrop-blur-sm border border-white/30 group-hover:bg-rios-selection transition-colors flex items-center justify-center text-white shadow-lg">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                 </div>
-                 <span className="text-white text-[12px] text-shadow drop-shadow-md">Apps</span>
-               </div>
+            {/* Left Sidebar: Desktop Icons */}
+            <div className="flex flex-col gap-6 pt-4 pointer-events-none">
+               {[
+                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]' },
+                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]' },
+                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]' },
+                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]' },
+               ].map(icon => (
+                   <div 
+                     key={icon.id}
+                     className="flex flex-col items-center gap-2 cursor-pointer group pointer-events-auto"
+                     onClick={(e) => { e.stopPropagation(); openWindow(icon.id); }}
+                   >
+                     <div className={`w-[72px] h-[72px] ${icon.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
+                        <span className="font-serif text-2xl font-bold">P</span>
+                     </div>
+                     <span className="text-white text-[13px] text-shadow drop-shadow-md font-medium tracking-tight">{icon.label}</span>
+                   </div>
+               ))}
+            </div>
+
+            {/* Right Sidebar: Widgets */}
+            <div className="hidden lg:flex flex-col gap-4 w-[320px] pointer-events-none">
+                {/* Widget 1 */}
+                <div className="bg-[#f5f0eb]/90 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 pointer-events-auto text-[#1a1a1a]">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-[11px] font-bold text-gray-500 tracking-wider">LATEST TOOLS</span>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex gap-3 items-start cursor-pointer group" onClick={() => openWindow(View.MERGE)}>
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg shrink-0 group-hover:bg-blue-200 transition-colors"></div>
+                            <div>
+                                <h4 className="text-[13px] font-semibold">Merge PDFs Instantly</h4>
+                                <p className="text-[11px] text-gray-500 mt-0.5">Combine multiple files into one.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Widget 2 */}
+                <div className="bg-[#f5f0eb]/90 backdrop-blur-md rounded-2xl p-4 shadow-lg border border-white/20 pointer-events-auto text-[#1a1a1a]">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-[11px] font-bold text-gray-500 tracking-wider">PDF/OS TIPS</span>
+                    </div>
+                    <div className="bg-black/5 rounded-lg p-2 flex items-center gap-2 text-[13px] text-gray-600 mb-3 cursor-text">
+                        <span className="opacity-50">🔍</span> Search for tools
+                    </div>
+                    <p className="text-[12px] text-gray-500 leading-relaxed mb-2">Use the system dock to jump straight to any section.</p>
+                    <button className="text-blue-600 text-[12px] font-medium hover:underline">Open search &rarr;</button>
+                </div>
             </div>
 
             {/* Window Manager */}

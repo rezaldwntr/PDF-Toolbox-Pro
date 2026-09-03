@@ -82,7 +82,7 @@ const WindowModal: React.FC<WindowModalProps> = ({
         maxWidth: '90vw',
         maxHeight: '80vh'
       } : {}}
-      onClick={() => onFocus(id)}
+      onClick={(e) => { e.stopPropagation(); onFocus(id); }}
     >
       {/* Title Bar */}
       <div 
