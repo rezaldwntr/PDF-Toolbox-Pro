@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <base href="/">
+  <meta charset="utf-8">
+  <script>
+    (function () {
+      if (/^\/en(?:\/|$)/i.test(location.pathname)) return;
+      if (new URLSearchParams(location.search).has("lang")) return;
+      var stored = null;
+      try { stored = localStorage.getItem("ri-os-locale"); } catch (e) {}
+      if (stored === "en") { location.replace("/en/"); return; }
+      if (stored === "es") return;
+      if (!(navigator.language || "").toLowerCase().startsWith("es")) {
+        try { localStorage.setItem("ri-os-locale", "en"); } catch (e) {}
+        location.replace("/en/");
+      }
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0a">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; frame-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="description" content="CTO and co-founder of NNEAT. Technology executive specializing in cybersecurity, artificial intelligence, product, strategy and project leadership.">
+  <meta name="author" content="Roberto Izquierdo">
+  <meta name="application-name" content="RI/OS">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="RI/OS">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://www.robertoizquierdo.com/en/">
+  <link rel="alternate" hreflang="es" href="https://www.robertoizquierdo.com/">
+  <link rel="alternate" hreflang="en" href="https://www.robertoizquierdo.com/en/">
+  <link rel="alternate" hreflang="x-default" href="https://www.robertoizquierdo.com/">
+  <meta property="og:title" content="Roberto Izquierdo | Tech Executive &amp; Product Leader">
+  <meta property="og:description" content="Cybersecurity, artificial intelligence, product and technology strategy connected through executive vision.">
+  <meta property="og:image" content="https://www.robertoizquierdo.com/assets/images/roberto-izquierdo-social.jpg">
+  <meta property="og:image:secure_url" content="https://www.robertoizquierdo.com/assets/images/roberto-izquierdo-social.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Roberto Izquierdo, CTO, Tech Executive and Product Leader">
+  <meta property="og:url" content="https://www.robertoizquierdo.com/en/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="es_ES">
+  <meta property="og:site_name" content="Roberto Izquierdo">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Roberto Izquierdo | Tech Executive &amp; Product Leader">
+  <meta name="twitter:description" content="Cybersecurity, artificial intelligence, product and technology strategy connected through executive vision.">
+  <meta name="twitter:image" content="https://www.robertoizquierdo.com/assets/images/roberto-izquierdo-social.jpg">
+  <meta name="twitter:image:alt" content="Roberto Izquierdo, CTO, Tech Executive and Product Leader">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/favicons/android-chrome-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/favicons/android-chrome-512x512.png">
+  <link rel="apple-touch-icon" href="assets/favicons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="me" href="https://www.linkedin.com/in/roberto-izquierdo/">
+  <link rel="shortcut icon" href="assets/favicons/favicon.ico" type="image/x-icon">
+  <title>Roberto Izquierdo | Tech Executive &amp; Product Leader</title>
+  <link rel="preload" href="assets/fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin media="(min-width: 761px)">
+  <link rel="preload" href="assets/fonts/source-serif-ui.woff2" as="font" type="font/woff2" crossorigin media="(max-width: 760px)">
+  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <script>document.documentElement.classList.replace("no-js","js")</script>
+  <link rel="stylesheet" href="app.min.css?v=112">
+  <script src="linkedin-posts.js?v=2" defer></script>
+  <script src="app.min.js?v=119" defer></script>
+  <script src="analytics.js?v=1" defer></script>
+</head>
+<body>
+  <div class="system-preloader" id="system-preloader" role="status" aria-live="polite">
+    <div class="system-preloader__content">
+      <span id="system-preloader-label" hidden>RI/OS</span>
+      <p id="system-preloader-status">Iniciando entorno ejecutivo</p>
+      <div class="system-preloader__progress" aria-hidden="true"><i></i></div>
+    </div>
+  </div>
+
+  <main class="desktop system-running" id="desktop" aria-label="Escritorio" data-i18n-aria-label="os.system.menu.desktop">
+    <section class="os" id="operating-system" aria-hidden="false">
+      <h1 class="sr-only">Roberto Izquierdo — Tech Executive &amp; Product Leader</h1>
+      <div class="os__wallpaper" aria-hidden="true">
+        <i></i>
+      </div>
+
+      <header class="menu-bar">
+        <div class="system-menu system-menu--brand">
+          <button class="menu-bar__mark system-menu__trigger" type="button" aria-label="Menú RI/OS" data-i18n-aria-label="os.system.menu.brandMenu" aria-haspopup="true" aria-expanded="false">RI</button>
+          <div class="system-menu__panel" role="menu" hidden>
+            <button type="button" role="menuitem" data-menu-action="open-profile"><span data-i18n="os.system.menu.aboutRoberto">Acerca de Roberto Izquierdo</span></button>
+            <button type="button" role="menuitem" data-menu-action="open-home"><span data-i18n="os.system.menu.home">Inicio de RI/OS</span></button>
+            <hr>
+            <a role="menuitem" href="https://www.linkedin.com/in/roberto-izquierdo/" target="_blank" rel="noopener"><span data-i18n="os.system.menu.linkedin">Perfil de LinkedIn</span><kbd>↗</kbd></a>
+            <hr>
+            <button type="button" role="menuitem" data-menu-action="close-all-windows" data-requires-window><span data-i18n="os.system.menu.closeAllWindows">Cerrar todas las ventanas</span></button>
+            <hr>
+            <button type="button" role="menuitem" data-menu-action="restart-system"><span data-i18n="os.system.menu.restartSystem">Reiniciar RI/OS…</span></button>
+          </div>
+        </div>
+        <nav class="menu-bar__menus" aria-label="Menús del sistema" data-i18n-aria-label="os.system.menu.systemMenus">
+          <div class="system-menu system-menu--application">
+            <button class="menu-bar__active system-menu__trigger" id="active-app-name" type="button" aria-haspopup="true" aria-expanded="false">RI/OS</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="about"><span data-i18n="os.system.menu.aboutSystem">Acerca de RI/OS</span></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="reload-window" data-requires-window><span data-current-app-label data-current-app-action="reload" data-i18n="os.system.menu.reloadApplication">Recargar aplicación</span><kbd>⌘R</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="minimize-window" data-requires-window><span data-current-app-label data-current-app-action="minimize" data-i18n="os.system.menu.minimizeApplication">Minimizar aplicación</span><kbd>⌘M</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="close-window" data-requires-window><span data-current-app-label data-current-app-action="close" data-i18n="os.system.menu.closeApplication">Cerrar aplicación</span><kbd>⌘W</kbd></button>
+            </div>
+          </div>
+          <div class="system-menu">
+            <button class="system-menu__trigger" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="os.system.menu.file">Archivo</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="open-home"><span data-i18n="os.system.menu.newHomeWindow">Nueva ventana de Inicio</span><kbd>⌘N</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="open-projects"><span data-i18n="os.system.menu.openProjects">Abrir Proyectos</span><kbd>⌘P</kbd></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="close-window" data-requires-window><span data-i18n="os.system.menu.closeWindow">Cerrar ventana</span><kbd>⌘W</kbd></button>
+            </div>
+          </div>
+          <div class="system-menu">
+            <button class="system-menu__trigger" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="os.system.menu.edit">Edición</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="select-content" data-requires-window><span data-i18n="os.system.menu.selectContent">Seleccionar contenido</span><kbd>⌘A</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="copy-content" data-requires-window><span data-i18n="os.system.menu.copyContent">Copiar contenido</span><kbd>⌘C</kbd></button>
+            </div>
+          </div>
+          <div class="system-menu">
+            <button class="system-menu__trigger" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="os.system.menu.view">Visualización</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="reload-window" data-requires-window><span data-i18n="os.system.menu.reloadContent">Recargar contenido</span><kbd>⌘R</kbd></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="toggle-fullscreen"><span data-i18n="os.system.menu.fullscreen">Pantalla completa</span><kbd>⌃⌘F</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="toggle-resident"><span data-resident-label>Ocultar residente</span><kbd data-resident-state>✓</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="toggle-widgets"><span data-widgets-label>Ocultar widgets</span><kbd data-widgets-state>✓</kbd></button>
+            </div>
+          </div>
+          <div class="system-menu">
+            <button class="system-menu__trigger" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="os.system.menu.window">Ventana</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="minimize-window" data-requires-window><span data-i18n="os.system.menu.minimize">Minimizar</span><kbd>⌘M</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="maximize-window" data-requires-window><span data-i18n="os.system.menu.maximizeRestore">Maximizar o restaurar</span><kbd>⌃⌘↩</kbd></button>
+              <button type="button" role="menuitem" data-menu-action="next-window" data-requires-window><span data-i18n="os.system.menu.nextWindow">Siguiente ventana</span><kbd>⌘`</kbd></button>
+            </div>
+          </div>
+          <div class="system-menu">
+            <button class="system-menu__trigger" type="button" aria-haspopup="true" aria-expanded="false" data-i18n="os.system.menu.help">Ayuda</button>
+            <div class="system-menu__panel" role="menu" hidden>
+              <a role="menuitem" href="https://www.linkedin.com/in/roberto-izquierdo/" target="_blank" rel="noopener"><span data-i18n="os.system.menu.linkedin">Perfil de LinkedIn</span><kbd>↗</kbd></a>
+              <button type="button" role="menuitem" data-menu-action="about"><span data-i18n="os.system.menu.aboutSystem">Acerca de RI/OS</span></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="open-making-of"><span data-i18n="os.system.menu.makingOf">Making of</span></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="open-privacy"><span data-i18n="os.apps.privacy">Política de Privacidad</span></button>
+              <button type="button" role="menuitem" data-menu-action="open-cookies"><span data-i18n="os.apps.cookies">Política de Cookies</span></button>
+              <button type="button" role="menuitem" data-menu-action="open-legalnotice"><span data-i18n="os.apps.legalnotice">Aviso Legal</span></button>
+            </div>
+          </div>
+        </nav>
+        <div class="menu-bar__status">
+          <button type="button" class="livechat-trigger" id="livechat-trigger" data-open-app="livechat" aria-label="Live Chat">
+            <span class="livechat-trigger__dot" aria-hidden="true"></span>
+            <span class="livechat-trigger__label">Live Chat</span>
+            <span class="livechat-trigger__stat" aria-hidden="true">
+              <svg class="livechat-trigger__stat-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+              <b class="livechat-trigger__stat-count" id="livechat-count">1</b>
+            </span>
+            <span class="livechat-trigger__stat" id="livechat-message-stat" aria-hidden="true" hidden>
+              <svg class="livechat-trigger__stat-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8 9h8" /><path d="M8 13h6" /><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12" /></svg>
+              <b class="livechat-trigger__badge" id="livechat-badge">0</b>
+            </span>
+          </button>
+          <div class="system-menu system-menu--locale">
+            <button class="locale-trigger system-menu__trigger" id="locale-trigger" type="button" aria-label="Seleccionar idioma" data-i18n-aria-label="os.system.menu.selectLanguage" aria-haspopup="true" aria-expanded="false">ES</button>
+            <div class="system-menu__panel system-menu__panel--right locale-menu" id="locale-menu" role="menu" hidden></div>
+          </div>
+          <div class="system-menu system-menu--resident-status">
+            <button class="resident-menu-trigger system-menu__trigger" id="resident-menu-trigger" type="button" aria-label="Opciones de RI Resident" data-i18n-aria-label="os.system.resident.menuLabel" aria-haspopup="true" aria-expanded="false">
+              <svg class="resident-menu-trigger__icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M6 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -4" /><path d="M12 2v2" /><path d="M9 12v9" /><path d="M15 12v9" /><path d="M5 16l4 -2" /><path d="M15 14l4 2" /><path d="M9 18h6" /><path d="M10 8v.01" /><path d="M14 8v.01" /></svg>
+            </button>
+            <div class="system-menu__panel system-menu__panel--right resident-menu" role="menu" hidden>
+              <button type="button" role="menuitem" data-menu-action="resident-guide"><span data-i18n="os.system.resident.help">Aprovechar RI/OS</span></button>
+              <button type="button" role="menuitem" data-menu-action="resident-trick"><span data-i18n="os.system.resident.trick">Haz un truco</span></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="resident-about"><span data-i18n="os.system.resident.about">Acerca de RI Resident</span></button>
+              <hr>
+              <button type="button" role="menuitem" data-menu-action="toggle-resident"><span data-resident-label>Desactivar RI Resident</span><kbd data-resident-state>✓</kbd></button>
+            </div>
+          </div>
+          <button class="notification-center-trigger" id="notification-center-trigger" type="button" aria-label="Mostrar u ocultar notificaciones" aria-controls="notification-center" aria-expanded="false">
+            <img src="assets/icons/bell.svg" width="24" height="24" alt="" aria-hidden="true">
+            <b id="notification-center-badge" aria-hidden="true"></b>
+          </button>
+          <button class="search-trigger" id="search-trigger" type="button" aria-label="Buscar en RI/OS" data-i18n-aria-label="os.system.search.trigger" aria-haspopup="dialog" aria-controls="search-overlay" aria-expanded="false">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+          </button>
+          <button class="user-profile-trigger" id="user-profile-trigger" type="button" aria-label="Mostrar perfil de Roberto Izquierdo" aria-controls="user-profile-panel" aria-expanded="false">
+            <img src="assets/images/roberto-izquierdo-avatar.webp" width="96" height="96" alt="">
+          </button>
+          <span id="system-date-time">vie 24 jul&nbsp;&nbsp;00:00</span>
+        </div>
+      </header>
+
+      <aside class="notification-center" id="notification-center" aria-hidden="true"></aside>
+      <aside class="user-profile-panel" id="user-profile-panel" aria-hidden="true"></aside>
+      <div class="os-context-menu" id="os-context-menu" role="menu" aria-hidden="true"></div>
+
+      <div class="desktop-home">
+        <div class="desktop-home__shortcuts" role="group" aria-label="Elementos del escritorio" data-i18n-aria-label="os.system.menu.desktopItems">
+          <button class="os-desktop-icon" type="button" data-desktop-app="home" data-desktop-id="home" aria-pressed="false">
+            <span class="system-icon system-icon--home" aria-hidden="true"><span class="system-icon__orbit"></span><span class="system-icon__monogram"><i>R</i><i>I</i></span></span>
+            <b data-i18n="os.apps.home">Inicio</b>
+          </button>
+          <button class="os-desktop-icon" type="button" data-desktop-app="profile" data-desktop-id="profile" aria-pressed="false">
+            <span class="system-icon system-icon--profile" aria-hidden="true"><img src="assets/icons/id-badge.svg" width="24" height="24" alt=""></span>
+            <b data-i18n="os.apps.profile">Acerca de mí</b>
+          </button>
+          <button class="os-desktop-icon" type="button" data-desktop-app="clients" data-desktop-id="clients" aria-pressed="false">
+            <span class="system-icon system-icon--clients" aria-hidden="true"><img src="assets/icons/buildings.svg" width="24" height="24" alt=""></span>
+            <b data-i18n="os.apps.clients">Clientes</b>
+          </button>
+          <button class="os-desktop-icon" type="button" data-desktop-app="projects" data-desktop-id="projects" aria-pressed="false">
+            <span class="system-icon system-icon--projects" aria-hidden="true"><img src="assets/icons/folders.svg" width="24" height="24" alt=""></span>
+            <b data-i18n="os.apps.projects">Proyectos</b>
+          </button>
+        </div>
+        <div class="desktop-selection-box" id="desktop-selection-box" aria-hidden="true"></div>
+      </div>
+
+      <div class="os-window-layer" id="os-window-layer"></div>
+
+      <aside class="os-widgets" id="os-widgets" aria-label="Widgets" data-i18n-aria-label="os.system.menu.widgets"></aside>
+
+      <template id="os-window-template">
+        <section class="os-window" aria-hidden="true">
+          <header class="os-window__bar">
+            <div class="os-window__controls">
+              <button class="os-control os-control--close" type="button" data-window-action="close" aria-label="Cerrar aplicación" data-i18n-aria-label="os.system.menu.closeApp">
+                <i></i>
+                <svg class="control-icon control-icon--win-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5L17.5 17.5M17.5 6.5L6.5 17.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+                <svg class="control-icon control-icon--kde-close" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 5L13 13M13 5L5 13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" /></svg>
+              </button>
+              <button class="os-control os-control--minimize" type="button" data-window-action="minimize" aria-label="Minimizar aplicación" data-i18n-aria-label="os.system.menu.minimizeApp">
+                <i></i>
+                <svg class="control-icon control-icon--win-minimize" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="17.2" width="12" height="1.6" rx="0.8" fill="currentColor" /></svg>
+                <svg class="control-icon control-icon--kde-minimize" viewBox="0 0 18 18" aria-hidden="true"><polyline points="4,7 9,12 14,7" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              </button>
+              <button class="os-control os-control--maximize" type="button" data-window-action="maximize" aria-label="Ampliar aplicación" data-i18n-aria-label="os.system.menu.maximizeApp">
+                <i></i>
+                <svg class="control-icon control-icon--win-maximize" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+                <svg class="control-icon control-icon--win-restore" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6H17a1 1 0 0 1 1 1v7.5" fill="none" stroke="currentColor" stroke-width="1.6" /><rect x="6" y="9.5" width="8.5" height="8.5" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+                <svg class="control-icon control-icon--kde-maximize" viewBox="0 0 18 18" aria-hidden="true"><polyline points="4,11 9,6 14,11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                <svg class="control-icon control-icon--kde-restore" viewBox="0 0 18 18" aria-hidden="true"><polygon points="9,4 14,9 9,14 4,9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" /></svg>
+              </button>
+            </div>
+            <h2>Inicio</h2>
+            <div class="system-menu os-window-decoration" data-window-decoration>
+              <button class="os-control os-control--decoration" type="button" data-window-decoration-trigger aria-haspopup="true" aria-expanded="false" aria-label="Decoración de ventana" data-i18n-aria-label="os.system.menu.windowDecoration"><span class="os-control__dot" aria-hidden="true"></span></button>
+              <div class="system-menu__panel system-menu__panel--right" data-window-decoration-panel role="menu" hidden>
+                <button type="button" role="menuitemradio" data-window-decoration-option="default"><i class="menu-item-check" aria-hidden="true"></i><span data-i18n="os.system.menu.windowDecorationDefault">Predeterminado</span><kbd data-i18n="os.system.menu.windowDecorationDefaultHint">macOS inspired</kbd></button>
+                <button type="button" role="menuitemradio" data-window-decoration-option="alt"><i class="menu-item-check" aria-hidden="true"></i><span data-i18n="os.system.menu.windowDecorationAlt">Alternativo</span><kbd data-i18n="os.system.menu.windowDecorationAltHint">Win 11 inspired</kbd></button>
+                <button type="button" role="menuitemradio" data-window-decoration-option="retro"><i class="menu-item-check" aria-hidden="true"></i><span data-i18n="os.system.menu.windowDecorationRetro">Retro</span><kbd data-i18n="os.system.menu.windowDecorationRetroHint">Linux inspired</kbd></button>
+              </div>
+            </div>
+          </header>
+          <div class="os-window__content"></div>
+          <span class="window-resizer window-resizer--n" data-resize="n" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--ne" data-resize="ne" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--e" data-resize="e" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--se" data-resize="se" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--s" data-resize="s" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--sw" data-resize="sw" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--w" data-resize="w" aria-hidden="true"></span>
+          <span class="window-resizer window-resizer--nw" data-resize="nw" aria-hidden="true"></span>
+        </section>
+      </template>
+
+      <nav class="dock" aria-label="Aplicaciones" data-i18n-aria-label="os.system.menu.applications">
+        <button type="button" data-app="home" data-open-app="home" aria-label="Inicio" data-i18n-aria-label="os.apps.home">
+          <span class="system-icon system-icon--home" aria-hidden="true"><span class="system-icon__orbit"></span><span class="system-icon__monogram"><i>R</i><i>I</i></span></span><b data-i18n="os.apps.home">Inicio</b>
+        </button>
+        <button type="button" data-app="profile" data-open-app="profile" aria-label="Acerca de mí" data-i18n-aria-label="os.apps.profile">
+          <span class="system-icon system-icon--profile" aria-hidden="true"><img src="assets/icons/id-badge.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.profile">Acerca de mí</b>
+        </button>
+        <button type="button" data-app="clients" data-open-app="clients" aria-label="Clientes" data-i18n-aria-label="os.apps.clients">
+          <span class="system-icon system-icon--clients" aria-hidden="true"><img src="assets/icons/buildings.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.clients">Clientes</b>
+        </button>
+        <button type="button" data-app="projects" data-open-app="projects" aria-label="Proyectos" data-i18n-aria-label="os.apps.projects">
+          <span class="system-icon system-icon--projects" aria-hidden="true"><img src="assets/icons/folders.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.projects">Proyectos</b>
+        </button>
+        <button type="button" data-app="credentials" data-open-app="credentials" aria-label="Formación" data-i18n-aria-label="os.apps.credentials">
+          <span class="system-icon system-icon--credentials" aria-hidden="true"><img src="assets/icons/books.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.credentials">Formación</b>
+        </button>
+        <button type="button" data-app="contact" data-open-app="contact" aria-label="Contacto" data-i18n-aria-label="os.apps.contact">
+          <span class="system-icon system-icon--contact" aria-hidden="true"><img src="assets/icons/mail.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.contact">Contacto</b>
+        </button>
+        <button type="button" data-app="terminal" data-open-app="terminal" aria-label="Terminal" data-i18n-aria-label="os.apps.terminal">
+          <span class="system-icon system-icon--terminal" aria-hidden="true"><img src="assets/icons/terminal-command.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.terminal">Terminal</b>
+        </button>
+        <button type="button" data-app="applications" data-open-app="applications" aria-label="Aplicaciones" data-i18n-aria-label="os.apps.applications">
+          <span class="system-icon system-icon--applications" aria-hidden="true"><img src="assets/icons/folders.svg" width="24" height="24" alt=""></span><b data-i18n="os.apps.applications">Aplicaciones</b>
+        </button>
+      </nav>
+
+      <div class="mobile-home">
+        <header class="mobile-status">
+          <span id="mobile-system-time">00:00</span>
+          <button class="mobile-status__island" id="mobile-status-island" type="button" aria-label="Mostrar notificaciones" data-i18n-aria-label="os.system.mobile.openNotifications">
+            <span>RI/OS</span>
+          </button>
+          <button class="mobile-status__signals" id="mobile-notification-trigger" type="button" aria-label="Mostrar notificaciones" data-i18n-aria-label="os.system.mobile.openNotifications">
+            <span class="mobile-signal" aria-hidden="true"><i></i><i></i><i></i></span>
+            <img src="assets/icons/bell.svg" width="24" height="24" alt="">
+          </button>
+        </header>
+
+        <section class="mobile-widgets" aria-label="Resumen" data-i18n-aria-label="os.system.mobile.summary">
+          <button class="mobile-date-widget" id="mobile-date-widget" type="button">
+            <b id="mobile-system-weekday">SÁBADO</b>
+            <strong id="mobile-system-day">25</strong>
+            <span id="mobile-system-month">JULIO</span>
+            <span class="sr-only" data-i18n="os.system.mobile.openNotifications">Mostrar notificaciones</span>
+          </button>
+          <button class="mobile-welcome-widget" type="button" data-open-app="home">
+            <span class="mobile-welcome-widget__head">
+              <img src="assets/images/roberto-izquierdo-avatar.webp" width="96" height="96" alt="">
+              <span><b data-i18n="os.system.notifications.welcomeTitle">Bienvenido a RI/OS</b><small data-i18n="os.system.notifications.welcomeTime">Ahora</small></span>
+            </span>
+            <span data-i18n="os.system.mobile.welcomeShort">Una forma diferente de explorar mi perfil profesional.</span>
+          </button>
+        </section>
+
+        <p class="mobile-section-label" data-i18n="os.system.mobile.applications">Aplicaciones</p>
+        <div class="mobile-app-grid" data-mobile-home-grid></div>
+
+        <nav class="mobile-dock" data-mobile-dock aria-label="Aplicaciones favoritas" data-i18n-aria-label="os.system.menu.applications"></nav>
+      </div>
+
+      <aside class="mobile-applications-sheet" id="mobile-applications-sheet" aria-hidden="true" aria-labelledby="mobile-applications-title">
+        <section class="mobile-applications-folder-panel">
+          <header><h2 id="mobile-applications-title" data-i18n="os.apps.applications">Aplicaciones</h2><button type="button" data-mobile-applications-close aria-label="Cerrar" data-i18n-aria-label="os.common.close">×</button></header>
+          <div class="mobile-applications-viewport" data-mobile-applications-viewport>
+            <div class="mobile-applications-pages" data-mobile-applications-pages></div>
+          </div>
+          <nav class="mobile-applications-pagination" data-mobile-applications-pagination aria-label="Páginas de aplicaciones" data-i18n-aria-label="os.system.mobile.pagesLabel"></nav>
+        </section>
+      </aside>
+
+      <aside class="mobile-notification-shade" id="mobile-notification-shade" aria-hidden="true">
+        <header class="mobile-notification-shade__status">
+          <span id="mobile-shade-time">00:00</span>
+          <button id="mobile-notification-close" type="button" aria-label="Ocultar notificaciones" data-i18n-aria-label="os.system.mobile.closeNotifications">
+            <span aria-hidden="true"></span>
+          </button>
+        </header>
+        <div class="mobile-notification-shade__date">
+          <p id="mobile-shade-weekday">Sábado</p>
+          <strong id="mobile-shade-date">25 de julio</strong>
+        </div>
+        <section class="mobile-control-panel" aria-label="Controles" data-i18n-aria-label="os.system.mobile.controls">
+          <button type="button" data-mobile-fullscreen>
+            <span aria-hidden="true">⛶</span>
+            <b data-i18n="os.system.mobile.installAction">Abrir a pantalla completa</b>
+          </button>
+          <button type="button" data-mobile-language aria-expanded="false" aria-controls="mobile-language-panel">
+            <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 6.371c0 4.418 -2.239 6.629 -5 6.629" /><path d="M4 6.371h7" /><path d="M5 9c0 2.144 2.252 3.908 6 4" /><path d="M12 20l4 -9l4 9" /><path d="M19.1 18h-6.2" /><path d="M6.694 3l.793 .582" /></svg></span>
+            <b data-i18n="os.system.menu.selectLanguage">Seleccionar idioma</b>
+          </button>
+        </section>
+        <div class="mobile-language-panel" id="mobile-language-panel" hidden></div>
+        <div class="mobile-install-guide" id="mobile-install-guide" hidden>
+          <strong data-i18n="os.system.mobile.installTitle">Usa RI/OS como una aplicación</strong>
+          <p data-i18n="os.system.mobile.installText">En Safari pulsa Compartir y “Añadir a pantalla de inicio”. En Chrome abre el menú y elige “Instalar aplicación”.</p>
+        </div>
+        <article class="mobile-notification-card">
+          <header>
+            <img src="assets/images/roberto-izquierdo-avatar.webp" width="96" height="96" alt="">
+            <div><strong>RI/OS</strong><span data-i18n="os.system.notifications.welcomeTime">Ahora</span></div>
+          </header>
+          <h2 data-i18n="os.system.notifications.welcomeTitle">Bienvenido a RI/OS</h2>
+          <p data-i18n="os.system.notifications.welcomeText">Bienvenido a una forma original y diferente de conocer mi perfil profesional y explorar mi experiencia, formación, clientes y proyectos.</p>
+          <button type="button" data-open-app="home" data-i18n="os.system.mobile.openHome">Abrir Inicio</button>
+        </article>
+        <nav class="mobile-notification-legal" data-i18n-aria-label="os.system.mobile.legalLabel" aria-label="Textos legales">
+          <button type="button" data-open-app="privacy" data-i18n="os.apps.privacy">Política de Privacidad</button>
+          <button type="button" data-open-app="cookies" data-i18n="os.apps.cookies">Política de Cookies</button>
+          <button type="button" data-open-app="legalnotice" data-i18n="os.apps.legalnotice">Aviso Legal</button>
+        </nav>
+        <p class="mobile-notification-shade__hint" data-i18n="os.system.mobile.swipeHint">Desliza hacia arriba para cerrar</p>
+      </aside>
+
+      <section class="mobile-app" id="mobile-app" aria-hidden="true">
+        <header class="mobile-app__bar">
+          <button id="mobile-app-back" type="button" aria-label="Volver a inicio" data-i18n-aria-label="os.system.menu.mobileBack"><i aria-hidden="true"></i><span data-i18n="os.apps.home">Inicio</span></button>
+          <h2 id="mobile-app-title">Acerca de mí</h2>
+          <span class="mobile-app__bar-balance" aria-hidden="true"></span>
+        </header>
+        <div class="mobile-app__content" id="mobile-app-content"></div>
+        <button class="mobile-home-indicator" type="button" aria-label="Volver a inicio" data-i18n-aria-label="os.system.menu.mobileBack"></button>
+      </section>
+
+      <section class="system-dialog" id="system-dialog" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="system-dialog-title">
+        <div class="system-dialog__sheet">
+          <p class="system-dialog__eyebrow" id="system-dialog-eyebrow">RI/OS</p>
+          <h2 id="system-dialog-title">Confirmation</h2>
+          <p class="system-dialog__message" id="system-dialog-message"></p>
+          <label class="system-dialog__field" id="system-dialog-field" hidden>
+            <span id="system-dialog-field-label"></span>
+            <input id="system-dialog-input" type="text" autocomplete="off">
+          </label>
+          <div class="system-dialog__choices" id="system-dialog-choices" hidden></div>
+          <footer>
+            <button type="button" id="system-dialog-cancel"></button>
+            <button type="button" class="is-primary" id="system-dialog-confirm"></button>
+          </footer>
+        </div>
+      </section>
+
+      <div class="system-toast" id="system-toast" role="status" aria-live="polite" aria-hidden="true"></div>
+
+      <div class="search-overlay" id="search-overlay" aria-hidden="true">
+        <div class="search-panel" role="dialog" aria-modal="true" aria-label="Buscar en RI/OS" data-i18n-aria-label="os.system.search.trigger">
+          <div class="search-panel__field">
+            <svg class="search-panel__icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+            <input type="text" id="search-input" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" placeholder="Buscar aplicaciones, clientes, proyectos, formación…" data-i18n-placeholder="os.system.search.placeholder" autocomplete="off" spellcheck="false">
+            <button type="button" class="search-panel__cancel" id="search-cancel" data-i18n="os.system.search.cancel">Cancelar</button>
+            <button type="button" class="search-panel__close" id="search-close" aria-label="Cerrar búsqueda" data-i18n-aria-label="os.system.search.close">×</button>
+          </div>
+          <div class="search-panel__results" id="search-results" role="listbox"></div>
+          <p class="search-panel__empty" id="search-empty" hidden>
+            <strong data-i18n="os.system.search.emptyTitle">Sin resultados</strong>
+            <span data-i18n="os.system.search.emptyText">Prueba con otro término de búsqueda.</span>
+          </p>
+          <div class="search-panel__hint" id="search-hint" data-i18n="os.system.search.hint">↑↓ Navegar · ↵ Abrir · Esc Cerrar</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": ["WebPage", "ProfilePage"],
+          "@id": "https://www.robertoizquierdo.com/en/#webpage",
+          "url": "https://www.robertoizquierdo.com/en/",
+          "name": "Roberto Izquierdo | Tech Executive & Product Leader",
+          "description": "Profile of Roberto Izquierdo, CTO and co-founder of NNEAT, a technology executive specializing in cybersecurity, artificial intelligence, product, strategy and project leadership.",
+          "inLanguage": "en",
+          "dateModified": "2026-08-05",
+          "isPartOf": {"@id": "https://www.robertoizquierdo.com/#website"},
+          "about": {"@id": "https://www.robertoizquierdo.com/#person"},
+          "mainEntity": {"@id": "https://www.robertoizquierdo.com/#person"},
+          "primaryImageOfPage": {"@id": "https://www.robertoizquierdo.com/#portrait"}
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.robertoizquierdo.com/#website",
+          "url": "https://www.robertoizquierdo.com/",
+          "name": "Roberto Izquierdo — RI/OS",
+          "inLanguage": ["es", "en"],
+          "publisher": {"@id": "https://www.robertoizquierdo.com/#person"}
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://www.robertoizquierdo.com/#application",
+          "name": "RI/OS",
+          "url": "https://www.robertoizquierdo.com/",
+          "applicationCategory": "PortfolioApplication",
+          "operatingSystem": "Web",
+          "browserRequirements": "Requires JavaScript and a modern web browser",
+          "inLanguage": ["es", "en"],
+          "description": "Interactive web operating system for discovering Roberto Izquierdo’s professional profile, projects, clients, education and technology experiments.",
+          "author": {"@id": "https://www.robertoizquierdo.com/#person"}
+        },
+        {
+          "@type": "Person",
+          "@id": "https://www.robertoizquierdo.com/#person",
+          "name": "Roberto Izquierdo",
+          "alternateName": ["RI", "RI/OS"],
+          "url": "https://www.robertoizquierdo.com/",
+          "image": {"@id": "https://www.robertoizquierdo.com/#portrait"},
+          "email": "mailto:info@robertoizquierdo.com",
+          "jobTitle": ["Chief Technology Officer", "Tech Executive", "Product Leader"],
+          "description": "CTO and co-founder of NNEAT. Technology executive with experience in cybersecurity, artificial intelligence, product, strategy and project leadership.",
+          "worksFor": {"@id": "https://nneatcyber.com/#organization"},
+          "mainEntityOfPage": {"@id": "https://www.robertoizquierdo.com/en/#webpage"},
+          "sameAs": ["https://www.linkedin.com/in/roberto-izquierdo/"],
+          "knowsAbout": ["Cybersecurity", "Continuous Threat Exposure Management", "Artificial Intelligence", "Project Management", "Product Development", "Technology Strategy", "Business Management"],
+          "hasCredential": [
+            {"@type": "EducationalOccupationalCredential", "name": "Project Management Professional (PMP®)"},
+            {"@type": "EducationalOccupationalCredential", "name": "ITIL® 4"}
+          ]
+        },
+        {
+          "@type": "ImageObject",
+          "@id": "https://www.robertoizquierdo.com/#portrait",
+          "url": "https://www.robertoizquierdo.com/assets/images/roberto-izquierdo-acerca-de-mi.jpg",
+          "contentUrl": "https://www.robertoizquierdo.com/assets/images/roberto-izquierdo-acerca-de-mi.jpg",
+          "width": 896,
+          "height": 1088,
+          "caption": "Roberto Izquierdo",
+          "creator": {"@id": "https://www.robertoizquierdo.com/#person"}
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://nneatcyber.com/#organization",
+          "name": "NNEAT",
+          "url": "https://nneatcyber.com/",
+          "description": "Continuous Threat Exposure Management platform integrating attack surface, defensive posture and threat intelligence.",
+          "founder": {"@id": "https://www.robertoizquierdo.com/#person"}
+        }
+      ]
+    }
+  </script>
+
+  <noscript>
+    <div class="noscript-page">
+      <header><span>RI/OS</span><a href="/en/" lang="en" hreflang="en">English</a></header>
+      <section>
+        <p>TECH EXECUTIVE · PRODUCT LEADER</p>
+        <h1>Roberto Izquierdo</h1>
+        <p>CTO y cofundador de NNEAT. Con formación MBA, PMP® e ITIL®, conecto estrategia y tecnología para transformar ideas en productos y proyectos innovadores.</p>
+        <nav aria-label="Explorar el perfil profesional">
+          <a href="/ri-web/#acerca-de-mi">Acerca de mí</a>
+          <a href="/ri-web/#clientes">Clientes</a>
+          <a href="/ri-web/#proyectos">Proyectos</a>
+          <a href="/ri-web/#contacto">Contacto</a>
+          <a href="/sitemap/">Mapa del sitio</a>
+        </nav>
+      </section>
+      <footer><a href="mailto:info@robertoizquierdo.com">info@robertoizquierdo.com</a><a href="https://www.linkedin.com/in/roberto-izquierdo/">LinkedIn</a></footer>
+    </div>
+  </noscript>
+</body>
+</html>

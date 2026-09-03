@@ -22,6 +22,13 @@ const WindowModal: React.FC<WindowModalProps> = ({
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
+  // Un-minimize when focused from dock
+  useEffect(() => {
+    if (isFocused && isMinimized) {
+      setIsMinimized(false);
+    }
+  }, [isFocused, isMinimized]);
+
   // Randomize initial position slightly so windows don't overlap perfectly
   useEffect(() => {
       const offset = Math.random() * 50;
