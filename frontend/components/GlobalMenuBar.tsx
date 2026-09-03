@@ -21,11 +21,6 @@ const GlobalMenuBar: React.FC = () => {
         <div className="font-bold cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] flex items-center">
           PDF/OS
         </div>
-        <div className="cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] hidden sm:flex items-center">File</div>
-        <div className="cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] hidden sm:flex items-center">Edit</div>
-        <div className="cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] hidden sm:flex items-center">View</div>
-        <div className="cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] hidden sm:flex items-center">Window</div>
-        <div className="cursor-default hover:bg-black/10 dark:hover:bg-white/10 px-2 rounded h-[24px] hidden sm:flex items-center">Help</div>
       </div>
 
       {/* Right Menu (Tray) */}

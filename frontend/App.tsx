@@ -91,7 +91,7 @@ function App() {
         
         {/* Desktop Area */}
         <div 
-            className="absolute inset-0 pt-[40px] lg:pt-[28px] pb-[90px] lg:pb-[70px] z-10 flex flex-col lg:flex-row justify-start lg:justify-between p-6 lg:p-8 overflow-y-auto overflow-x-hidden"
+            className="absolute inset-0 pt-[40px] lg:pt-[28px] pb-[90px] lg:pb-[70px] z-10 flex flex-col lg:flex-row justify-start lg:justify-between lg:items-center p-6 lg:p-8 overflow-y-auto overflow-x-hidden"
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     setFocusedWindow(null);
