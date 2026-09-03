@@ -2,8 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from './contexts/ThemeContext';
-// Mengimpor konfigurasi Firebase agar layanan berjalan saat aplikasi dimulai
-import './firebase';
 
 // Mendapatkan elemen root dari HTML tempat aplikasi React akan dipasang
 const rootElement = document.getElementById('root');
