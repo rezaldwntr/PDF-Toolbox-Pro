@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View } from './types';
 import GlobalMenuBar from './components/GlobalMenuBar';
 import Dock from './components/Dock';
@@ -26,6 +26,21 @@ function App() {
   const [openWindows, setOpenWindows] = useState<View[]>([]);
   const [focusedWindow, setFocusedWindow] = useState<View | null>(null);
   const [minimizedWindows, setMinimizedWindows] = useState<View[]>([]);
+
+  // Foolproof fix for mobile 100vh bug
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', setVh);
+    return () => {
+      window.removeEventListener('resize', setVh);
+      window.removeEventListener('orientationchange', setVh);
+    };
+  }, []);
 
   const openWindow = (view: View) => {
     setOpenWindows(prev => prev.includes(view) ? prev : [...prev, view]);
@@ -68,7 +83,10 @@ function App() {
   return (
     <ToastProvider>
       {/* The background is handled in index.html CSS, this wrapper just isolates z-index */}
-      <div className="relative w-full h-full overflow-hidden">
+      <div 
+        className="relative w-full overflow-hidden"
+        style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+      >
         <GlobalMenuBar />
         
         {/* Desktop Area */}
@@ -178,12 +196,11 @@ function App() {
                 );
             })}
         </div>
-
         <Dock activeWindows={openWindows} focusedWindow={focusedWindow} onOpenWindow={openWindow} />
-        
-        <Analytics />
-        <SpeedInsights />
       </div>
+
+      <Analytics />
+      <SpeedInsights />
     </ToastProvider>
   );
 }
