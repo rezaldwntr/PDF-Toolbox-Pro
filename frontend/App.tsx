@@ -17,6 +17,7 @@ import ToolsPage from './components/pages/ToolsPage';
 import ProfilePage from './components/pages/ProfilePage';
 import LandingPage from './components/LandingPage';
 
+import { Home, User, Wrench, FolderKanban } from 'lucide-react';
 import { ToastProvider } from './contexts/ToastContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -82,20 +83,20 @@ function App() {
             {/* Left Sidebar: Desktop Icons */}
             <div className="flex flex-col gap-6 pt-4 pointer-events-none">
                {[
-                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]' },
-                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]' },
-                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]' },
-                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]' },
-               ].map(icon => (
+                   { id: View.HOME_TAB, label: 'Home', color: 'bg-[#cfab78]', icon: <Home size={32} /> },
+                   { id: View.ABOUT, label: 'About me', color: 'bg-[#ece9df]', icon: <User size={32} /> },
+                   { id: View.TOOLS_TAB, label: 'Tools', color: 'bg-[#98a897]', icon: <Wrench size={32} /> },
+                   { id: View.PROFILE_TAB, label: 'Projects', color: 'bg-[#d8a868]', icon: <FolderKanban size={32} /> },
+               ].map(item => (
                    <div 
-                     key={icon.id}
+                     key={item.id}
                      className="flex flex-col items-center gap-2 cursor-pointer group pointer-events-auto"
-                     onClick={(e) => { e.stopPropagation(); openWindow(icon.id); }}
+                     onClick={(e) => { e.stopPropagation(); openWindow(item.id); }}
                    >
-                     <div className={`w-[72px] h-[72px] ${icon.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
-                        <span className="font-serif text-2xl font-bold">P</span>
+                     <div className={`w-[72px] h-[72px] ${item.color} rounded-[22.5%] flex items-center justify-center text-black/80 shadow-lg group-hover:brightness-110 transition-all`}>
+                        {item.icon}
                      </div>
-                     <span className="text-white text-[13px] text-shadow drop-shadow-md font-medium tracking-tight">{icon.label}</span>
+                     <span className="text-white text-[13px] text-shadow drop-shadow-md font-medium tracking-tight">{item.label}</span>
                    </div>
                ))}
             </div>
