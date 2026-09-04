@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, TrashIcon, FilePdfIcon, CheckCircleIcon, ZipIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 
 // Deklarasi global untuk pdfjsLib dari CDN
@@ -40,6 +41,7 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
   const resetState = () => {
     setFile(null);
@@ -117,6 +119,11 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const handleProcess = async () => {
     if (!file) return;
 
+    if (quota <= 0) {
+      setShowLimitModal(true);
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -177,44 +184,50 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
       const blob = await response.blob();
       setOutputUrl(URL.createObjectURL(blob));
       setOutputFileType(resultExt);
-      addToast('PDF berhasil dipisahkan!', 'success');
+      consumeQuota(); // Pemotongan kuota tamu saat proses selesai
+      addToast('Pemisahan berhasil diselesaikan!', 'success');
     } catch (error: any) {
       clearTimeout(timeoutId);
       addToast(error.name === 'AbortError' ? "Waktu habis (5 menit)." : error.message, 'error');
     } finally {
       setIsProcessing(false);
+      setProcessingMessage('');
     }
   };
 
   if (outputUrl) {
     return (
-      <ToolContainer title="Berhasil Dipisahkan!" onBack={onBack}>
+      <ToolContainer title="Pemisahan Selesai!" onBack={onBack} currentStep={3}>
         <div className="text-center flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon className="w-16 h-16 text-green-500"/>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">File Siap Diunduh</h3>
-            <p className="text-gray-500 dark:text-gray-400">
-                {outputFileType === 'zip' 
-                    ? 'Dokumen Anda telah dipecah menjadi beberapa file (ZIP).' 
-                    : 'Halaman pilihan Anda telah diekstrak menjadi satu file PDF.'}
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">PDF Berhasil Dipisahkan</h3>
+            <p className="text-slate-500 dark:text-slate-400">
+              Dokumen telah berhasil dipotong dan siap diunduh.
             </p>
           </div>
           <a 
             href={outputUrl} 
             download={`split-${file?.name.replace('.pdf', '')}.${outputFileType}`} 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full max-w-sm shadow-lg transition-all flex items-center justify-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl w-full max-w-sm shadow-lg transition-all flex items-center justify-center gap-2"
           >
             {outputFileType === 'zip' ? <ZipIcon className="w-6 h-6"/> : <DownloadIcon className="w-6 h-6"/>}
             Unduh Hasil ({outputFileType.toUpperCase()})
           </a>
-          <button onClick={() => setOutputUrl(null)} className="text-blue-600 hover:underline">Pisahkan Bagian Lain</button>
+          <button onClick={() => setOutputUrl(null)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium">Pisahkan Bagian Lain</button>
         </div>
       </ToolContainer>
     );
   }
 
   return (
-    <ToolContainer title="Pisahkan PDF Pro" onBack={onBack} maxWidth="max-w-6xl">
+    <ToolContainer 
+      title="Pisahkan PDF" 
+      description="Ekstrak halaman tertentu atau potong dokumen menjadi beberapa bagian terpisah."
+      onBack={onBack} 
+      maxWidth="max-w-6xl"
+      currentStep={!file ? 1 : 2}
+    >
       {!file ? (
          isLoadingFile ? (
             <div className="flex flex-col items-center justify-center p-16">

@@ -7,6 +7,7 @@ import {
   ZipIcon, FilePdfIcon 
 } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 
 // pdfjsLib is loaded from CDN in index.html
@@ -37,6 +38,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [outputFilename, setOutputFilename] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
   const isHeavyDocument = (fileWithBuffer?.file.size || 0) > 10 * 1024 * 1024 || pageCount >= 70;
 
@@ -85,6 +87,12 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
   const handleConvert = async () => {
     if (!fileWithBuffer) return;
+
+    if (quota <= 0) {
+      setShowLimitModal(true);
+      return;
+    }
+
     setIsProcessing(true);
     
     const timeEstimate = isHeavyDocument ? "Dapat memakan waktu hingga 3-5 menit" : "Mohon tunggu sebentar";
@@ -118,6 +126,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
         const url = URL.createObjectURL(blob);
         setOutputUrl(url);
         setOutputFilename(`${fileWithBuffer.file.name.replace('.pdf', '')}.${config.ext}`);
+        consumeQuota(); // Pemotongan kuota saat berhasil
         addToast('Konversi berhasil!', 'success');
     } catch (error: any) {
         clearTimeout(timeoutId);
@@ -222,7 +231,12 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   };
 
   return (
-    <ToolContainer title={config.title} onBack={onBack}>
+    <ToolContainer 
+      title={config.title} 
+      description={`Konversi dokumen PDF ke format ${config.ext.toUpperCase()} secara instan.`}
+      onBack={onBack}
+      currentStep={outputUrl ? 3 : (!fileWithBuffer ? 1 : 2)}
+    >
       <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
       {renderContent()}
     </ToolContainer>

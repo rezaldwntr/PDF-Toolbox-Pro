@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -14,6 +15,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const { addToast } = useToast();
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
   const handleFileChange = (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
@@ -25,6 +27,12 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const handleCompress = async () => {
     if (!file) return;
+
+    if (quota <= 0) {
+      setShowLimitModal(true);
+      return;
+    }
+
     setIsProcessing(true);
 
     const controller = new AbortController();
@@ -54,6 +62,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       const blob = await response.blob();
       setResultUrl(URL.createObjectURL(blob));
+      consumeQuota(); // Pemotongan kuota tamu saat proses selesai
       addToast('Kompresi berhasil!', 'success');
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -65,22 +74,27 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   if (resultUrl) {
     return (
-      <ToolContainer title="Kompresi Berhasil!" onBack={onBack}>
+      <ToolContainer title="Kompresi Berhasil!" onBack={onBack} currentStep={3}>
         <div className="text-center flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
           <div className="space-y-2">
-            <h3 className="text-xl font-bold">PDF Berhasil Dikompres</h3>
-            <p className="text-gray-500 dark:text-gray-400">Dokumen Anda telah dioptimalkan melalui server kami.</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">PDF Berhasil Dikompres</h3>
+            <p className="text-slate-500 dark:text-slate-400">Dokumen Anda telah dioptimalkan melalui server kami.</p>
           </div>
-          <a href={resultUrl} download={`compressed-${file?.name}`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full max-w-sm shadow-lg transition-all">Unduh PDF Hasil Kompres</a>
-          <button onClick={() => setResultUrl(null)} className="text-blue-600 hover:underline">Kompres File Lain</button>
+          <a href={resultUrl} download={`compressed-${file?.name}`} className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl w-full max-w-sm shadow-lg transition-all">Unduh PDF Hasil Kompres</a>
+          <button onClick={() => setResultUrl(null)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium">Kompres File Lain</button>
         </div>
       </ToolContainer>
     );
   }
 
   return (
-    <ToolContainer title="Kompres PDF (Server)" onBack={onBack}>
+    <ToolContainer 
+      title="Kompres PDF" 
+      description="Kecilkan ukuran file PDF tanpa menurunkan kualitas teks & gambar."
+      onBack={onBack} 
+      currentStep={!file ? 1 : 2}
+    >
       
       {!file ? (
         <FileUploader 

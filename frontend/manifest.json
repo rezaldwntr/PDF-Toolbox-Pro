@@ -1,21 +1,21 @@
-
 {
-  "short_name": "Zentridox",
-  "name": "Zentridox - PDF Tools",
+  "short_name": "PDF Toolbox",
+  "name": "PDF Toolbox Pro - Solusi PDF Server-Side",
+  "description": "Platform manipulasi dokumen PDF tercepat, andal, dan aman.",
   "icons": [
     {
-      "src": "https://placehold.co/192x192/0f172a/ffffff.png?text=PDF",
+      "src": "https://placehold.co/192x192/1A56DB/ffffff.png?text=PDF",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "https://placehold.co/512x512/0f172a/ffffff.png?text=PDF",
+      "src": "https://placehold.co/512x512/1A56DB/ffffff.png?text=PDF",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0f172a",
-  "background_color": "#0f172a"
+  "theme_color": "#1A56DB",
+  "background_color": "#F8FAFC"
 }
