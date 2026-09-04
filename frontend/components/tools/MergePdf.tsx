@@ -4,6 +4,7 @@ import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -47,6 +48,8 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
     setDragging(true);
@@ -64,6 +67,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   };
 
   const handleDropOnList = () => {
+    setDragging(false);
     if (draggedItemIndex.current === null || dragOverItemIndex.current === null) return;
     document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
     
@@ -79,6 +83,11 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const handleMerge = async () => {
     if (files.length < 2) {
       addToast('Silakan pilih setidaknya dua file PDF.', 'warning');
+      return;
+    }
+
+    if (quota <= 0) {
+      setShowLimitModal(true);
       return;
     }
 
@@ -106,6 +115,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
       const blob = await response.blob();
       setMergedPdfUrl(URL.createObjectURL(blob));
+      consumeQuota(); // Pemotongan kuota saat berhasil (Section 4.3)
       addToast('PDF berhasil digabungkan!', 'success');
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -124,21 +134,26 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
   if (mergedPdfUrl) {
     return (
-      <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack}>
-        <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6">
-          <DownloadIcon className="w-16 h-16 text-green-500" />
-          <p className="text-lg">File Anda telah berhasil disatukan melalui server kami.</p>
-          <a href={mergedPdfUrl} download={`merged-${Date.now()}.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg shadow-md w-full max-w-sm">
+      <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack} currentStep={3}>
+        <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6">
+          <DownloadIcon className="w-16 h-16 text-emerald-500" />
+          <p className="text-base sm:text-lg">File Anda telah berhasil disatukan melalui server kami.</p>
+          <a href={mergedPdfUrl} download={`merged-${Date.now()}.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-colors text-base shadow-md w-full max-w-sm">
             Unduh PDF Gabungan
           </a>
-          <button onClick={reset} className="font-medium text-gray-500 hover:text-blue-600">Gabungkan PDF Lainnya</button>
+          <button onClick={reset} className="font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">Gabungkan PDF Lainnya</button>
         </div>
       </ToolContainer>
     )
   }
 
   return (
-    <ToolContainer title="Gabungkan PDF (Server)" onBack={onBack}>
+    <ToolContainer 
+      title="Gabungkan PDF" 
+      description="Susun dan gabungkan beberapa dokumen PDF menjadi satu berkas rapi."
+      onBack={onBack}
+      currentStep={files.length === 0 ? 1 : 2}
+    >
       {files.length === 0 && (
         <FileUploader 
             onFileSelect={handleFileChange} 

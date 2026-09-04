@@ -1,7 +1,8 @@
 import React from 'react';
 import { View } from '../types';
 import { useQuota } from '../contexts/QuotaContext';
-import { Zap, ShieldCheck, X } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Zap, ShieldCheck, X, Sun, Moon } from 'lucide-react';
 
 interface HeaderProps {
   currentView: View;
@@ -10,17 +11,18 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
   const { quota, maxQuota, showLimitModal, setShowLimitModal } = useQuota();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 transition-all">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#1E222B]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
           <div 
             onClick={() => onSelectView(View.HOME_TAB)} 
             className="flex items-center gap-2.5 cursor-pointer group select-none"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shadow-blue-500/30 group-hover:bg-blue-700 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center shadow-sm shadow-blue-500/30 group-hover:bg-blue-700 dark:group-hover:bg-blue-600 transition-colors">
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
                 <polyline points="14 2 14 8 20 8"/>
@@ -30,8 +32,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg text-slate-900 tracking-tight">PDF Toolbox</span>
-                <span className="text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Pro</span>
+                <span className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">PDF Toolbox</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">Pro</span>
               </div>
             </div>
           </div>
@@ -42,8 +44,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               onClick={() => onSelectView(View.HOME_TAB)}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 currentView === View.HOME_TAB
-                  ? 'text-blue-600 bg-blue-50 font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               Beranda
@@ -52,8 +54,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               onClick={() => onSelectView(View.TOOLS_TAB)}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 currentView === View.TOOLS_TAB
-                  ? 'text-blue-600 bg-blue-50 font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               Semua Alat
@@ -62,29 +64,29 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               onClick={() => onSelectView(View.ABOUT)}
               className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 currentView === View.ABOUT
-                  ? 'text-blue-600 bg-blue-50 font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               Tentang
             </button>
           </nav>
 
-          {/* Right Actions: Quota Tracker & Login Prompt */}
-          <div className="flex items-center gap-3">
-            {/* Transparent Guest Quota Badge */}
+          {/* Right Actions: Quota Tracker, Theme Switcher & Login Prompt */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Transparent Guest Quota Badge (Section 4.3) */}
             <div 
               onClick={() => quota === 0 && setShowLimitModal(true)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                 quota >= 2 
-                  ? 'bg-blue-50/80 text-blue-700 border-blue-200/80 hover:bg-blue-100' 
+                  ? 'bg-blue-50/80 dark:bg-[#1E293B] text-blue-700 dark:text-blue-400 border-blue-200/80 dark:border-slate-700 hover:bg-blue-100 dark:hover:bg-slate-800' 
                   : quota === 1
-                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 animate-pulse'
-                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 animate-pulse'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
               }`}
               title="Kuota konversi gratis harian untuk pengguna tamu"
             >
-              <Zap size={14} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-blue-600'} />
+              <Zap size={14} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-blue-600 dark:text-blue-400'} />
               <span>
                 {quota > 1 
                   ? `⚡ ${quota}/${maxQuota} Kuota Hari Ini` 
@@ -94,9 +96,23 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               </span>
             </div>
 
+            {/* Theme Toggle Button (Section 6.1) */}
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Beralih ke mode terang' : 'Beralih ke mode gelap'}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+              title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+            >
+              {theme === 'dark' ? (
+                <Sun size={18} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
+              ) : (
+                <Moon size={18} className="text-slate-600 transition-transform rotate-0 hover:-rotate-12" />
+              )}
+            </button>
+
             <button
               onClick={() => setShowLimitModal(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/20 transition-all active:scale-95"
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm shadow-blue-600/20 transition-all active:scale-95"
             >
               Masuk
             </button>
@@ -106,26 +122,26 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
       {/* Quota Limit Modal (Section 4.3) */}
       {showLimitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-[#1E222B] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
             <button
               onClick={() => setShowLimitModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <X size={18} />
             </button>
 
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
               <Zap size={24} className="fill-amber-500" />
             </div>
 
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
               {quota === 0 
                 ? "Batas 3 konversi gratis tercapai hari ini" 
                 : "Akses Tanpa Batas dengan Akun"}
             </h3>
 
-            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
               Pengguna tamu dibatasi hingga 3 kali konversi per hari. Masuk untuk menikmati konversi tanpa batas, batas ukuran berkas hingga 100 MB, dan unduhan berkecepatan tinggi.
             </p>
 
@@ -135,7 +151,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
                   alert("Fitur login Google akan segera diaktifkan!");
                   setShowLimitModal(false);
                 }}
-                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl font-semibold text-sm text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 shadow-sm transition-all"
+                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl font-semibold text-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-[#161A22] border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -148,14 +164,14 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
               <button
                 onClick={() => setShowLimitModal(false)}
-                className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                className="w-full py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
                 Nanti saja
               </button>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
-              <ShieldCheck size={14} className="text-emerald-600" />
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <ShieldCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
               <span>Privasi berkas terjamin & dihapus otomatis 60 menit</span>
             </div>
           </div>

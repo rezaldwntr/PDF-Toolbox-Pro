@@ -13,6 +13,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- FOUC Prevention Script (Section 6.1) -->
+    <script>
+      (function() {
+        try {
+          const savedTheme = localStorage.getItem('theme');
+          if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -32,11 +46,18 @@
                 600: '#1A56DB',
                 700: '#1E429F',
                 800: '#1E3A8A',
+              },
+              dark: {
+                bg: '#0F1218',
+                surface: '#1E222B',
+                muted: '#161A22',
+                border: '#2D3748',
               }
             },
             boxShadow: {
               card: '0 1px 3px 0 rgb(0 0 0 / 0.05)',
               'card-hover': '0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04)',
+              'card-dark-hover': '0 8px 24px -4px rgba(0, 0, 0, 0.45)',
             }
           }
         }
@@ -51,6 +72,12 @@
         padding: 0;
         min-height: 100vh;
         -webkit-font-smoothing: antialiased;
+        transition: background-color 200ms ease, color 200ms ease;
+      }
+      
+      .dark body {
+        background-color: #0F1218;
+        color: #F8FAFC;
       }
       
       @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -61,6 +88,10 @@
       ::-webkit-scrollbar-track { background: #F1F5F9; }
       ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+      
+      .dark ::-webkit-scrollbar-track { background: #161A22; }
+      .dark ::-webkit-scrollbar-thumb { background: #334155; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
     
     <script type="importmap">

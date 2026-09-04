@@ -27,6 +27,7 @@ import PrivacyPolicy from './components/pages/PrivacyPolicy';
 // Providers & Telemetry
 import { ToastProvider } from './contexts/ToastContext';
 import { QuotaProvider } from './contexts/QuotaContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -94,26 +95,28 @@ function App() {
   };
 
   return (
-    <ToastProvider>
-      <QuotaProvider>
-        <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 font-sans">
-          {/* Top Sticky Header with Brand, Navigation & Quota Tracker */}
-          <Header currentView={currentView} onSelectView={setCurrentView} />
+    <ThemeProvider>
+      <ToastProvider>
+        <QuotaProvider>
+          <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+            {/* Top Sticky Header with Brand, Navigation & Quota Tracker */}
+            <Header currentView={currentView} onSelectView={setCurrentView} />
 
-          {/* Main Hub & Spoke Content */}
-          <main className="flex-1 w-full">
-            {renderContent()}
-          </main>
+            {/* Main Hub & Spoke Content */}
+            <main className="flex-1 w-full">
+              {renderContent()}
+            </main>
 
-          {/* Footer with Security & Trust Badges */}
-          <Footer onSelectView={setCurrentView} />
+            {/* Footer with Security & Trust Badges */}
+            <Footer onSelectView={setCurrentView} />
 
-          {/* Vercel Telemetry */}
-          <Analytics />
-          <SpeedInsights />
-        </div>
-      </QuotaProvider>
-    </ToastProvider>
+            {/* Vercel Telemetry */}
+            <Analytics />
+            <SpeedInsights />
+          </div>
+        </QuotaProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

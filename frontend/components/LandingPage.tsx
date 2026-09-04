@@ -22,24 +22,11 @@ import {
   Unlock, 
   Languages, 
   Search,
-  Sparkles,
-  ShieldCheck,
-  Zap
+  Sparkles
 } from 'lucide-react';
 
 interface LandingPageProps {
   onSelectView: (view: View) => void;
-}
-
-interface ToolDefinition {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  active: boolean;
-  view?: View;
-  category: string;
-  keywords: string[];
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
@@ -267,22 +254,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
     <div className="w-full">
       {/* HERO SECTION */}
       <section className="pt-12 pb-6 px-4 sm:px-6 lg:px-8 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-semibold mb-6">
           <Sparkles size={14} />
           <span>Platform Solusi PDF Server-Side Tercepat</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight mb-4">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight sm:leading-tight mb-4">
           Kelola Dokumen PDF.<br className="hidden sm:inline" /> Lebih Cepat & Bebas Hambatan.
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed mb-8">
+        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed mb-8">
           Satu tempat untuk menggabungkan, memisahkan, mengompresi, dan mengonversi PDF tanpa perlu membaca panduan manual.
         </p>
 
         {/* Quick Search Bar */}
         <div className="relative max-w-xl mx-auto mb-4">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
             <Search size={18} />
           </div>
           <input
@@ -290,12 +277,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari alat PDF (misal: word, gabung, kompres, pisah)..."
-            className="w-full pl-11 pr-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent shadow-sm transition-all"
+            className="w-full pl-11 pr-4 py-3 rounded-xl bg-white dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               Hapus
             </button>
@@ -313,13 +300,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
       {/* TOOL CATEGORIES (Section 3) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         {filteredCategories.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
-            <p className="text-slate-600 font-medium mb-2">
+          <div className="text-center py-12 bg-white dark:bg-[#1E222B] rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+            <p className="text-slate-600 dark:text-slate-300 font-medium mb-2">
               Tidak ada alat yang cocok dengan pencarian "{searchQuery}".
             </p>
             <button
               onClick={() => setSearchQuery('')}
-              className="text-sm font-semibold text-blue-600 hover:underline"
+              className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
             >
               Tampilkan semua alat
             </button>
@@ -327,11 +314,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
         ) : (
           filteredCategories.map((category) => (
             <div key={category.id} className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-slate-200 pb-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {category.title}
                 </h2>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {category.description}
                 </span>
               </div>
