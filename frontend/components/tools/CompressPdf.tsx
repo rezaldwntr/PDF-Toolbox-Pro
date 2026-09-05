@@ -5,11 +5,16 @@ import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon } fro
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
+import PdfPreview from './PdfPreview';
+
+declare const pdfjsLib: any;
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
+  const [pageCount, setPageCount] = useState<number>(0);
   const [compressionType, setCompressionType] = useState<'recommended' | 'target'>('recommended');
   const [targetSizeKb, setTargetSizeKb] = useState<number>(500);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,11 +22,21 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { addToast } = useToast();
   const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
-  const handleFileChange = (files: FileList | null) => {
+  const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
       setResultUrl(null);
+      try {
+        const buffer = await selectedFile.arrayBuffer();
+        setFileBuffer(buffer);
+        if (typeof pdfjsLib !== 'undefined') {
+          const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
+          setPageCount(pdfDoc.numPages);
+        }
+      } catch (e) {
+        console.warn('Gagal membaca preview dokumen:', e);
+      }
     }
   };
 
@@ -104,15 +119,32 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         />
       ) : (
         <div className="space-y-6 animate-fade-in">
-          <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg flex items-center justify-between border border-gray-200 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <FilePdfIcon />
-              <div className="text-left">
-                <span className="block truncate font-medium max-w-[200px]">{file.name}</span>
-                <span className="text-[10px] text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
+          {/* Card Pratinjau Visual Dokumen Asli */}
+          <div className="w-full max-w-md mx-auto bg-white dark:bg-[#1E222B] p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group hover:shadow-md transition-all">
+            <button 
+              onClick={() => { setFile(null); setFileBuffer(null); setPageCount(0); }} 
+              className="absolute top-2.5 right-2.5 p-1.5 text-rose-500 bg-white/90 dark:bg-slate-800/90 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-full shadow-md z-10 transition-transform active:scale-90 border border-slate-200 dark:border-slate-700"
+              title="Hapus dan pilih file lain"
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
+
+            {/* Visual Canvas Pratinjau Lembar Pertama */}
+            {fileBuffer && (
+              <div className="w-full max-w-[220px] mx-auto rounded-lg overflow-hidden shadow-xs">
+                <PdfPreview buffer={fileBuffer} />
               </div>
+            )}
+
+            {/* Info Berkas */}
+            <div className="mt-3 text-center px-2">
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={file.name}>
+                {file.name}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                {(file.size / 1024).toFixed(1)} KB {pageCount > 0 ? `• ${pageCount} Halaman` : ''}
+              </p>
             </div>
-            <button onClick={() => setFile(null)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors"><TrashIcon /></button>
           </div>
           
           <div className="grid grid-cols-2 gap-4">

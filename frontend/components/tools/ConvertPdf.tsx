@@ -9,6 +9,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
+import PdfPreview from './PdfPreview';
 
 // pdfjsLib is loaded from CDN in index.html
 declare const pdfjsLib: any;
@@ -179,44 +180,61 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
     if (fileWithBuffer) {
       return (
-        <div className="flex flex-col gap-6 animate-fade-in">
-             <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-lg flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3 text-left">
-                    <FilePdfIcon />
-                    <div>
-                        <p className="text-gray-800 dark:text-gray-200 font-medium truncate max-w-[200px]">{fileWithBuffer.file.name}</p>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">
-                            {(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB • {pageCount} Halaman
-                        </p>
-                    </div>
-                </div>
-                <button onClick={resetState} className="p-1 text-gray-400 hover:text-red-500 transition-colors"><TrashIcon /></button>
+        <div className="flex flex-col items-center gap-6 animate-fade-in max-w-md mx-auto w-full">
+          {/* Card Pratinjau Visual Dokumen Asli */}
+          <div className="w-full bg-white dark:bg-[#1E222B] p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group hover:shadow-md transition-all">
+            <button 
+              onClick={resetState} 
+              className="absolute top-2.5 right-2.5 p-1.5 text-rose-500 bg-white/90 dark:bg-slate-800/90 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-full shadow-md z-10 transition-transform active:scale-90 border border-slate-200 dark:border-slate-700"
+              title="Hapus dan pilih file lain"
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
+
+            {/* Visual Canvas Pratinjau Lembar Pertama */}
+            <div className="w-full max-w-[220px] mx-auto rounded-lg overflow-hidden shadow-xs">
+              <PdfPreview buffer={fileWithBuffer.buffer} />
             </div>
 
-            {mode === 'image' && (
-                <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800 text-center">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Format Gambar Output:</h4>
-                    <div className="flex justify-center gap-3">
-                        {(['jpg', 'png'] as ImageFormat[]).map((fmt) => (
-                            <button
-                                key={fmt}
-                                onClick={() => setSelectedImageFormat(fmt)}
-                                className={`px-6 py-2 rounded-lg text-sm font-bold border transition-all ${selectedImageFormat === fmt ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600'}`}
-                            >
-                                {fmt.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* Info Berkas */}
+            <div className="mt-3 text-center px-2">
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={fileWithBuffer.file.name}>
+                {fileWithBuffer.file.name}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                {(fileWithBuffer.file.size / 1024 / 1024).toFixed(2)} MB • {pageCount} Halaman
+              </p>
+            </div>
+          </div>
 
-            <button 
-              onClick={handleConvert} 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-all text-lg shadow-md flex items-center justify-center gap-2"
-            >
-                Konversi Sekarang
-            </button>
-            <p className="text-center text-[10px] text-gray-400 uppercase tracking-tight">Diproses aman di server berkecepatan tinggi</p>
+          {mode === 'image' && (
+            <div className="w-full p-4 bg-purple-50/70 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800/50 text-center">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300 mb-3">Format Gambar Output:</h4>
+              <div className="flex justify-center gap-3">
+                {(['jpg', 'png'] as ImageFormat[]).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setSelectedImageFormat(fmt)}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold border transition-all ${
+                      selectedImageFormat === fmt 
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20' 
+                        : 'bg-white dark:bg-[#1E222B] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {fmt.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button 
+            onClick={handleConvert} 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl transition-all text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 active:scale-98"
+          >
+            Konversi Sekarang
+          </button>
+          <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-tight -mt-3">Diproses aman di server berkecepatan tinggi</p>
         </div>
       );
     }

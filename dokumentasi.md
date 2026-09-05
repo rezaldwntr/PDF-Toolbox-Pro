@@ -104,6 +104,8 @@ PDF Toolbox Pro/
 4. **Keamanan & Manajemen Memori:**
    - Semua berkas sementara yang diunggah ke backend Python otomatis dibersihkan melalui `BackgroundTasks` FastAPI (`cleanup_folder`).
    - Objek memori DOM di frontend yang dibuat melalui `URL.createObjectURL()` selalu dibersihkan dengan `URL.revokeObjectURL()` saat tidak lagi digunakan.
+5. **Pratinjau Visual Dokumen Seragam (*Universal File Content Preview*):**
+   - Seluruh alat pengerjaan (Konversi Word/Excel/PPT/Gambar, Kompres PDF, Gabungkan PDF, Pisahkan PDF, Atur Halaman, Tambah Teks, dan Tanda Tangan) wajib menampilkan kartu pratinjau visual tajam dari lembar dokumen asli yang diunggah menggunakan `PdfPreview.tsx` (didukung penyesuaian Hi-DPI Retina dan rendering canvas PDF.js) sebelum proses konversi dieksekusi.
 
 ---
 
