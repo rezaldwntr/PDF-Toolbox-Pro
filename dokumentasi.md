@@ -226,7 +226,8 @@ Bila ingin menambahkan fitur/alat PDF baru (misalnya *Watermark* atau *OCR*):
 ## 8. Integrasi Deployment & Produksi
 
 * **Frontend:** Dideploy otomatis melalui **Vercel** yang terhubung ke branch `preview` (pengujian) dan `main` (produksi publik). File `.npmrc` dengan `legacy-peer-deps=true` memastikan instalasi paket selalu stabil.
-* **Backend:** Dideploy menggunakan Docker container pada VPS (DigitalOcean/Ubuntu).
-  - Skrip pengujian lokal: `./devserver.sh`
-  - Perintah build Docker: `docker build -t pdf-backend .`
-  - Perintah jalan Docker: `docker run -d -p 8000:8000 --restart always --name pdf-backend-app pdf-backend`
+* **Backend:** Dideploy secara serverless di **Google Cloud Run** (region `asia-southeast2` - Jakarta) dengan container Docker dan auto-scaling:
+  - **URL Resmi Backend:** `https://pdf-toolbox-pro-100471936008.asia-southeast2.run.app`
+  - **Dokumentasi Swagger API:** `https://pdf-toolbox-pro-100471936008.asia-southeast2.run.app/docs`
+  - Mendukung CORS terintegrasi untuk seluruh domain Vercel preview (`*.vercel.app`) dan domain produksi publik.
+  - Perintah build Docker lokal: `docker build -t pdf-backend .`

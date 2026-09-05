@@ -9,7 +9,7 @@ import PdfPreview from './PdfPreview';
 
 declare const pdfjsLib: any;
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from '../../config';
 
 const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [file, setFile] = useState<File | null>(null);

@@ -14,7 +14,7 @@ import PdfPreview from './PdfPreview';
 // pdfjsLib is loaded from CDN in index.html
 declare const pdfjsLib: any;
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from '../../config';
 
 interface PdfFileWithBuffer {
   file: File;

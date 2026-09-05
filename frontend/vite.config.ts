@@ -15,7 +15,7 @@ export default defineConfig({
     proxy: {
       // Menangani proxy untuk endpoint konversi
       '/convert': {
-        target: 'https://api-backend.club',
+        target: 'https://pdf-toolbox-pro-100471936008.asia-southeast2.run.app',
         changeOrigin: true,
         secure: false,
         timeout: 300000,
@@ -23,7 +23,7 @@ export default defineConfig({
       },
       // Menangani proxy untuk endpoint tools (Merge, Split, Compress)
       '/tools': {
-        target: 'https://api-backend.club',
+        target: 'https://pdf-toolbox-pro-100471936008.asia-southeast2.run.app',
         changeOrigin: true,
         secure: false,
         timeout: 300000,

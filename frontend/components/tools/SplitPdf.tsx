@@ -9,7 +9,7 @@ import FileUploader from '../common/FileUploader';
 // Deklarasi global untuk pdfjsLib dari CDN
 declare const pdfjsLib: any;
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from '../../config';
 
 interface SplitPdfProps {
   onBack: () => void;

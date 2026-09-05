@@ -8,7 +8,7 @@ import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 import { PDFDocument } from 'pdf-lib';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from '../../config';
 
 interface MergePdfProps {
   onBack: () => void;
