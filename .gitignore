@@ -11,6 +11,10 @@ dist/
 build/
 .vercel
 
+# Test outputs & temporary files
+*.pdf
+*.docx
+
 # Environment Variables & Secrets
 .env
 .env.local

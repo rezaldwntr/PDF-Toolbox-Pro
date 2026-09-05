@@ -21,3 +21,11 @@ export enum View {
   ABOUT,
   CONTACT,
 }
+
+export type EnvironmentMode = 'preview' | 'production';
+
+// Deklarasi konstanta yang diinjeksi Vite saat build di Vercel
+declare global {
+  const __VERCEL_ENV__: string | undefined;
+  const __GIT_BRANCH__: string | undefined;
+}

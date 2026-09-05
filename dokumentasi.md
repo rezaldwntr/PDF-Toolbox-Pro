@@ -132,7 +132,74 @@ Sistem tema dirancang memenuhi kontras **WCAG AAA** (teks) dan **WCAG AA** (elem
 
 ---
 
-## 6. Panduan Menambahkan Alat PDF Baru di Masa Depan
+## 6. Sistem Lingkungan Vercel: Preview vs. Production
+
+Untuk menjamin keandalan sistem dan kenyamanan pengujian, PDF Toolbox Pro mengintegrasikan arsitektur dua lingkungan langsung dengan **Vercel Deployments** dan **Git Branching**:
+
+```
+                  ┌─────────────────────────────────────────────────────────┐
+                  │                 GITHUB REPOSITORY                       │
+                  └────────────┬───────────────────────────────┬────────────┘
+                               │                               │
+                      git push │ (branch: preview)    git push │ (branch: main)
+                               ▼                               ▼
+                  ┌────────────────────────┐      ┌────────────────────────┐
+                  │ VERCEL PREVIEW DEPLOY  │      │ VERCEL PRODUCTION      │
+                  │ (*-git-preview-*.app)  │      │ (Domain Utama Publik)  │
+                  ├────────────────────────┤      ├────────────────────────┤
+                  │ • Uji coba fitur lama  │      │ • Pengguna umum        │
+                  │ • Uji coba update baru │      │ • Batas kuota 3x/hari  │
+                  │ • Fitur eksperimental  │      │ • Lingkungan stabil    │
+                  │ • KUOTA BEBAS (∞)      │      │ • Proteksi guest limit │
+                  └────────────────────────┘      └────────────────────────┘
+```
+
+### 6.1 Karakteristik Masing-Masing Lingkungan
+
+| Parameter | 🧪 Vercel Preview Environment | ⚡ Vercel Production Environment |
+| :--- | :--- | :--- |
+| **Tujuan Penggunaan** | Uji coba fitur lama (regresi), validasi update, dan riset fitur baru | Rilis stabil untuk pengguna publik |
+| **Sumber Branch Git** | `preview` (atau Pull Request) | `main` |
+| **Batasan Kuota Tamu** | **Bebas Kuota (Tanpa Batas / ∞)** | **3 Kali per Hari** |
+| **Pemotongan Kuota** | Di-bypass (`consumeQuota()` selalu return `true`) | Kuota terpotong 1 setiap kali konversi sukses |
+| **Indikator Visual Header** | `🧪 Preview (Bebas Kuota ∞)` | `⚡ 3/3 Kuota Hari Ini` |
+| **Fitur Bantuan Penguji** | Switcher modal, reset kuota tamu instan | Dialog modal saat limit 3x tercapai |
+
+### 6.2 Mekanisme Deteksi Lingkungan Otomatis (*Multi-tier Detection*)
+
+Sistem menentukan status lingkungan secara hierarkis melalui `QuotaContext.tsx`:
+1. **Prioritas 1 (URL Query Parameter):** Menambahkan `?env=preview` atau `?preview=true` pada URL akan langsung mengaktifkan Mode Preview di mana saja. Sebaliknya `?env=production` memaksa simulasi kuota produksi.
+2. **Prioritas 2 (Penyimpanan Lokal):** Pilihan yang dialihkan pengguna melalui modal antarmuka disimpan di `localStorage` (`pdf_toolbox_env_mode`).
+3. **Prioritas 3 (Injeksi Build Vercel):** Variabel `process.env.VERCEL_ENV` diinjeksi ke bundler Vite melalui konstanta `__VERCEL_ENV__`.
+4. **Prioritas 4 (Runtime Hostname):** Otomatis mendeteksi domain lokal (`localhost`, `127.0.0.1`) dan domain pratinjau Vercel (`*-git-*.vercel.app` atau preview URL).
+
+### 6.3 Standar Alur Kerja Pengembangan & Rilis (Git Workflow)
+
+Setiap pengembangan fitur atau perbaikan kode wajib mengikuti siklus berikut:
+1. **Bekerja pada Branch `preview`:**
+   ```bash
+   git checkout preview
+   # Lakukan perubahan kode, perbaikan, atau penambahan fitur baru
+   git add -A
+   git commit -m "feat: deskripsi perubahan"
+   git push origin preview
+   ```
+2. **Uji Coba di URL Vercel Preview:**
+   - Buka URL Preview yang dibuatkan otomatis oleh Vercel.
+   - Periksa badge `🧪 Preview (Bebas Kuota ∞)` di header.
+   - Uji fitur berkali-kali tanpa khawatir terblokir batas kuota 3x.
+3. **Rilis ke Production (Merge ke `main`):**
+   - Setelah seluruh fitur teruji 100% dan bebas bug, gabungkan kode ke branch `main`:
+   ```bash
+   git checkout main
+   git merge preview
+   git push origin main
+   ```
+   - Vercel akan otomatis memperbarui situs produksi publik dengan proteksi kuota 3x yang aktif.
+
+---
+
+## 7. Panduan Menambahkan Alat PDF Baru di Masa Depan
 
 Bila ingin menambahkan fitur/alat PDF baru (misalnya *Watermark* atau *OCR*):
 1. **Tambahkan Enum di `frontend/types.ts`:**
@@ -150,13 +217,13 @@ Bila ingin menambahkan fitur/alat PDF baru (misalnya *Watermark* atau *OCR*):
 4. **Aktifkan Kartu Alat di `frontend/components/LandingPage.tsx` & `ToolsPage.tsx`:**
    - Ubah atribut `active: false` menjadi `active: true` dan hubungkan `view: View.WATERMARK`.
 5. **Tambahkan Endpoint di `backend/app/routers/` (jika membutuhkan pemrosesan server).**
-6. **Commit dan Push ke GitHub:** Sesuai standar proyek, segera commit dan push setelah selesai.
+6. **Commit dan Push ke Branch `preview` Terlebih Dahulu:** Lakukan uji coba bebas kuota sebelum di-merge ke `main`.
 
 ---
 
-## 7. Integrasi Deployment & Produksi
+## 8. Integrasi Deployment & Produksi
 
-* **Frontend:** Dideploy otomatis melalui **Vercel** yang terhubung langsung ke branch `main` GitHub. File `.npmrc` dengan `legacy-peer-deps=true` memastikan instalasi paket selalu stabil.
+* **Frontend:** Dideploy otomatis melalui **Vercel** yang terhubung ke branch `preview` (pengujian) dan `main` (produksi publik). File `.npmrc` dengan `legacy-peer-deps=true` memastikan instalasi paket selalu stabil.
 * **Backend:** Dideploy menggunakan Docker container pada VPS (DigitalOcean/Ubuntu).
   - Skrip pengujian lokal: `./devserver.sh`
   - Perintah build Docker: `docker build -t pdf-backend .`
