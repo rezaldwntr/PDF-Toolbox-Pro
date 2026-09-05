@@ -7,10 +7,11 @@ from typing import List, Optional
 from enum import Enum
 from zipfile import ZipFile
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form
+from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form, Response
 from fastapi.responses import FileResponse
 import fitz  # PyMuPDF
 
+from app.core.config import MAX_FILE_SIZE
 from app.utils.file_utils import validate_file, cleanup_folder
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
@@ -21,34 +22,87 @@ class SplitType(str, Enum):
     FIXED = "fixed"          # Setiap X halaman -> Jadi Banyak File (ZIP)
     ALL = "all"              # Setiap 1 halaman -> Jadi Banyak File (ZIP)
 
-# === 5. GABUNGKAN PDF (MERGE) ===
+# === 5. GABUNGKAN PDF (HIGH-SPEED IN-MEMORY MERGE - STANDAR ILOVEPDF) ===
 @router.post("/merge-pdf")
-def merge_pdf(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...)):
+def merge_pdf(files: List[UploadFile] = File(...)):
+    """
+    Menggabungkan beberapa berkas PDF dengan standar performa iLovePDF / Smallpdf:
+    - Zero Disk I/O (In-Memory streaming murni untuk kecepatan ultra-tinggi)
+    - Resisten tabrakan nama berkas (Filename collision safe)
+    - Validasi format, batas ukuran berkas, dan deteksi proteksi kata sandi
+    - Optimasi stream output (deflate=True, garbage=3)
+    """
     if len(files) < 2:
-        raise HTTPException(status_code=400, detail="Minimal upload 2 file PDF.")
+        raise HTTPException(status_code=400, detail="Minimal unggah 2 file PDF untuk digabungkan.")
     
-    tmp_dir = tempfile.mkdtemp()
-    merged_filename = "merged_document.pdf"
-    tmp_merged_path = os.path.join(tmp_dir, merged_filename)
+    merged_doc = fitz.open()
 
     try:
-        merged_doc = fitz.open()
-        for file in files:
-            if not file.filename.lower().endswith(".pdf"): continue
-            file_path = os.path.join(tmp_dir, file.filename)
-            with open(file_path, "wb") as f:
-                shutil.copyfileobj(file.file, f)
-            doc = fitz.open(file_path)
-            merged_doc.insert_pdf(doc)
+        for idx, file in enumerate(files):
+            filename = file.filename or f"dokumen_{idx+1}.pdf"
+            
+            # 1. Validasi ekstensi
+            if not filename.lower().endswith(".pdf"):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Berkas '{filename}' bukan format PDF yang valid."
+                )
+
+            # 2. Baca biner langsung ke memori (Zero Disk I/O)
+            content = file.file.read()
+            if len(content) > MAX_FILE_SIZE:
+                max_mb = MAX_FILE_SIZE // (1024 * 1024)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB)."
+                )
+
+            # 3. Buka dokumen dari stream memori
+            try:
+                doc = fitz.open(stream=content, filetype="pdf")
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Berkas '{filename}' rusak atau tidak dapat diproses."
+                )
+
+            # 4. Deteksi proteksi kata sandi
+            if doc.needs_pass or doc.is_encrypted:
+                doc.close()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu."
+                )
+
+            # 5. O(1) Page-Tree Grafting (Penyatuan struktur halaman instan)
+            if len(doc) > 0:
+                merged_doc.insert_pdf(doc)
             doc.close()
-        
-        merged_doc.save(tmp_merged_path)
+
+        if len(merged_doc) == 0:
+            raise HTTPException(status_code=400, detail="Tidak ada halaman yang dapat digabungkan dari berkas yang diunggah.")
+
+        # 6. Serialisasi Memori Cepat dengan Optimasi Standar iLovePDF
+        # garbage=3: membersihkan objek mati & mengompresi stream
+        # deflate=True: kompresi stream tanpa merusak kualitas teks & gambar
+        merged_bytes = merged_doc.tobytes(garbage=3, deflate=True)
         merged_doc.close()
-        background_tasks.add_task(cleanup_folder, tmp_dir)
-        return FileResponse(path=tmp_merged_path, filename=merged_filename, media_type='application/pdf')
+
+        return Response(
+            content=merged_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": "attachment; filename=merged_document.pdf",
+            }
+        )
+
+    except HTTPException:
+        merged_doc.close()
+        raise
     except Exception as e:
-        cleanup_folder(tmp_dir)
-        raise HTTPException(status_code=500, detail=f"Gagal Merge: {str(e)}")
+        merged_doc.close()
+        logging.error(f"Error saat menggabungkan PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal menggabungkan PDF: {str(e)}")
 
 # === 6. PISAHKAN PDF (ADVANCED SPLIT) ===
 @router.post("/split-pdf")

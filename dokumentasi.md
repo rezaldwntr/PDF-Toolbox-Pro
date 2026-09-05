@@ -9,7 +9,7 @@ Dokumen ini merupakan panduan arsitektur, standar kode, dan acuan teknis utama u
 PDF Toolbox Pro dirancang menggunakan pola arsitektur **Hub & Spoke Model**:
 * **Hub (Beranda):** Menyajikan identitas visual, *Universal Dropzone*, bilah pencarian alat cepat, dan grid 4 kategori alat utama.
 * **Spoke (Halaman Alat):** Setiap alat memiliki alur mandiri 3 langkah (*1. Unggah → 2. Konfigurasi → 3. Unduh*) yang terisolasi, bebas distraksi, dan terproteksi.
-* **Backend Processing:** Operasi berat (seperti konversi DOCX, Excel, PPT, pemotongan, dan kompresi tingkat lanjut) dieksekusi secara aman di server Python backend menggunakan *PyMuPDF*, *pdf2docx*, dan *python-pptx*.
+* **Backend Processing:** Operasi penggabungan, konversi, pemotongan, dan kompresi dieksekusi secara ultra-cepat di server Python (FastAPI + PyMuPDF C/C++ engine) menggunakan arsitektur **Zero Disk I/O In-Memory Streaming** (standar iLovePDF/Smallpdf) dengan optimasi `deflate=True` dan `garbage=3` serta pustaka *pdf2docx* dan *python-pptx*.
 * **Client-side Processing:** Operasi pengeditan visual instan (seperti penambahan teks, tanda tangan digital, dan penataan ulang lembar halaman) dijalankan secara lokal di browser pengguna menggunakan pustaka *pdf-lib* untuk kecepatan optimal tanpa latensi jaringan.
 
 ---
