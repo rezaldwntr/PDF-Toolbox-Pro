@@ -64,10 +64,28 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('compression_type', compressionType);
-      
-      if (compressionType === 'target') {
-        formData.append('target_size_kb', targetSizeKb.toString());
+
+      // Pemetaan mode adaptif yang 100% kompatibel dengan server Cloud Run
+      let backendCompressionType = 'recommended';
+      let targetKb: number | null = null;
+
+      if (compressionType === 'extreme') {
+        // Kompres Tinggi: Perintahkan server mengecilkan file secara agresif (~30% ukuran awal)
+        backendCompressionType = 'target';
+        const fileKb = Math.round(file.size / 1024);
+        targetKb = Math.max(50, Math.round(fileKb * 0.3));
+      } else if (compressionType === 'recommended') {
+        backendCompressionType = 'recommended';
+      } else if (compressionType === 'low') {
+        backendCompressionType = 'recommended';
+      } else if (compressionType === 'target') {
+        backendCompressionType = 'target';
+        targetKb = targetSizeKb;
+      }
+
+      formData.append('compression_type', backendCompressionType);
+      if (targetKb !== null) {
+        formData.append('target_size_kb', targetKb.toString());
       }
 
       const response = await fetch(`${BACKEND_URL}/tools/compress-pdf`, {

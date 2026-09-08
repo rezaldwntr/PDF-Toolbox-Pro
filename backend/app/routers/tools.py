@@ -364,7 +364,7 @@ def optimize_embedded_images(doc, max_dimension: int, quality: int):
 @router.post("/compress-pdf")
 def compress_pdf(
     file: UploadFile = File(...),
-    compression_type: CompressionType = Form(CompressionType.RECOMMENDED),
+    compression_type: str = Form("recommended"),
     target_size_kb: Optional[int] = Form(None)
 ):
     """
@@ -430,8 +430,10 @@ def compress_pdf(
             pass
 
         # 5. Eksekusi kompresi sesuai mode
+        c_type = (compression_type or "recommended").lower().strip()
+
         # Mode 1: Kompres Rendah (Low) - Kualitas visual maksimal, kompresi ringan
-        if compression_type == CompressionType.LOW:
+        if c_type == "low":
             optimize_embedded_images(doc, max_dimension=2200, quality=85)
             try:
                 pdf_bytes = doc.tobytes(garbage=3, deflate=True, clean=True)
@@ -439,7 +441,7 @@ def compress_pdf(
                 pdf_bytes = doc.tobytes(garbage=3, deflate=True)
 
         # Mode 2: Kompres Tinggi (Extreme / High) - Pengecilan maksimal
-        elif compression_type in (CompressionType.EXTREME, CompressionType.HIGH):
+        elif c_type in ("extreme", "high"):
             optimize_embedded_images(doc, max_dimension=1024, quality=50)
             try:
                 pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True, use_objstms=True)
@@ -447,7 +449,7 @@ def compress_pdf(
                 pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
 
         # Mode 4: Ukuran Target (Target Size in KB)
-        elif compression_type == CompressionType.TARGET and target_size_kb:
+        elif c_type == "target" and target_size_kb:
             target_bytes = target_size_kb * 1024
 
             # Percobaan tahap 1: Pengaturan Rekomendasi
