@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { ShieldCheck, Lock, EyeOff, Server, HardDrive, Trash2, CreditCard } from 'lucide-react';
 
@@ -123,7 +123,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
         <div className="p-5 bg-slate-50 dark:bg-[#161A22] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
           <h4 className="font-bold text-slate-900 dark:text-white text-sm">Pertanyaan Mengenai Privasi?</h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            Jika Anda memiliki pertanyaan tentang kebijakan ini atau ingin meminta penghapusan data akun Anda, silakan kirimkan email ke <strong className="text-blue-600 dark:text-blue-400">rezaldewantara@gmail.com</strong>.
+            Jika Anda memiliki pertanyaan tentang kebijakan ini atau ingin meminta penghapusan data akun Anda, silakan hubungi tim kami melalui formulir tiket pada menu <strong>Hubungi Dukungan</strong> di aplikasi ini.
           </p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
             Terakhir diperbarui: September 2026 · Versi Dokumen: 2.1 (Arsitektur Hybrid & Sistem Bisnis Multi-Tier)

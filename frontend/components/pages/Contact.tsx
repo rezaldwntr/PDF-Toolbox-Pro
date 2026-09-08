@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { useAuth } from '../../contexts/AuthContext';
 import { Mail, Clock, MapPin, Send, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
@@ -97,11 +97,11 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 not-prose">
           <div className="p-4 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-              <Mail size={18} />
+              <MessageSquare size={18} />
             </div>
-            <div className="overflow-hidden">
-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Email Resmi</p>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate" title="rezaldewantara@gmail.com">rezaldewantara@gmail.com</p>
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Pusat Bantuan</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Tiket Dukungan Online</p>
             </div>
           </div>
 
@@ -134,39 +134,9 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="name" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Nama Lengkap
-                </label>
-                <input 
-                  type="text" 
-                  name="name" 
-                  id="name" 
-                  value={formData.name} 
-                  onChange={handleChange} 
-                  required
-                  placeholder="Contoh: Husna"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400" 
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Alamat Email (Untuk Balasan)
-                </label>
-                <input 
-                  type="email" 
-                  name="email" 
-                  id="email" 
-                  value={formData.email} 
-                  onChange={handleChange} 
-                  required
-                  placeholder="nama@email.com"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400" 
-                />
-              </div>
-            </div>
+            {/* Input Tersembunyi (Hidden) untuk Nama dan Email agar data tetap terkirim tanpa tampil di layar */}
+            <input type="hidden" name="name" value={formData.name || 'Pengguna PDF Toolbox'} />
+            <input type="hidden" name="email" value={formData.email || 'pengguna@pdftoolbox.pro'} />
 
             <div className="space-y-1.5">
               <label htmlFor="category" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -206,7 +176,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             {formStatus === 'error' && (
               <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-medium border border-rose-200 dark:border-rose-900/40 flex items-center gap-2">
                 <AlertCircle size={16} className="shrink-0" />
-                <span>Gagal mengirim pesan saat ini. Silakan coba lagi beberapa saat lagi atau kirim email langsung ke rezaldewantara@gmail.com.</span>
+                <span>Gagal mengirim pesan saat ini. Silakan periksa koneksi internet Anda dan coba beberapa saat lagi.</span>
               </div>
             )}
 
