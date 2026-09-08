@@ -40,7 +40,14 @@ interface PagePreview {
 }
 
 export type TextAlignment = 'left' | 'center' | 'right';
-export type FontFamily = 'Helvetica' | 'Times Roman' | 'Courier';
+export type FontFamily = 
+  | 'Helvetica' 
+  | 'Times Roman' 
+  | 'Calibri'
+  | 'Roboto'
+  | 'Garamond'
+  | 'Courier'
+  | 'Caveat';
 
 interface TextBox {
   id: string;
@@ -58,17 +65,89 @@ interface TextBox {
   backgroundColor?: string; // Hex color or undefined
 }
 
+// Konfigurasi URL font kustom (TTF) yang bersumber dari Fontsource / jsDelivr
+const CUSTOM_FONTS: Record<string, {
+  regular: string;
+  bold?: string;
+  italic?: string;
+  fallbackFamily: 'Helvetica' | 'Times Roman' | 'Courier';
+}> = {
+  Calibri: {
+    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-400-normal.ttf',
+    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-700-normal.ttf',
+    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-400-italic.ttf',
+    fallbackFamily: 'Helvetica',
+  },
+  Roboto: {
+    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-normal.ttf',
+    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf',
+    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-italic.ttf',
+    fallbackFamily: 'Helvetica',
+  },
+  Garamond: {
+    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-400-normal.ttf',
+    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-700-normal.ttf',
+    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-400-italic.ttf',
+    fallbackFamily: 'Times Roman',
+  },
+  Caveat: {
+    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/caveat@latest/latin-400-normal.ttf',
+    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/caveat@latest/latin-700-normal.ttf',
+    fallbackFamily: 'Helvetica',
+  },
+};
+
+// Cache font bytes in-memory agar unduhan font hanya dilakukan sekali
+const fontBytesCache = new Map<string, ArrayBuffer>();
+
+const fetchFontBytes = async (url: string): Promise<ArrayBuffer> => {
+  if (fontBytesCache.has(url)) {
+    return fontBytesCache.get(url)!;
+  }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Gagal mengunduh font: ${url} (status: ${response.status})`);
+  }
+  const buffer = await response.arrayBuffer();
+  fontBytesCache.set(url, buffer);
+  return buffer;
+};
+
+// Pemetaan CSS font-family untuk kanvas pratinjau browser
+export const getCssFontFamily = (family: FontFamily): string => {
+  switch (family) {
+    case 'Calibri':
+      return '"Carlito", Calibri, "Segoe UI", sans-serif';
+    case 'Roboto':
+      return 'Roboto, -apple-system, BlinkMacSystemFont, sans-serif';
+    case 'Times Roman':
+      return '"Times New Roman", Times, serif';
+    case 'Garamond':
+      return '"EB Garamond", Garamond, Georgia, serif';
+    case 'Courier':
+      return '"Courier New", Courier, monospace';
+    case 'Caveat':
+      return '"Caveat", cursive, sans-serif';
+    case 'Helvetica':
+    default:
+      return 'Helvetica, Arial, sans-serif';
+  }
+};
+
 // Sanitasi teks untuk mencegah crash WinAnsi encoding pada standard fonts PDF
-const sanitizeTextForPdf = (input: string): string => {
+const sanitizeTextForPdf = (input: string, isStandardFont: boolean = true): string => {
   if (!input) return '';
-  return input
+  const normalized = input
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
     .replace(/[\u2013\u2014\u2015]/g, '-')
     .replace(/[\u2022\u2023\u25E6\u2043]/g, '*')
     .replace(/[\u2026]/g, '...')
-    .replace(/[\u00A0\u202F\u2007]/g, ' ')
-    .replace(/[^\x20-\x7E\xA0-\xFF\n\r]/g, '');
+    .replace(/[\u00A0\u202F\u2007]/g, ' ');
+  if (isStandardFont) {
+    return normalized.replace(/[^\x20-\x7E\xA0-\xFF\n\r]/g, '');
+  }
+  return normalized;
 };
 
 const PRESET_COLORS = ['#000000', '#1E40AF', '#DC2626', '#16A34A', '#D97706', '#9333EA', '#FFFFFF'];
@@ -297,7 +376,17 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       const pdfDoc = await PDFDocument.load(fileWithBuffer.buffer.slice(0));
 
-      // Embed Matrix Font Standar (12 varian lengkap)
+      // 1. Inisialisasi fontkit jika tersedia di window
+      const fontkitLib = (window as any).fontkit;
+      if (fontkitLib && typeof pdfDoc.registerFontkit === 'function') {
+        try {
+          pdfDoc.registerFontkit(fontkitLib);
+        } catch (e) {
+          console.warn('Fontkit registration warning:', e);
+        }
+      }
+
+      // 2. Embed Matrix Font Standar (12 varian lengkap)
       const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
@@ -313,7 +402,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const courierOblique = await pdfDoc.embedFont(StandardFonts.CourierOblique);
       const courierBoldOblique = await pdfDoc.embedFont(StandardFonts.CourierBoldOblique);
 
-      const selectFont = (family: FontFamily, isBold: boolean, isItalic: boolean) => {
+      const selectStandardFont = (family: 'Helvetica' | 'Times Roman' | 'Courier', isBold: boolean, isItalic: boolean) => {
         if (family === 'Times Roman') {
           if (isBold && isItalic) return timesBoldItalic;
           if (isBold) return timesBold;
@@ -332,6 +421,40 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return helvetica;
       };
 
+      // 3. Dynamic Font Resolver (Custom TTF Embed + Graceful Fallback)
+      const embeddedCustomFonts = new Map<string, any>();
+
+      const resolveFont = async (family: FontFamily, isBold: boolean, isItalic: boolean) => {
+        const customDef = CUSTOM_FONTS[family];
+        if (customDef && fontkitLib) {
+          let url = customDef.regular;
+          if (isBold && customDef.bold) {
+            url = customDef.bold;
+          } else if (isItalic && customDef.italic) {
+            url = customDef.italic;
+          }
+
+          if (embeddedCustomFonts.has(url)) {
+            return embeddedCustomFonts.get(url);
+          }
+
+          try {
+            setProcessingMessage(`Memuat font ${family}...`);
+            const bytes = await fetchFontBytes(url);
+            const embedded = await pdfDoc.embedFont(bytes);
+            embeddedCustomFonts.set(url, embedded);
+            return embedded;
+          } catch (err) {
+            console.warn(`Fallback font ${family} (${url}) ke standar:`, err);
+            return selectStandardFont(customDef.fallbackFamily, isBold, isItalic);
+          }
+        }
+
+        if (family === 'Times Roman') return selectStandardFont('Times Roman', isBold, isItalic);
+        if (family === 'Courier') return selectStandardFont('Courier', isBold, isItalic);
+        return selectStandardFont('Helvetica', isBold, isItalic);
+      };
+
       const pages = pdfDoc.getPages();
 
       for (const box of textBoxes) {
@@ -344,12 +467,13 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const scaleX = pageWidth / preview.width;
         const scaleY = pageHeight / preview.height;
 
-        const font = selectFont(box.fontFamily, box.isBold, box.isItalic);
+        const font = await resolveFont(box.fontFamily, box.isBold, box.isItalic);
         const pdfFontSize = box.fontSize * scaleY;
         const lineHeight = pdfFontSize * 1.25;
 
-        // Sanitasi teks dari karakter non-WinAnsi
-        const cleanText = sanitizeTextForPdf(box.text);
+        // Sanitasi teks (hanya karakter standard font yang di-filter ketat)
+        const isStandard = box.fontFamily === 'Helvetica' || box.fontFamily === 'Times Roman' || box.fontFamily === 'Courier';
+        const cleanText = sanitizeTextForPdf(box.text, isStandard);
         const lines = cleanText.split('\n');
 
         // Hitung lebar baris terpanjang untuk alignment dan background
@@ -587,12 +711,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 left: box.x * zoom,
                                 top: box.y * zoom,
                                 fontSize: box.fontSize * zoom,
-                                fontFamily:
-                                  box.fontFamily === 'Times Roman'
-                                    ? 'Times New Roman, serif'
-                                    : box.fontFamily === 'Courier'
-                                    ? 'Courier New, monospace'
-                                    : 'Helvetica, Arial, sans-serif',
+                                fontFamily: getCssFontFamily(box.fontFamily),
                                 color: box.color,
                                 fontWeight: box.isBold ? 'bold' : 'normal',
                                 fontStyle: box.isItalic ? 'italic' : 'normal',
@@ -732,9 +851,21 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       onChange={e => updateTextBox(selectedBox.id, { fontFamily: e.target.value as FontFamily })}
                       className="w-full p-2 text-xs font-medium border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                     >
-                      <option value="Helvetica">Helvetica (Arial)</option>
-                      <option value="Times Roman">Times Roman</option>
-                      <option value="Courier">Courier (Monospace)</option>
+                      <optgroup label="Standar & Dokumen Bisnis">
+                        <option value="Helvetica">Arial / Helvetica (Standar)</option>
+                        <option value="Calibri">Calibri (Microsoft Word)</option>
+                        <option value="Roboto">Roboto (Google / Modern)</option>
+                      </optgroup>
+                      <optgroup label="Resmi, Hukum & Akademik">
+                        <option value="Times Roman">Times New Roman (Skripsi/Dinas)</option>
+                        <option value="Garamond">Garamond (Elegan/Buku)</option>
+                      </optgroup>
+                      <optgroup label="Faktur & Tabel">
+                        <option value="Courier">Courier New (Monospace)</option>
+                      </optgroup>
+                      <optgroup label="Tulisan Tangan & Catatan">
+                        <option value="Caveat">Caveat (Gaya Tangan / Paraf)</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div>
