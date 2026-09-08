@@ -125,6 +125,17 @@ PDF Toolbox Pro/
    - **Sanitasi Enkoding Anti-Crash (*WinAnsi Sanitizer*):** Mengonversi tanda kutip lengkung (*curly quotes*), tanda pisah (*em dash/en dash*), simbol butir (*bullet points*), dan elipsis ke padanan WinAnsi standar untuk font standar.
    - **Pemformatan Vektor Presisi (*Multiline & Text Alignment*):** Mendukung teks multibaris (`\n`) dengan kalkulasi per baris independen untuk perataan Rata Kiri (*Left*), Rata Tengah (*Center*), dan Rata Kanan (*Right*), serta sorotan latar belakang (*background highlight*) dan slider transparansi (*opacity* 0.1–1.0).
    - **Interaksi Kanvas Standar Industri:** Mendukung *Click-to-Place* langsung pada halaman, *Double-Click Inline Editing* di atas kanvas, tombol duplikat/hapus instan, kontrol zoom (50%–200%), bilah navigasi antar-halaman (*smooth scroll*), dan pemotongan kuota tamu (`useQuota`) yang terproteksi.
+8. **Standar Editor Tanda Tangan Digital Visual (*Multi-Mode Signature Ingestion & Single-Embed Caching*):**
+   - Fitur **Tambahkan Tanda Tangan** (`frontend/components/tools/AddSignature.tsx`) diproses 100% di sisi klien menggunakan `pdf-lib` dan rendering kanvas `PDF.js` skala tinggi (1.5x) untuk menjamin privasi berkas sensitif dan respon instan (0ms latensi upload).
+   - **Tiga Mode Tanda Tangan Standar Internasional (iLovePDF / Smallpdf):**
+     - *Gambar (Draw):* Guratan pena digital berteknologi *Quadratic Bézier Curve Smoothing* untuk hasil goresan mulus alami (bebas garis patah), dilengkapi pilihan ketebalan pena (Tipis 2px, Normal 4px, Tebal 6px) dan warna tinta (Hitam, Biru Resmi, Merah).
+     - *Ketik (Type):* Pembuatan tanda tangan instan berbasis kaligrafi artistik (*Dancing Script, Great Vibes, Caveat, Pacifico*) yang dirender ke kanvas beresolusi tinggi dengan latar belakang transparan.
+     - *Unggah (Upload):* Mengunggah berkas gambar tanda tangan/stempel fisik dengan opsi *auto-chroma key* (penghapusan latar belakang kertas putih menjadi transparan secara otomatis).
+   - **Optimasi Memori & Ukuran PDF (*Single-Embed Image Caching*):**
+     - Gambar tanda tangan yang sama hanya di-embed 1 kali ke dalam dokumen PDF menggunakan `embeddedImagesMap` dan direferensikan ulang pada halaman lain, mencegah pembengkakan ukuran file PDF.
+   - **Interaksi Kanvas Presisi & Kuota Tamu:**
+     - Penempatan tanda tangan langsung pada halaman aktif (`activePageIndex`) atau klik kanvas (*Click-to-Place*).
+     - Dukungan *resizing* dengan rasio aspek terkunci (tidak gepeng), tombol cepat duplikat/hapus, bilah navigasi halaman dengan *smooth auto-scroll*, kontrol zoom (50%–200%), dan pemotongan kuota harian tamu (`useQuota`).
 
 ---
 

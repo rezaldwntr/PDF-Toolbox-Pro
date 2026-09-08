@@ -1,10 +1,27 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
-import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, DrawIcon, UploadImageIcon, ZoomInIcon, ZoomOutIcon, FilePdfIcon } from '../icons';
-import { PDFDocument, rgb } from 'pdf-lib';
-import { useToast } from '../../contexts/ToastContext';
 import FileUploader from '../common/FileUploader';
+import { PDFDocument } from 'pdf-lib';
+import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
+import {
+  PenTool,
+  Type,
+  Upload,
+  Trash2,
+  Copy,
+  Plus,
+  RotateCcw,
+  CheckCircle2,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Eraser,
+  Sparkles
+} from 'lucide-react';
 
 declare const pdfjsLib: any;
 
@@ -18,20 +35,20 @@ interface PagePreview {
   url: string;
   width: number;
   height: number;
-  pdfWidth: number;
-  pdfHeight: number;
 }
 
-// Representasi tanda tangan yang disimpan dalam memori
-interface Signature {
+// Representasi tanda tangan dalam memori galeri
+export interface SignatureItem {
   id: string;
-  dataUrl: string; // base64 encoded image
+  name: string;
+  dataUrl: string; // Base64 PNG
   width: number;
   height: number;
+  mode: 'draw' | 'type' | 'upload';
 }
 
-// Representasi tanda tangan yang sudah ditempatkan di halaman PDF
-interface PlacedSignature {
+// Representasi tanda tangan yang ditempatkan di halaman
+export interface PlacedSignature {
   id: string;
   signatureId: string;
   pageIndex: number;
@@ -41,9 +58,28 @@ interface PlacedSignature {
   height: number;
 }
 
-type SignatureMode = 'draw' | 'upload';
+type SignatureMode = 'draw' | 'type' | 'upload';
+type TypeFont = 'Caveat' | 'Dancing Script' | 'Great Vibes' | 'Pacifico';
 
-// --- MAIN COMPONENT ---
+const SIGNATURE_COLORS = [
+  { label: 'Hitam', hex: '#000000' },
+  { label: 'Biru Resmi', hex: '#1E40AF' },
+  { label: 'Merah', hex: '#DC2626' },
+];
+
+const PEN_WIDTHS = [
+  { label: 'Tipis', size: 2 },
+  { label: 'Normal', size: 4 },
+  { label: 'Tebal', size: 6 },
+];
+
+const TYPE_FONTS: { id: TypeFont; label: string; fontFamily: string }[] = [
+  { id: 'Dancing Script', label: 'Dancing Script (Elegan)', fontFamily: '"Dancing Script", cursive' },
+  { id: 'Great Vibes', label: 'Great Vibes (Formal Klasik)', fontFamily: '"Great Vibes", cursive' },
+  { id: 'Caveat', label: 'Caveat (Tangan Modern)', fontFamily: '"Caveat", cursive' },
+  { id: 'Pacifico', label: 'Pacifico (Tegas & Tebal)', fontFamily: '"Pacifico", cursive' },
+];
+
 const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
@@ -51,22 +87,36 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
 
-  const [signatures, setSignatures] = useState<Signature[]>([]);
+  // Galeri Tanda Tangan & Penempatan
+  const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [placedSignatures, setPlacedSignatures] = useState<PlacedSignature[]>([]);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
+  
+  // Tab Mode & Preferensi Pembuatan
   const [signatureMode, setSignatureMode] = useState<SignatureMode>('draw');
+  const [selectedColor, setSelectedColor] = useState('#000000');
+  const [selectedPenWidth, setSelectedPenWidth] = useState(4);
+  const [typedText, setTypedText] = useState('');
+  const [selectedTypeFont, setSelectedTypeFont] = useState<TypeFont>('Dancing Script');
+  const [removeBg, setRemoveBg] = useState(true);
+
+  // Navigasi & Tampilan Kanvas
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const [zoom, setZoom] = useState(1.0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadSignatureInputRef = useRef<HTMLInputElement>(null);
-  const { addToast } = useToast();
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [drawingColor, setDrawingColor] = useState('#000000'); // Default Hitam
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- State for smooth dragging & resizing ---
+  const { addToast } = useToast();
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+
+  // Drawing state (Smooth Quadratic Curve Tracking)
+  const [isDrawing, setIsDrawing] = useState(false);
+  const pointsRef = useRef<{ x: number; y: number }[]>([]);
+
+  // Drag & Resize state
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [resizeState, setResizeState] = useState<{
     id: string;
@@ -84,22 +134,34 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSignatures([]);
     setPlacedSignatures([]);
     setSelectedPlacedId(null);
+    setActivePageIndex(0);
     setZoom(1.0);
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     setOutputUrl(null);
   }, [outputUrl]);
+
+  // Auto-scroll ke halaman aktif
+  useEffect(() => {
+    if (pageContainerRef.current) {
+      const activeEl = pageContainerRef.current.querySelector(`[data-page-index="${activePageIndex}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [activePageIndex]);
 
   const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Membaca file dan merender pratinjau...');
+    setProcessingMessage('Membaca dokumen dan merender halaman...');
+
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
+
       const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
-      
       const previews: PagePreview[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
@@ -112,103 +174,86 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           url: canvas.toDataURL('image/png'),
           width: viewport.width,
           height: viewport.height,
-          pdfWidth: page.view[2] - page.view[0],
-          pdfHeight: page.view[3] - page.view[1],
         });
       }
       setPagePreviews(previews);
+      setActivePageIndex(0);
     } catch (error) {
       console.error("Gagal memuat PDF:", error);
-      addToast("Gagal memuat file PDF. File mungkin rusak.", 'error');
+      addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
       resetState();
     } finally {
       setIsProcessing(false);
+      setProcessingMessage('');
     }
   };
 
-  useEffect(() => {
-    const editorContainer = editorContainerRef.current;
-    if (!editorContainer) return;
-
-    // Menangani pinch-to-zoom dengan trackpad
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) { 
-        e.preventDefault();
-        const zoomAmount = e.deltaY * -0.001;
-        setZoom(prevZoom => {
-          const newZoom = prevZoom + zoomAmount;
-          return Math.max(0.2, Math.min(3.0, newZoom));
-        });
-      }
-    };
-
-    editorContainer.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      if (editorContainer) {
-        editorContainer.removeEventListener('wheel', handleWheel);
-      }
-    };
-  }, []);
-
-  // --- Drawing Logic (Canvas) ---
-  const getMousePos = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.TouchEvent) => {
+  // --- DRAWING CANVAS LOGIC (Smooth Quadratic Curves) ---
+  const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    let clientX, clientY;
-    if (e.nativeEvent instanceof MouseEvent) {
-        clientX = e.nativeEvent.clientX;
-        clientY = e.nativeEvent.clientY;
-    } else {
-        const touch = e.nativeEvent as TouchEvent;
-        clientX = touch.touches[0].clientX;
-        clientY = touch.touches[0].clientY;
-    }
-
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-
     return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
     };
-  }
+  };
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
-    const pos = getMousePos(canvas, e);
+
+    const pos = getCanvasPos(e);
     setIsDrawing(true);
+    pointsRef.current = [pos];
+
     ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    ctx.arc(pos.x, pos.y, selectedPenWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = selectedColor;
+    ctx.fill();
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const pos = getMousePos(canvas, e);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = drawingColor;
-    ctx.lineWidth = 5; 
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
+    const pos = getCanvasPos(e);
+    const points = pointsRef.current;
+    points.push(pos);
+
+    if (points.length >= 3) {
+      const p0 = points[points.length - 3];
+      const p1 = points[points.length - 2];
+      const p2 = points[points.length - 1];
+
+      const mid1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+      const mid2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
+      ctx.beginPath();
+      ctx.moveTo(mid1.x, mid1.y);
+      ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
+      ctx.strokeStyle = selectedColor;
+      ctx.lineWidth = selectedPenWidth * 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
   };
 
-  const stopDrawing = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !isDrawing) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.closePath();
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
     setIsDrawing(false);
+    pointsRef.current = [];
   };
 
   const clearCanvas = () => {
@@ -217,388 +262,854 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pointsRef.current = [];
   };
-  
-  // Menyimpan tanda tangan dari kanvas ke state
-  const saveSignature = () => {
-    if (signatureMode === 'draw') {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const blank = document.createElement('canvas');
-      blank.width = canvas.width;
-      blank.height = canvas.height;
-      if (canvas.toDataURL() === blank.toDataURL()) {
-        addToast("Silakan gambar tanda tangan sebelum menyimpan.", 'warning');
-        return;
+
+  // Simpan hasil Gambar ke Galeri
+  const handleSaveDrawnSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Cek apakah kanvas kosong
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let isBlank = true;
+    for (let i = 3; i < imgData.length; i += 4) {
+      if (imgData[i] > 0) {
+        isBlank = false;
+        break;
       }
-
-      const dataUrl = canvas.toDataURL('image/png');
-      const newSig: Signature = {
-        id: `sig-${Date.now()}`,
-        dataUrl,
-        width: 150,
-        height: 60, // Rasio aspek default
-      };
-      setSignatures(prev => [...prev, newSig]);
-      clearCanvas();
     }
+
+    if (isBlank) {
+      addToast('Silakan gambar tanda tangan Anda di kanvas terlebih dahulu.', 'warning');
+      return;
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const newSig: SignatureItem = {
+      id: `sig-${Date.now()}`,
+      name: `Goresan ${signatures.length + 1}`,
+      dataUrl,
+      width: 180,
+      height: 72,
+      mode: 'draw',
+    };
+
+    setSignatures(prev => [...prev, newSig]);
+    placeSignatureOnPage(newSig, activePageIndex);
+    clearCanvas();
+    addToast('Tanda tangan berhasil dibuat dan ditempatkan!', 'success');
   };
 
+  // Simpan hasil Ketik ke Galeri
+  const handleSaveTypedSignature = () => {
+    if (!typedText.trim()) {
+      addToast('Ketikkan nama atau inisial Anda terlebih dahulu.', 'warning');
+      return;
+    }
+
+    const fontDef = TYPE_FONTS.find(f => f.id === selectedTypeFont) || TYPE_FONTS[0];
+    const canvas = document.createElement('canvas');
+    canvas.width = 900;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `italic 78px ${fontDef.fontFamily}`;
+    ctx.fillStyle = selectedColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(typedText.trim(), canvas.width / 2, canvas.height / 2);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const newSig: SignatureItem = {
+      id: `sig-${Date.now()}`,
+      name: `Ketik: ${typedText.trim().substring(0, 12)}`,
+      dataUrl,
+      width: 190,
+      height: 76,
+      mode: 'type',
+    };
+
+    setSignatures(prev => [...prev, newSig]);
+    placeSignatureOnPage(newSig, activePageIndex);
+    setTypedText('');
+    addToast('Tanda tangan teks berhasil dibuat dan ditempatkan!', 'success');
+  };
+
+  // Unggah File Scan Gambar & Transparansi Otomatis
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
-    
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = event => {
       const dataUrl = event.target?.result as string;
       const img = new Image();
       img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(img, 0, 0);
+
+        // Jika opsi hapus latar putih aktif, bersihkan warna latar kertas
+        if (removeBg) {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            // Jika mendekati warna putih (kertas)
+            if (r > 215 && g > 215 && b > 215) {
+              data[i + 3] = 0; // Transparan
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        const transparentDataUrl = canvas.toDataURL('image/png');
         const aspectRatio = img.width / img.height;
-        const newSig: Signature = {
+        const initialWidth = 180;
+        const initialHeight = Math.round(initialWidth / aspectRatio);
+
+        const newSig: SignatureItem = {
           id: `sig-${Date.now()}`,
-          dataUrl,
-          width: 150,
-          height: 150 / aspectRatio,
+          name: file.name.substring(0, 16),
+          dataUrl: transparentDataUrl,
+          width: initialWidth,
+          height: Math.max(50, Math.min(initialHeight, 140)),
+          mode: 'upload',
         };
+
         setSignatures(prev => [...prev, newSig]);
+        placeSignatureOnPage(newSig, activePageIndex);
+        addToast('Tanda tangan gambar berhasil dimuat!', 'success');
       };
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
-  
-  // --- Placing Logic ---
-  const placeSignatureOnPage = (signature: Signature, pageIndex: number) => {
+
+  // --- PLACING & INTERACTION LOGIC ---
+  const placeSignatureOnPage = (signature: SignatureItem, pageIndex: number, customX?: number, customY?: number) => {
     const page = pagePreviews[pageIndex];
     if (!page) return;
+
+    const posX = customX !== undefined ? customX : (page.width / 2) - (signature.width / 2);
+    const posY = customY !== undefined ? customY : (page.height * 0.7) - (signature.height / 2);
+
     const newPlaced: PlacedSignature = {
-      id: `placed-${Date.now()}`,
+      id: `placed-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       signatureId: signature.id,
       pageIndex,
-      x: (page.width / 2) - (signature.width / 2),
-      y: (page.height / 2) - (signature.height / 2),
+      x: Math.max(10, Math.min(posX, page.width - signature.width - 10)),
+      y: Math.max(10, Math.min(posY, page.height - signature.height - 10)),
       width: signature.width,
       height: signature.height,
     };
+
     setPlacedSignatures(prev => [...prev, newPlaced]);
     setSelectedPlacedId(newPlaced.id);
+    setActivePageIndex(pageIndex);
   };
 
-  const handleMouseDownOnPlaced = (e: React.MouseEvent, sig: PlacedSignature) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setSelectedPlacedId(sig.id);
-      const target = e.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      const offsetX = (e.clientX - rect.left) / zoom;
-      const offsetY = (e.clientY - rect.top) / zoom;
-      setDragState({ id: sig.id, offsetX, offsetY });
+  const duplicatePlacedSignature = (id: string) => {
+    const target = placedSignatures.find(p => p.id === id);
+    if (!target) return;
+    const newPlaced: PlacedSignature = {
+      ...target,
+      id: `placed-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      x: target.x + 20,
+      y: target.y + 20,
+    };
+    setPlacedSignatures(prev => [...prev, newPlaced]);
+    setSelectedPlacedId(newPlaced.id);
+    addToast('Tanda tangan berhasil diduplikasi', 'info');
   };
-  
-  const handleResizeStart = (e: React.MouseEvent, sig: PlacedSignature) => {
+
+  const deletePlacedSignature = (id: string) => {
+    setPlacedSignatures(prev => prev.filter(p => p.id !== id));
+    if (selectedPlacedId === id) setSelectedPlacedId(null);
+  };
+
+  // Dragging handler via Pointer Events
+  const handleBoxPointerDown = (e: React.PointerEvent, id: string) => {
     e.preventDefault();
-    e.stopPropagation(); 
+    e.stopPropagation();
+    setSelectedPlacedId(id);
+
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const offsetX = (e.clientX - rect.left) / zoom;
+    const offsetY = (e.clientY - rect.top) / zoom;
+
+    setDragState({ id, offsetX, offsetY });
+  };
+
+  const handleResizePointerDown = (e: React.PointerEvent, sig: PlacedSignature) => {
+    e.preventDefault();
+    e.stopPropagation();
     setResizeState({
-        id: sig.id,
-        startX: e.clientX,
-        startY: e.clientY,
-        startWidth: sig.width,
-        startHeight: sig.height,
+      id: sig.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: sig.width,
+      startHeight: sig.height,
     });
   };
-  
+
   useEffect(() => {
     if (!dragState) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-        e.preventDefault();
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      setPlacedSignatures(prev => prev.map(sig => {
+        if (sig.id === dragState.id) {
+          const pageEl = document.querySelector(`[data-page-index="${sig.pageIndex}"]`) as HTMLElement;
+          if (!pageEl) return sig;
+          const pageRect = pageEl.getBoundingClientRect();
+          const preview = pagePreviews[sig.pageIndex];
 
-        setPlacedSignatures(prev => prev.map(sig => {
-            if (sig.id === dragState.id) {
-                const pageEl = document.querySelector(`[data-page-index="${sig.pageIndex}"]`) as HTMLElement;
-                if (!pageEl) return sig;
-                const pageRect = pageEl.getBoundingClientRect();
+          let newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
+          let newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
 
-                const newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
-                const newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
+          newX = Math.max(0, Math.min(newX, preview.width - sig.width));
+          newY = Math.max(0, Math.min(newY, preview.height - sig.height));
 
-                return { ...sig, x: newX, y: newY };
-            }
-            return sig;
-        }));
+          return { ...sig, x: Math.round(newX), y: Math.round(newY) };
+        }
+        return sig;
+      }));
     };
 
-    const handleMouseUp = () => {
-        setDragState(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp, { once: true });
+    const handlePointerUp = () => setDragState(null);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [dragState, zoom]);
+  }, [dragState, zoom, pagePreviews]);
 
   useEffect(() => {
     if (!resizeState) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-        e.preventDefault();
-        setPlacedSignatures(prev => prev.map(sig => {
-            if (sig.id === resizeState.id) {
-                const dx = e.clientX - resizeState.startX;
-                const newWidth = Math.max(30, resizeState.startWidth + (dx / zoom));
-                const aspectRatio = resizeState.startWidth / resizeState.startHeight;
-                const newHeight = newWidth / aspectRatio;
-                return { ...sig, width: newWidth, height: newHeight };
-            }
-            return sig;
-        }));
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      setPlacedSignatures(prev => prev.map(sig => {
+        if (sig.id === resizeState.id) {
+          const dx = (e.clientX - resizeState.startX) / zoom;
+          const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+          const newWidth = Math.max(50, Math.min(500, resizeState.startWidth + dx));
+          const newHeight = Math.round(newWidth / aspectRatio);
+
+          return { ...sig, width: newWidth, height: newHeight };
+        }
+        return sig;
+      }));
     };
 
-    const handleMouseUp = () => {
-        setResizeState(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp, { once: true });
+    const handlePointerUp = () => setResizeState(null);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [resizeState, zoom]);
 
-  // --- Save Final PDF ---
+  // Click-to-place langsung pada halaman
+  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageIndex: number) => {
+    if ((e.target as HTMLElement).closest('[data-signature-box]')) return;
+    setActivePageIndex(pageIndex);
+
+    // Jika ada tanda tangan tersimpan di galeri, tempatkan tanda tangan aktif/terakhir
+    if (signatures.length > 0) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = (e.clientX - rect.left) / zoom;
+      const clickY = (e.clientY - rect.top) / zoom;
+      const activeSig = signatures[signatures.length - 1];
+      placeSignatureOnPage(activeSig, pageIndex, clickX - (activeSig.width / 2), clickY - (activeSig.height / 2));
+    }
+  };
+
+  // --- SAVE FINAL PDF WITH SINGLE-EMBED IMAGE CACHING ---
   const handleSave = async () => {
-    if (!fileWithBuffer) return;
+    if (!fileWithBuffer || placedSignatures.length === 0) {
+      addToast('Tambahkan setidaknya satu tanda tangan ke halaman dokumen.', 'warning');
+      return;
+    }
+
+    if (quota <= 0) {
+      setShowLimitModal(true);
+      return;
+    }
+
     setIsProcessing(true);
-    setProcessingMessage('Menyematkan tanda tangan...');
+    setProcessingMessage('Menyematkan tanda tangan ke dalam dokumen PDF...');
+
     try {
-      const pdfBytes = fileWithBuffer.buffer;
-      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const pdfDoc = await PDFDocument.load(fileWithBuffer.buffer.slice(0));
       const pages = pdfDoc.getPages();
 
-      for (const placed of placedSignatures) {
-        const signature = signatures.find(s => s.id === placed.signatureId);
-        if (!signature) continue;
+      // Cache gambar yang sudah di-embed agar tidak diduplikasi di memori PDF
+      const embeddedImagesMap = new Map<string, any>();
 
+      for (const placed of placedSignatures) {
+        if (placed.pageIndex >= pages.length) continue;
         const page = pages[placed.pageIndex];
         const preview = pagePreviews[placed.pageIndex];
+        if (!preview) continue;
+
         const { width: pageWidth, height: pageHeight } = page.getSize();
         const scaleX = pageWidth / preview.width;
         const scaleY = pageHeight / preview.height;
 
-        let imageBytes;
-        let image;
-        if (signature.dataUrl.startsWith('data:image/png')) {
-          imageBytes = await fetch(signature.dataUrl).then(res => res.arrayBuffer());
-          image = await pdfDoc.embedPng(imageBytes);
-        } else { // Assume JPG or other
-          imageBytes = await fetch(signature.dataUrl).then(res => res.arrayBuffer());
-          image = await pdfDoc.embedJpg(imageBytes);
+        let pdfImage = embeddedImagesMap.get(placed.signatureId);
+        if (!pdfImage) {
+          const sig = signatures.find(s => s.id === placed.signatureId);
+          if (!sig) continue;
+
+          const imageBytes = await fetch(sig.dataUrl).then(res => res.arrayBuffer());
+          if (sig.dataUrl.includes('image/jpeg')) {
+            pdfImage = await pdfDoc.embedJpg(imageBytes);
+          } else {
+            pdfImage = await pdfDoc.embedPng(imageBytes);
+          }
+          embeddedImagesMap.set(placed.signatureId, pdfImage);
         }
-        
-        page.drawImage(image, {
+
+        page.drawImage(pdfImage, {
           x: placed.x * scaleX,
           y: pageHeight - (placed.y * scaleY) - (placed.height * scaleY),
           width: placed.width * scaleX,
           height: placed.height * scaleY,
         });
       }
-      
+
       const finalPdfBytes = await pdfDoc.save();
       const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
       setOutputUrl(URL.createObjectURL(blob));
-      addToast('PDF berhasil ditandatangani!', 'success');
+      consumeQuota();
+      addToast('PDF berhasil ditandatangani dan siap diunduh!', 'success');
     } catch (error) {
-      console.error("Gagal menyimpan PDF:", error);
-      addToast("Terjadi kesalahan saat menyimpan PDF.", 'error');
+      console.error("Gagal menandatangani PDF:", error);
+      addToast("Terjadi kesalahan saat menyimpan tanda tangan ke PDF.", 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const renderContent = () => {
-    // ... UI Rendering Code ...
+    // 1. Success State
     if (outputUrl) {
-       return (
-        <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
-          <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">PDF Berhasil Ditandatangani!</h3>
-          <a href={outputUrl} download={`${fileWithBuffer?.file.name.replace('.pdf', '')}-ditandatangani.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
-            <DownloadIcon /> Unduh PDF
-          </a>
-          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
-            Tandatangani PDF Lainnya
-          </button>
-        </div>
-      );
-    }
-
-     if (isProcessing) {
       return (
-        <div className="flex flex-col items-center justify-center p-8 text-center">
-          <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <p className="text-lg text-gray-800 dark:text-gray-200 font-semibold">{processingMessage}</p>
+        <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6 animate-fade-in py-12">
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">PDF Berhasil Ditandatangani!</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tanda tangan digital Anda telah disematkan dengan kualitas resolusi tinggi.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+            <a
+              href={outputUrl}
+              download={`${fileWithBuffer?.file.name.replace('.pdf', '') || 'dokumen'}-ditandatangani.pdf`}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/25"
+            >
+              <Download className="w-5 h-5" /> Unduh Dokumen PDF
+            </a>
+            <button
+              onClick={resetState}
+              className="flex items-center gap-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-3 px-6 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" /> Tandatangani Dokumen Lain
+            </button>
+          </div>
         </div>
       );
     }
 
+    // 2. Loading State
+    if (isProcessing && pagePreviews.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center p-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-lg text-slate-800 dark:text-slate-200 font-semibold">{processingMessage}</p>
+        </div>
+      );
+    }
+
+    // 3. Upload State
     if (!fileWithBuffer) {
       return (
-        <FileUploader 
-            onFileSelect={handleFileChange} 
-            label="Pilih PDF untuk Ditandatangani"
-            description="Seret & lepas file PDF di sini untuk mulai menandatangani"
+        <FileUploader
+          onFileSelect={handleFileChange}
+          label="Pilih PDF untuk Ditandatangani"
+          description="Tambahkan tanda tangan gambar, goresan tangan langsung, atau tanda tangan ketik resmi"
         />
       );
     }
 
-    // Main editor view
+    // 4. Editor Workspace
     return (
-        <div className="flex flex-col gap-4">
-            {/* Top Toolbar */}
-            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-2 rounded-lg flex items-center justify-between gap-2 border border-gray-200 dark:border-slate-700 flex-wrap shadow-sm transition-colors">
-                <div className="flex items-center gap-2">
-                    <FilePdfIcon />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{fileWithBuffer.file.name}</span>
-                    <button onClick={resetState} title="Hapus PDF" className="p-1 text-gray-400 hover:text-red-500"><TrashIcon /></button>
-                </div>
-                 <button onClick={handleSave} disabled={placedSignatures.length === 0} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm shadow-sm">
-                    Simpan PDF
-                </button>
+      <div className="flex flex-col gap-4">
+        {/* Main Toolbar */}
+        <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <FileText className="w-5 h-5" />
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left/Main Panel: Editor */}
-                <div className="lg:col-span-2 relative">
-                    <div ref={editorContainerRef} className="bg-gray-100 dark:bg-slate-900 p-4 rounded-lg max-h-[70vh] overflow-auto border border-gray-200 dark:border-slate-700 shadow-inner transition-colors" data-editor-container>
-                        <div className="flex justify-center items-start">
-                            <div className="flex flex-col items-center gap-4" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
-                                {pagePreviews.map((page, index) => (
-                                    <div key={index} data-page-index={index} className="relative shadow-md bg-white border border-gray-200 dark:border-slate-600" style={{ width: page.width, height: page.height }}>
-                                        <img src={page.url} alt={`Page ${index + 1}`} width={page.width} height={page.height} />
-                                        {placedSignatures.filter(s => s.pageIndex === index).map(sig => (
-                                            <div
-                                                key={sig.id}
-                                                onMouseDown={(e) => handleMouseDownOnPlaced(e, sig)}
-                                                className={`absolute cursor-move border-2 ${selectedPlacedId === sig.id ? 'border-blue-500 border-dashed' : 'border-transparent hover:border-blue-300/50'}`}
-                                                style={{ left: sig.x, top: sig.y, width: sig.width, height: sig.height }}
-                                            >
-                                                <img src={signatures.find(s => s.id === sig.signatureId)?.dataUrl} className="w-full h-full" alt="Placed Signature" />
-                                                {selectedPlacedId === sig.id && (
-                                                    <>
-                                                        <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPlacedSignatures(prev => prev.filter(ps => ps.id !== sig.id));
-                                                            setSelectedPlacedId(null);
-                                                        }}
-                                                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-0.5 w-6 h-6 flex items-center justify-center z-10 shadow-sm"
-                                                        >
-                                                        &times;
-                                                        </button>
-                                                        <div 
-                                                            onMouseDown={(e) => handleResizeStart(e, sig)}
-                                                            className="absolute -bottom-2 -right-2 bg-blue-500 w-4 h-4 rounded-full cursor-nwse-resize border-2 border-white z-10 shadow-sm"
-                                                            title="Ubah Ukuran"
-                                                        />
-                                                    </>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md p-1.5 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm">
-                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md"><ZoomOutIcon /></button>
-                        <span className="text-sm text-gray-700 dark:text-gray-200 font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md"><ZoomInIcon /></button>
-                    </div>
-                </div>
-
-                {/* Right Panel: Controls */}
-                <div className="lg:col-span-1">
-                    <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-xl shadow-sm transition-colors">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4">Buat Tanda Tangan</h3>
-                        <div className="flex bg-gray-200 dark:bg-slate-700 p-1 rounded-lg mb-4">
-                            <button onClick={() => setSignatureMode('draw')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'draw' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
-                                <DrawIcon className="w-5 h-5"/> Gambar
-                            </button>
-                            <button onClick={() => setSignatureMode('upload')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center gap-2 transition-colors ${signatureMode === 'upload' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
-                            <UploadImageIcon className="w-5 h-5"/> Unggah
-                            </button>
-                        </div>
-                        {signatureMode === 'draw' && (
-                            <div>
-                                <canvas
-                                    ref={canvasRef}
-                                    width="1200"
-                                    height="480"
-                                    className="bg-white border border-gray-300 dark:border-slate-600 rounded-lg cursor-crosshair w-full h-auto shadow-inner"
-                                    onMouseDown={startDrawing}
-                                    onMouseMove={draw}
-                                    onMouseUp={stopDrawing}
-                                    onMouseLeave={stopDrawing}
-                                    onTouchStart={startDrawing}
-                                    onTouchMove={draw}
-                                    onTouchEnd={stopDrawing}
-                                />
-                                <div className="flex items-center justify-between mt-3">
-                                    <div className="flex items-center gap-2">
-                                    <button onClick={() => setDrawingColor('#000000')} className={`w-6 h-6 rounded-full bg-black border-2 ${drawingColor === '#000000' ? 'border-blue-400 ring-2 ring-blue-200' : 'border-transparent'}`}></button>
-                                    <button onClick={() => setDrawingColor('#0000FF')} className={`w-6 h-6 rounded-full bg-blue-600 border-2 ${drawingColor === '#0000FF' ? 'border-blue-400 ring-2 ring-blue-200' : 'border-transparent'}`}></button>
-                                    <button onClick={() => setDrawingColor('#FF0000')} className={`w-6 h-6 rounded-full bg-red-600 border-2 ${drawingColor === '#FF0000' ? 'border-blue-400 ring-2 ring-blue-200' : 'border-transparent'}`}></button>
-                                    </div>
-                                    <button onClick={clearCanvas} className="text-sm text-gray-500 hover:text-red-500 font-medium">Hapus</button>
-                                </div>
-                            </div>
-                        )}
-                        {signatureMode === 'upload' && (
-                            <div className="text-center p-6 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700">
-                                <input type="file" accept="image/png, image/jpeg" ref={uploadSignatureInputRef} className="hidden" onChange={handleSignatureUpload} />
-                                <button onClick={() => uploadSignatureInputRef.current?.click()} className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg transition-colors border border-gray-300 dark:border-slate-500">
-                                    Pilih Gambar
-                                </button>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">Gunakan gambar dengan latar belakang transparan untuk hasil terbaik.</p>
-                            </div>
-                        )}
-                        <button onClick={saveSignature} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg mt-6 shadow-sm shadow-blue-200 dark:shadow-none">Simpan Tanda Tangan</button>
-                    </div>
-
-                    {signatures.length > 0 && (
-                    <div className="mt-6 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 rounded-xl shadow-sm transition-colors">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">Tanda Tangan Anda</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Klik tanda tangan untuk menambahkannya ke halaman PDF.</p>
-                        <div className="space-y-3">
-                        {signatures.map(sig => (
-                            <div key={sig.id} className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 p-2 rounded-lg flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                                <button onClick={() => placeSignatureOnPage(sig, 0)} className="p-1 rounded-md flex-grow flex justify-center items-center h-16 hover:bg-gray-50 dark:hover:bg-slate-600 bg-white dark:bg-slate-500">
-                                    <img src={sig.dataUrl} alt="Signature" className="max-h-full max-w-full" />
-                                </button>
-                                <button onClick={() => setSignatures(prev => prev.filter(s => s.id !== sig.id))} className="ml-2 p-2 text-gray-400 hover:text-red-500 transition-colors">
-                                    <TrashIcon />
-                                </button>
-                            </div>
-                        ))}
-                        </div>
-                    </div>
-                    )}
-                </div>
+            <div>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">{fileWithBuffer.file.name}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{pagePreviews.length} Halaman &bull; {placedSignatures.length} Tanda Tangan Dipasang</p>
             </div>
+          </div>
+
+          {/* Quick Page Nav */}
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+            <button
+              onClick={() => setActivePageIndex(p => Math.max(0, p - 1))}
+              disabled={activePageIndex === 0}
+              title="Halaman Sebelumnya"
+              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 px-2 select-none">
+              Hal {activePageIndex + 1} / {pagePreviews.length}
+            </span>
+            <button
+              onClick={() => setActivePageIndex(p => Math.min(pagePreviews.length - 1, p + 1))}
+              disabled={activePageIndex >= pagePreviews.length - 1}
+              title="Halaman Selanjutnya"
+              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            disabled={isProcessing || placedSignatures.length === 0}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-xl transition-colors text-xs shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? 'Menyimpan...' : 'Simpan PDF'}
+          </button>
         </div>
+
+        {/* Workspace Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          {/* Canvas Area (3 Cols) */}
+          <div className="lg:col-span-3 relative flex flex-col items-center">
+            <div
+              ref={pageContainerRef}
+              className="w-full bg-slate-100 dark:bg-slate-900/80 p-6 rounded-2xl max-h-[78vh] overflow-auto border border-slate-200 dark:border-slate-800 shadow-inner flex flex-col items-center gap-8"
+            >
+              {pagePreviews.map((page, index) => {
+                const isActive = activePageIndex === index;
+
+                return (
+                  <div key={index} className="flex flex-col items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xs">
+                      Halaman {index + 1}
+                    </span>
+
+                    <div
+                      data-page-index={index}
+                      onClick={e => handlePageClick(e, index)}
+                      style={{
+                        width: page.width * zoom,
+                        height: page.height * zoom,
+                      }}
+                      className={`relative bg-white shadow-xl transition-all select-none cursor-crosshair rounded-xs ${
+                        isActive ? 'ring-2 ring-blue-500/40' : 'opacity-95'
+                      }`}
+                    >
+                      <img
+                        src={page.url}
+                        alt={`Halaman ${index + 1}`}
+                        style={{ width: page.width * zoom, height: page.height * zoom }}
+                        className="pointer-events-none select-none w-full h-full"
+                      />
+
+                      {/* Placed Signatures on this page */}
+                      {placedSignatures
+                        .filter(p => p.pageIndex === index)
+                        .map(sig => {
+                          const isSelected = selectedPlacedId === sig.id;
+                          const sigItem = signatures.find(s => s.id === sig.signatureId);
+
+                          return (
+                            <div
+                              key={sig.id}
+                              data-signature-box="true"
+                              onPointerDown={e => handleBoxPointerDown(e, sig.id)}
+                              style={{
+                                left: sig.x * zoom,
+                                top: sig.y * zoom,
+                                width: sig.width * zoom,
+                                height: sig.height * zoom,
+                              }}
+                              className={`absolute cursor-move select-none transition-all group ${
+                                isSelected
+                                  ? 'ring-2 ring-blue-500 shadow-xl z-20 border border-blue-400/50'
+                                  : 'hover:ring-1 hover:ring-blue-400/80 z-10'
+                              }`}
+                            >
+                              {sigItem && (
+                                <img
+                                  src={sigItem.dataUrl}
+                                  alt="Tanda Tangan"
+                                  className="w-full h-full object-contain pointer-events-none select-none"
+                                />
+                              )}
+
+                              {/* Floating Actions when selected */}
+                              {isSelected && (
+                                <>
+                                  <div className="absolute -top-3.5 -right-3.5 flex items-center gap-1 z-30">
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        duplicatePlacedSignature(sig.id);
+                                      }}
+                                      title="Duplikat Tanda Tangan"
+                                      className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md hover:bg-blue-700 transition-colors"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        deletePlacedSignature(sig.id);
+                                      }}
+                                      title="Hapus Tanda Tangan"
+                                      className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* Resize Handle (NWSE Corner) */}
+                                  <div
+                                    onPointerDown={e => handleResizePointerDown(e, sig)}
+                                    title="Tarik untuk Ubah Ukuran"
+                                    className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30"
+                                  />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Floating Zoom Bar */}
+            <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-1 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xl">
+              <button
+                onClick={() => setZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))))}
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
+                title="Perkecil"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 w-12 text-center select-none">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={() => setZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))))}
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
+                title="Perbesar"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setZoom(1.0)}
+                className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 ml-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Right Controls Panel (1 Col) */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Signature Creator Card */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl shadow-sm transition-colors space-y-4">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 text-sm">
+                <Sparkles className="w-4 h-4 text-blue-500" /> Buat Tanda Tangan
+              </h3>
+
+              {/* Mode Switcher (3 Modes) */}
+              <div className="grid grid-cols-3 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl gap-1">
+                <button
+                  onClick={() => setSignatureMode('draw')}
+                  className={`py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                    signatureMode === 'draw'
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5" /> Gambar
+                </button>
+                <button
+                  onClick={() => setSignatureMode('type')}
+                  className={`py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                    signatureMode === 'type'
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Type className="w-3.5 h-3.5" /> Ketik
+                </button>
+                <button
+                  onClick={() => setSignatureMode('upload')}
+                  className={`py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                    signatureMode === 'upload'
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" /> Unggah
+                </button>
+              </div>
+
+              {/* MODE 1: DRAW (GAMBAR) */}
+              {signatureMode === 'draw' && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <canvas
+                      ref={canvasRef}
+                      width={600}
+                      height={240}
+                      onPointerDown={handlePointerDown}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerLeave={handlePointerUp}
+                      className="w-full h-36 bg-white rounded-xl border border-slate-200 dark:border-slate-600 shadow-inner cursor-crosshair touch-none"
+                    />
+                    <button
+                      onClick={clearCanvas}
+                      title="Bersihkan Kanvas"
+                      className="absolute top-2 right-2 p-1.5 bg-slate-100/90 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-700/80 dark:hover:bg-rose-950/60 text-slate-500 rounded-lg transition-colors shadow-xs"
+                    >
+                      <Eraser className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Pen Options: Colors & Thickness */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <div className="flex items-center gap-1.5">
+                      {SIGNATURE_COLORS.map(c => (
+                        <button
+                          key={c.hex}
+                          onClick={() => setSelectedColor(c.hex)}
+                          style={{ backgroundColor: c.hex }}
+                          title={c.label}
+                          className={`w-6 h-6 rounded-full border transition-transform ${
+                            selectedColor === c.hex ? 'scale-110 ring-2 ring-blue-500 ring-offset-1 border-white' : 'border-slate-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 p-0.5 rounded-lg">
+                      {PEN_WIDTHS.map(w => (
+                        <button
+                          key={w.size}
+                          onClick={() => setSelectedPenWidth(w.size)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
+                            selectedPenWidth === w.size
+                              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          {w.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveDrawnSignature}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-sm shadow-blue-500/20"
+                  >
+                    <Plus className="w-4 h-4" /> Pasang Tanda Tangan
+                  </button>
+                </div>
+              )}
+
+              {/* MODE 2: TYPE (KETIK) */}
+              {signatureMode === 'type' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Nama / Inisial</label>
+                    <input
+                      type="text"
+                      value={typedText}
+                      onChange={e => setTypedText(e.target.value)}
+                      placeholder="Ketik nama Anda di sini..."
+                      className="w-full p-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Gaya Tulisan Tangan</label>
+                    <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                      {TYPE_FONTS.map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => setSelectedTypeFont(f.id)}
+                          style={{ fontFamily: f.fontFamily }}
+                          className={`p-2 rounded-xl text-left border text-base transition-all ${
+                            selectedTypeFont === f.id
+                              ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 text-slate-800 dark:text-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {typedText.trim() || 'Contoh Tanda Tangan'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Colors */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Tinta:</span>
+                    <div className="flex items-center gap-1.5">
+                      {SIGNATURE_COLORS.map(c => (
+                        <button
+                          key={c.hex}
+                          onClick={() => setSelectedColor(c.hex)}
+                          style={{ backgroundColor: c.hex }}
+                          title={c.label}
+                          className={`w-6 h-6 rounded-full border transition-transform ${
+                            selectedColor === c.hex ? 'scale-110 ring-2 ring-blue-500 ring-offset-1 border-white' : 'border-slate-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveTypedSignature}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-sm shadow-blue-500/20"
+                  >
+                    <Plus className="w-4 h-4" /> Pasang Tanda Tangan Ketik
+                  </button>
+                </div>
+              )}
+
+              {/* MODE 3: UPLOAD (UNGGAH) */}
+              {signatureMode === 'upload' && (
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    ref={uploadSignatureInputRef}
+                    className="hidden"
+                    onChange={handleSignatureUpload}
+                  />
+
+                  <div
+                    onClick={() => uploadSignatureInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Pilih Berkas Scan Tanda Tangan</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">Mendukung file PNG, JPG, JPEG, WEBP</p>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={removeBg}
+                      onChange={e => setRemoveBg(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                    />
+                    Hapus latar belakang putih secara otomatis
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Gallery of Saved Signatures */}
+            {signatures.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl shadow-sm transition-colors space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Galeri Tanda Tangan Anda</h4>
+                  <span className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                    {signatures.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">Klik untuk menaruh ke Halaman {activePageIndex + 1}:</p>
+
+                <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                  {signatures.map(sig => (
+                    <div
+                      key={sig.id}
+                      className="group flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:border-blue-400 transition-colors"
+                    >
+                      <button
+                        onClick={() => placeSignatureOnPage(sig, activePageIndex)}
+                        className="flex-1 flex items-center gap-3 text-left overflow-hidden"
+                      >
+                        <div className="w-16 h-10 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                          <img src={sig.dataUrl} alt={sig.name} className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{sig.name}</p>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">+ Taruh di Hal {activePageIndex + 1}</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSignatures((prev: SignatureItem[]) => prev.filter((s: SignatureItem) => s.id !== sig.id));
+                          setPlacedSignatures((prev: PlacedSignature[]) => prev.filter((p: PlacedSignature) => p.signatureId !== sig.id));
+                        }}
+                        title="Hapus dari Galeri"
+                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   };
 
   return (
     <ToolContainer title="Tambahkan Tanda Tangan" onBack={onBack} maxWidth="max-w-7xl">
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files : null)} />
+      <input
+        type="file"
+        accept=".pdf"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e.target.files)}
+      />
       {renderContent()}
     </ToolContainer>
   );
