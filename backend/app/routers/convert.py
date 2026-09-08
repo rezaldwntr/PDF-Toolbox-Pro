@@ -80,14 +80,18 @@ def convert_pdf_to_docx(
         # Tentukan halaman yang akan dikonversi
         selected_pages = None
         if start_page is not None or end_page is not None:
+            doc_check = fitz.open(tmp_pdf_path)
+            actual_total = len(doc_check)
+            doc_check.close()
+
             s_page = (start_page - 1) if (start_page is not None and start_page > 0) else 0
-            e_page = end_page if (end_page is not None and end_page > 0) else None
-            if e_page is not None:
+            e_page = end_page if (end_page is not None and end_page > 0) else actual_total
+
+            if s_page < actual_total:
+                e_page = min(e_page, actual_total)
                 selected_pages = list(range(s_page, e_page))
-            elif s_page > 0:
-                doc_check = fitz.open(tmp_pdf_path)
-                selected_pages = list(range(s_page, len(doc_check)))
-                doc_check.close()
+            else:
+                selected_pages = None
 
         cv = Converter(tmp_pdf_path)
         try:

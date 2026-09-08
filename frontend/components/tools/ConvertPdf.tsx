@@ -42,10 +42,10 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [outputFilename, setOutputFilename] = useState<string>('');
   const [isSingleImageOutput, setIsSingleImageOutput] = useState(false);
 
-  // Opsi Khusus Word
-  const [wordPageRangeMode, setWordPageRangeMode] = useState<'all' | 'custom'>('all');
-  const [wordStartPage, setWordStartPage] = useState<number>(1);
-  const [wordEndPage, setWordEndPage] = useState<number>(1);
+  // Opsi Rentang Halaman Universal (Word, Excel, PPT, Image)
+  const [pageRangeMode, setPageRangeMode] = useState<'all' | 'custom'>('all');
+  const [startPage, setStartPage] = useState<number>(1);
+  const [endPage, setEndPage] = useState<number>(1);
 
   // Opsi Khusus Excel
   const [excelExtractionMode, setExcelExtractionMode] = useState<'tables_only' | 'all_content'>('tables_only');
@@ -80,9 +80,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setSelectedImageFormat('jpg');
     setImageDpi(150);
     setImageExtractMode('pages');
-    setWordPageRangeMode('all');
-    setWordStartPage(1);
-    setWordEndPage(1);
+    setPageRangeMode('all');
+    setStartPage(1);
+    setEndPage(1);
     setExcelExtractionMode('tables_only');
     setExcelSheetStructure('combined');
     setPptLayoutMode('editable');
@@ -105,7 +105,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       const arrayBuffer = await selectedFile.arrayBuffer();
       const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
       setPageCount(pdfDoc.numPages);
-      setWordEndPage(pdfDoc.numPages);
+      setEndPage(pdfDoc.numPages);
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
     } catch (error) {
       console.error(error);
@@ -129,12 +129,13 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     
     let fileToSend: File | Blob = fileWithBuffer.file;
     let sendFilename = fileWithBuffer.file.name;
+    let didClientSlice = false;
 
-    // Jika pengguna memilih rentang halaman tertentu pada Word, kita potong (slice) langsung lembar halamannya via pdf-lib di browser
-    // Ini menjamin berkas yang dikirim ke backend HANYA berisi lembar yang diminta (misal: hal 1 sampai 1 = persis 1 lembar)
-    if (mode === 'word' && wordPageRangeMode === 'custom') {
-      const s = Math.max(1, wordStartPage);
-      const e = Math.min(pageCount, Math.max(s, wordEndPage));
+    // Jika pengguna memilih rentang halaman tertentu (Universal untuk Word, Excel, PPT, Image),
+    // kita potong (slice) langsung lembar halamannya via pdf-lib di browser sebelum dikirim ke backend.
+    if (pageRangeMode === 'custom') {
+      const s = Math.max(1, startPage);
+      const e = Math.min(pageCount, Math.max(s, endPage));
 
       if (s > 1 || e < pageCount) {
         setProcessingMessage(`Mengekstrak lembar halaman ${s} sampai ${e}...`);
@@ -151,6 +152,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           fileToSend = new Blob([subBytes], { type: 'application/pdf' });
           const baseName = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
           sendFilename = s === e ? `${baseName}_hal_${s}.pdf` : `${baseName}_hal_${s}-${e}.pdf`;
+          didClientSlice = true;
         } catch (subErr) {
           console.error("Gagal mengekstrak rentang halaman PDF di client:", subErr);
         }
@@ -161,9 +163,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     formData.append('file', fileToSend, sendFilename);
 
     if (mode === 'word') {
-      if (wordPageRangeMode === 'custom') {
-        formData.append('start_page', String(Math.max(1, wordStartPage)));
-        formData.append('end_page', String(Math.min(pageCount, wordEndPage)));
+      if (pageRangeMode === 'custom' && !didClientSlice) {
+        formData.append('start_page', String(Math.max(1, startPage)));
+        formData.append('end_page', String(Math.min(pageCount, endPage)));
       }
     } else if (mode === 'excel') {
       formData.append('mode', excelExtractionMode);
@@ -204,19 +206,19 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
         finalFilename = filenameMatch[1];
       } else {
         const base = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
+        const isRangeActive = pageRangeMode === 'custom' && (startPage > 1 || endPage < pageCount);
+        const rangeSuffix = isRangeActive
+          ? (startPage === endPage ? `_hal_${startPage}` : `_hal_${startPage}-${endPage}`)
+          : '';
+
         if (mode === 'image') {
           if (contentType.includes('image/')) {
-            finalFilename = `${base}.${selectedImageFormat}`;
+            finalFilename = `${base}${rangeSuffix}.${selectedImageFormat}`;
           } else {
-            finalFilename = `${base}_images.zip`;
+            finalFilename = `${base}${rangeSuffix}_images.zip`;
           }
-        } else if (mode === 'word' && wordPageRangeMode === 'custom') {
-          const s = Math.max(1, wordStartPage);
-          const e = Math.min(pageCount, Math.max(s, wordEndPage));
-          const rangeSuffix = s === e ? `_hal_${s}` : `_hal_${s}-${e}`;
-          finalFilename = `${base}${rangeSuffix}.docx`;
         } else {
-          finalFilename = `${base}.${config.ext}`;
+          finalFilename = `${base}${rangeSuffix}.${config.ext}`;
         }
       }
 
@@ -340,64 +342,70 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
               </span>
             </div>
 
+            {/* OPSI UNIVERSAL: RENTANG HALAMAN (Word, Excel, PPT, Image) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>Rentang Halaman:</span>
+                {pageRangeMode === 'custom' && (
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded">
+                    {startPage === endPage ? `Hanya Hal ${startPage}` : `Hal ${startPage} - ${endPage} (${Math.min(pageCount, endPage) - Math.max(1, startPage) + 1} Lembar)`}
+                  </span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPageRangeMode('all')}
+                  className={`p-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
+                    pageRangeMode === 'all'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  Semua Halaman ({pageCount} Hal)
+                </button>
+                <button
+                  onClick={() => setPageRangeMode('custom')}
+                  className={`p-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
+                    pageRangeMode === 'custom'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  Pilih Rentang Halaman
+                </button>
+              </div>
+
+              {pageRangeMode === 'custom' && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 mt-2 animate-fade-in">
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Dari Hal:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={pageCount}
+                    value={startPage}
+                    onChange={e => setStartPage(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-center text-slate-800 dark:text-slate-200"
+                  />
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Sampai Hal:</span>
+                  <input
+                    type="number"
+                    min={startPage}
+                    max={pageCount}
+                    value={endPage}
+                    onChange={e => setEndPage(Math.min(pageCount, Math.max(startPage, parseInt(e.target.value) || startPage)))}
+                    className="w-16 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-center text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* OPSI KHUSUS WORD */}
             {mode === 'word' && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200/80 dark:border-blue-800/40">
-                  <Cpu className="w-5 h-5 text-blue-600 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-blue-900 dark:text-blue-300">Akselerasi Multi-Core Aktif</p>
-                    <p className="text-[11px] text-blue-700 dark:text-blue-400">Memproses halaman secara paralel dengan performa CPU berkecepatan tinggi.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Rentang Halaman:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setWordPageRangeMode('all')}
-                      className={`p-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
-                        wordPageRangeMode === 'all'
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      Semua Halaman ({pageCount} Hal)
-                    </button>
-                    <button
-                      onClick={() => setWordPageRangeMode('custom')}
-                      className={`p-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
-                        wordPageRangeMode === 'custom'
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      Pilih Rentang Halaman
-                    </button>
-                  </div>
-
-                  {wordPageRangeMode === 'custom' && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 mt-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Dari Hal:</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={pageCount}
-                        value={wordStartPage}
-                        onChange={e => setWordStartPage(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-center text-slate-800 dark:text-slate-200"
-                      />
-                      <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Sampai Hal:</span>
-                      <input
-                        type="number"
-                        min={wordStartPage}
-                        max={pageCount}
-                        value={wordEndPage}
-                        onChange={e => setWordEndPage(Math.min(pageCount, Math.max(wordStartPage, parseInt(e.target.value) || wordStartPage)))}
-                        className="w-16 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-center text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                  )}
+              <div className="flex items-center gap-2 p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200/80 dark:border-blue-800/40">
+                <Cpu className="w-5 h-5 text-blue-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-blue-900 dark:text-blue-300">Akselerasi Multi-Core Aktif</p>
+                  <p className="text-[11px] text-blue-700 dark:text-blue-400">Memproses halaman secara paralel dengan performa CPU berkecepatan tinggi.</p>
                 </div>
               </div>
             )}
