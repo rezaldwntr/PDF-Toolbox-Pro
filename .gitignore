@@ -24,6 +24,8 @@ build/
 *.key
 *.key.pub
 *.pem
+client_secret*.json
+*.secret
 
 # Logs
 npm-debug.log*

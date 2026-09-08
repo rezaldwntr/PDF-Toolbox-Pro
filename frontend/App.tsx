@@ -60,7 +60,7 @@ function App() {
       case View.TOOLS_TAB:
         return <ToolsPage onSelectTool={setCurrentView} />;
       case View.PROFILE_TAB:
-        return <ProfilePage />;
+        return <ProfilePage onSelectView={setCurrentView} />;
       case View.PRICING:
         return <PricingPage onSelectView={setCurrentView} />;
 
