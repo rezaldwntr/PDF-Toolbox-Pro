@@ -7,6 +7,7 @@ const gitBranch = process.env.VERCEL_GIT_COMMIT_REF || '';
 
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ['VITE_', 'SUPABASE_'],
   define: {
     __VERCEL_ENV__: JSON.stringify(vercelEnv),
     __GIT_BRANCH__: JSON.stringify(gitBranch),

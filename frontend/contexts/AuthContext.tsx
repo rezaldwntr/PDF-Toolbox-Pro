@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, UserTier } from '../types';
 
@@ -108,16 +108,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   const signInWithGoogle = useCallback(async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
+      });
+      if (error) {
+        console.error('Error saat login Google:', error);
+        alert(`Gagal login Google: ${error.message}`);
+      }
+    } catch (err: any) {
+      console.error('Exception saat login Google:', err);
+      alert(`Terjadi kesalahan saat autentikasi: ${err.message || err}`);
+    }
   }, []);
 
   const signOut = useCallback(async () => {
