@@ -102,6 +102,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // Navigasi & Tampilan Kanvas
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [targetPageSelection, setTargetPageSelection] = useState<'all' | number>(0);
   const [zoom, setZoom] = useState(1.0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,20 +136,58 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setPlacedSignatures([]);
     setSelectedPlacedId(null);
     setActivePageIndex(0);
+    setTargetPageSelection(0);
     setZoom(1.0);
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     setOutputUrl(null);
   }, [outputUrl]);
 
-  // Auto-scroll ke halaman aktif
+  // Sinkronisasi target lembar dengan halaman yang aktif (kecuali jika mode 'all')
   useEffect(() => {
-    if (pageContainerRef.current) {
-      const activeEl = pageContainerRef.current.querySelector(`[data-page-index="${activePageIndex}"]`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
+    setTargetPageSelection(prev => (prev === 'all' ? 'all' : activePageIndex));
   }, [activePageIndex]);
+
+  // Deteksi halaman aktif secara dinamis saat kanvas digulir (scroll)
+  useEffect(() => {
+    const container = pageContainerRef.current;
+    if (!container) return;
+
+    let timeoutId: any;
+    const handleScroll = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const pageElements = container.querySelectorAll('[data-page-index]');
+        const containerRect = container.getBoundingClientRect();
+        const containerCenterY = containerRect.top + containerRect.height / 2;
+
+        let closestIdx = activePageIndex;
+        let minDistance = Infinity;
+
+        pageElements.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          const pageCenterY = rect.top + rect.height / 2;
+          const dist = Math.abs(pageCenterY - containerCenterY);
+          if (dist < minDistance) {
+            minDistance = dist;
+            const idxAttr = el.getAttribute('data-page-index');
+            if (idxAttr !== null) {
+              closestIdx = parseInt(idxAttr, 10);
+            }
+          }
+        });
+
+        if (closestIdx !== activePageIndex && !isNaN(closestIdx)) {
+          setActivePageIndex(closestIdx);
+        }
+      }, 60);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      clearTimeout(timeoutId);
+    };
+  }, [activePageIndex, pagePreviews.length]);
 
   const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
@@ -297,8 +336,12 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       mode: 'draw',
     };
 
-    setSignatures(prev => [...prev, newSig]);
-    placeSignatureOnPage(newSig, activePageIndex);
+    setSignatures((prev: SignatureItem[]) => [...prev, newSig]);
+    if (targetPageSelection === 'all') {
+      placeOnAllPages(newSig);
+    } else {
+      placeSignatureOnPage(newSig, Number(targetPageSelection));
+    }
     clearCanvas();
     addToast('Tanda tangan berhasil dibuat dan ditempatkan!', 'success');
   };
@@ -334,8 +377,12 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       mode: 'type',
     };
 
-    setSignatures(prev => [...prev, newSig]);
-    placeSignatureOnPage(newSig, activePageIndex);
+    setSignatures((prev: SignatureItem[]) => [...prev, newSig]);
+    if (targetPageSelection === 'all') {
+      placeOnAllPages(newSig);
+    } else {
+      placeSignatureOnPage(newSig, Number(targetPageSelection));
+    }
     setTypedText('');
     addToast('Tanda tangan teks berhasil dibuat dan ditempatkan!', 'success');
   };
@@ -388,8 +435,12 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           mode: 'upload',
         };
 
-        setSignatures(prev => [...prev, newSig]);
-        placeSignatureOnPage(newSig, activePageIndex);
+        setSignatures((prev: SignatureItem[]) => [...prev, newSig]);
+        if (targetPageSelection === 'all') {
+          placeOnAllPages(newSig);
+        } else {
+          placeSignatureOnPage(newSig, Number(targetPageSelection));
+        }
         addToast('Tanda tangan gambar berhasil dimuat!', 'success');
       };
       img.src = dataUrl;
@@ -399,6 +450,21 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   // --- PLACING & INTERACTION LOGIC ---
+  const placeOnAllPages = (signature: SignatureItem) => {
+    if (pagePreviews.length === 0) return;
+    const newPlacedList: PlacedSignature[] = pagePreviews.map((page, pageIndex) => ({
+      id: `placed-${Date.now()}-${pageIndex}-${Math.random().toString(36).substring(2, 6)}`,
+      signatureId: signature.id,
+      pageIndex,
+      x: Math.round(page.width - signature.width - 30),
+      y: Math.round(page.height - signature.height - 30),
+      width: signature.width,
+      height: signature.height,
+    }));
+    setPlacedSignatures((prev: PlacedSignature[]) => [...prev, ...newPlacedList]);
+    addToast(`Tanda tangan berhasil dipasang di seluruh ${pagePreviews.length} halaman!`, 'success');
+  };
+
   const placeSignatureOnPage = (signature: SignatureItem, pageIndex: number, customX?: number, customY?: number) => {
     const page = pagePreviews[pageIndex];
     if (!page) return;
@@ -416,7 +482,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       height: signature.height,
     };
 
-    setPlacedSignatures(prev => [...prev, newPlaced]);
+    setPlacedSignatures((prev: PlacedSignature[]) => [...prev, newPlaced]);
     setSelectedPlacedId(newPlaced.id);
     setActivePageIndex(pageIndex);
   };
@@ -1060,7 +1126,32 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     {signatures.length}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">Klik untuk menaruh ke Halaman {activePageIndex + 1}:</p>
+
+                {/* Target Page Selector Dropdown */}
+                <div className="flex items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Target Lembar:</span>
+                  <select
+                    value={targetPageSelection}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === 'all') {
+                        setTargetPageSelection('all');
+                      } else {
+                        const idx = Number(val);
+                        setTargetPageSelection(idx);
+                        setActivePageIndex(idx);
+                      }
+                    }}
+                    className="text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
+                  >
+                    {pagePreviews.map((_, i) => (
+                      <option key={i} value={i}>Halaman {i + 1}</option>
+                    ))}
+                    {pagePreviews.length > 1 && (
+                      <option value="all">Semua Halaman (Paraf / Stempel)</option>
+                    )}
+                  </select>
+                </div>
 
                 <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
                   {signatures.map(sig => (
@@ -1069,7 +1160,13 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       className="group flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:border-blue-400 transition-colors"
                     >
                       <button
-                        onClick={() => placeSignatureOnPage(sig, activePageIndex)}
+                        onClick={() => {
+                          if (targetPageSelection === 'all') {
+                            placeOnAllPages(sig);
+                          } else {
+                            placeSignatureOnPage(sig, Number(targetPageSelection));
+                          }
+                        }}
                         className="flex-1 flex items-center gap-3 text-left overflow-hidden"
                       >
                         <div className="w-16 h-10 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center shrink-0">
@@ -1077,7 +1174,12 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                         <div className="truncate">
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{sig.name}</p>
-                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">+ Taruh di Hal {activePageIndex + 1}</span>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                            <Plus className="w-3 h-3" />
+                            {targetPageSelection === 'all'
+                              ? 'Taruh di Semua Halaman'
+                              : `Taruh di Halaman ${Number(targetPageSelection) + 1}`}
+                          </span>
                         </div>
                       </button>
                       <button
@@ -1093,6 +1195,10 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                   ))}
                 </div>
+
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 italic text-center">
+                  Tip: Anda juga bisa mengklik langsung pada lembar halaman di kanvas untuk menempelkan tanda tangan.
+                </p>
               </div>
             )}
           </div>

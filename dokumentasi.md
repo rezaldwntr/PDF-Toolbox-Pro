@@ -133,9 +133,11 @@ PDF Toolbox Pro/
      - *Unggah (Upload):* Mengunggah berkas gambar tanda tangan/stempel fisik dengan opsi *auto-chroma key* (penghapusan latar belakang kertas putih menjadi transparan secara otomatis).
    - **Optimasi Memori & Ukuran PDF (*Single-Embed Image Caching*):**
      - Gambar tanda tangan yang sama hanya di-embed 1 kali ke dalam dokumen PDF menggunakan `embeddedImagesMap` dan direferensikan ulang pada halaman lain, mencegah pembengkakan ukuran file PDF.
-   - **Interaksi Kanvas Presisi & Kuota Tamu:**
-     - Penempatan tanda tangan langsung pada halaman aktif (`activePageIndex`) atau klik kanvas (*Click-to-Place*).
-     - Dukungan *resizing* dengan rasio aspek terkunci (tidak gepeng), tombol cepat duplikat/hapus, bilah navigasi halaman dengan *smooth auto-scroll*, kontrol zoom (50%–200%), dan pemotongan kuota harian tamu (`useQuota`).
+    - **Interaksi Kanvas Presisi, Multi-Halaman & Kuota Tamu:**
+      - **Target Halaman Fleksibel & Paraf Otomatis:** Dilengkapi pemilih target lembar (*Target Lembar Selector*) di galeri tanda tangan: pengguna dapat memilih halaman tertentu (Halaman 1, 2, dst.), atau memilih *"Semua Halaman (Paraf / Stempel)"* untuk langsung membubuhkan paraf pada seluruh lembar dokumen PDF secara bersamaan.
+      - **Deteksi Scroll Kanvas Dinamis:** Dilengkapi *scroll observer* debounced pada kanvas yang secara otomatis mendeteksi dan memperbarui halaman aktif (`activePageIndex`) mengikuti lembar dokumen yang sedang berada di tengah layar pengguna.
+      - **Interaksi Fleksibel:** Penempatan tanda tangan instan langsung ke lembar aktif, atau klik langsung pada posisi lembar kanvas mana saja (*Click-to-Place*).
+      - Dukungan *resizing* dengan rasio aspek terkunci (tidak gepeng), tombol cepat duplikat/hapus, bilah navigasi halaman dengan *smooth auto-scroll*, kontrol zoom (50%–200%), dan pemotongan kuota harian tamu (`useQuota`).
 
 ---
 
