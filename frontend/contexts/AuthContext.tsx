@@ -25,14 +25,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mapSupabaseUser = async (supabaseUserId: string): Promise<UserProfile | null> => {
+const mapSupabaseUser = async (authUser: any): Promise<UserProfile> => {
+  const defaultProfile: UserProfile = {
+    id: authUser.id,
+    email: authUser.email || '',
+    fullName: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+    avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
+    tier: 'free',
+    quotaUsedToday: 0,
+    quotaResetDate: new Date().toISOString().split('T')[0],
+    subscriptionExpiry: null,
+  };
+
   try {
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('id', supabaseUserId)
+      .eq('id', authUser.id)
       .single();
-    if (error || !data) return null;
+
+    if (error || !data) {
+      // Jika profil belum ada di DB, coba buat record otomatis
+      try {
+        await supabase.from('user_profiles').upsert({
+          id: authUser.id,
+          email: defaultProfile.email,
+          full_name: defaultProfile.fullName,
+          avatar_url: defaultProfile.avatarUrl,
+        });
+      } catch {
+        // Table mungkin belum dibuat, tetap gunakan defaultProfile agar user tetap berhasil masuk
+      }
+      return defaultProfile;
+    }
 
     // Pastikan subscription flash pass belum kadaluarsa
     let effectiveTier: Exclude<UserTier, 'guest'> = data.tier || 'free';
@@ -40,26 +65,25 @@ const mapSupabaseUser = async (supabaseUserId: string): Promise<UserProfile | nu
       const expiry = new Date(data.subscription_expiry);
       if (expiry < new Date()) {
         effectiveTier = 'free';
-        // Update tier di DB
         await supabase
           .from('user_profiles')
           .update({ tier: 'free' })
-          .eq('id', supabaseUserId);
+          .eq('id', authUser.id);
       }
     }
 
     return {
       id: data.id,
-      email: data.email,
-      fullName: data.full_name,
-      avatarUrl: data.avatar_url,
+      email: data.email || defaultProfile.email,
+      fullName: data.full_name || defaultProfile.fullName,
+      avatarUrl: data.avatar_url || defaultProfile.avatarUrl,
       tier: effectiveTier,
       quotaUsedToday: data.quota_used_today || 0,
-      quotaResetDate: data.quota_reset_date || new Date().toISOString().split('T')[0],
+      quotaResetDate: data.quota_reset_date || defaultProfile.quotaResetDate,
       subscriptionExpiry: data.subscription_expiry,
     };
   } catch {
-    return null;
+    return defaultProfile;
   }
 };
 
@@ -71,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const profile = await mapSupabaseUser(session.user.id);
+        const profile = await mapSupabaseUser(session.user);
         setUser(profile);
       } else {
         setUser(null);
@@ -93,13 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Subscribe ke perubahan auth state (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const profile = await mapSupabaseUser(session.user.id);
+        const profile = await mapSupabaseUser(session.user);
         setUser(profile);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Refresh profile setelah token refresh (misal: setelah pembayaran webhook update tier)
-        const profile = await mapSupabaseUser(session.user.id);
+        const profile = await mapSupabaseUser(session.user);
         setUser(profile);
       }
     });
