@@ -1,11 +1,13 @@
 # app/routers/tools.py
 import os
+import io
+import re
 import shutil
 import logging
 import tempfile
 from typing import List, Optional
 from enum import Enum
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form, Response
 from fastapi.responses import FileResponse
@@ -104,117 +106,188 @@ def merge_pdf(files: List[UploadFile] = File(...)):
         logging.error(f"Error saat menggabungkan PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Gagal menggabungkan PDF: {str(e)}")
 
-# === 6. PISAHKAN PDF (ADVANCED SPLIT) ===
+# === 6. PISAHKAN PDF (HIGH-SPEED IN-MEMORY SPLIT - STANDAR ILOVEPDF) ===
 @router.post("/split-pdf")
 def split_pdf(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     split_mode: SplitType = Form(...),          # extract, fixed, atau all
     pages: Optional[str] = Form(None),          # Wajib jika mode 'extract' (contoh: "1-5,7")
     fixed_step: Optional[int] = Form(None)      # Wajib jika mode 'fixed' (contoh: 2)
 ):
-    validate_file(file)
-    tmp_dir = tempfile.mkdtemp()
-    tmp_pdf_path = os.path.join(tmp_dir, file.filename)
-    
-    # Nama output dasar
-    base_name = os.path.splitext(file.filename)[0]
+    """
+    Memisahkan berkas PDF dengan standar performa iLovePDF / Smallpdf:
+    - In-Memory streaming murni (Zero Disk I/O) untuk kecepatan ultra-tinggi
+    - Mendukung 4 mode pemisahan: Rentang (Range), Pilih Lembar (Selected), Pecah X Halaman (Fixed), Semua Halaman (All)
+    - Validasi ukuran, format biner, deteksi proteksi kata sandi, dan parsing rentang halaman yang aman
+    - Kompresi ZIP in-memory (ZIP_DEFLATED) dan pembersihan sumber daya otomatis
+    """
+    filename = file.filename or "dokumen.pdf"
 
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Berkas '{filename}' bukan format PDF yang valid."
+        )
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB)."
+        )
+
+    # Sanitasi nama berkas untuk output
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+
+    src_doc = None
     try:
-        with open(tmp_pdf_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        src_doc = fitz.open(tmp_pdf_path)
-        total_pages = len(src_doc)
+        try:
+            src_doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' rusak atau tidak dapat diproses."
+            )
 
-        # === MODE 1: EKSTRAK HALAMAN TERTENTU (JADI 1 FILE PDF) ===
+        # 3. Deteksi proteksi kata sandi
+        if src_doc.needs_pass or src_doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' terproteksi kata sandi. Harap buka kunci terlebih dahulu."
+            )
+
+        total_pages = len(src_doc)
+        if total_pages == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        # === MODE 1 & 2: EKSTRAK HALAMAN TERTENTU (OUTPUT: 1 FILE PDF) ===
         if split_mode == SplitType.EXTRACT:
             if not pages:
                 raise HTTPException(status_code=400, detail="Parameter 'pages' wajib diisi untuk mode Extract.")
-            
-            output_filename = f"{base_name}_extracted.pdf"
-            output_path = os.path.join(tmp_dir, output_filename)
-            new_doc = fitz.open()
 
-            # Parsing halaman (Contoh: "1-3,5")
             selected_indices = []
             try:
-                for part in pages.split(','):
+                for part in pages.split(","):
                     part = part.strip()
-                    if '-' in part:
-                        s, e = map(int, part.split('-'))
-                        selected_indices.extend(range(s-1, e))
+                    if not part:
+                        continue
+                    if "-" in part:
+                        tokens = part.split("-")
+                        if len(tokens) == 2 and tokens[0].strip().isdigit() and tokens[1].strip().isdigit():
+                            s, e = int(tokens[0].strip()), int(tokens[1].strip())
+                            step = 1 if s <= e else -1
+                            for p in range(s, e + step, step):
+                                if 1 <= p <= total_pages:
+                                    selected_indices.append(p - 1)
+                        else:
+                            raise ValueError()
+                    elif part.isdigit():
+                        p = int(part)
+                        if 1 <= p <= total_pages:
+                            selected_indices.append(p - 1)
                     else:
-                        selected_indices.append(int(part)-1)
-            except:
-                raise HTTPException(status_code=400, detail="Format halaman salah. Contoh: 1-5, 7")
+                        raise ValueError()
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Format halaman tidak valid. Gunakan format seperti: 1-5, 7, 10"
+                )
 
-            # Insert halaman
+            if not selected_indices:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Halaman yang dipilih berada di luar jangkauan dokumen (Total: {total_pages} halaman)."
+                )
+
+            new_doc = fitz.open()
             for idx in selected_indices:
-                if 0 <= idx < total_pages:
-                    new_doc.insert_pdf(src_doc, from_page=idx, to_page=idx)
-            
-            if len(new_doc) == 0:
-                raise HTTPException(status_code=400, detail="Halaman tidak ditemukan/kosong.")
+                new_doc.insert_pdf(src_doc, from_page=idx, to_page=idx)
 
-            new_doc.save(output_path)
+            pdf_bytes = new_doc.tobytes(garbage=3, deflate=True)
             new_doc.close()
-            src_doc.close()
 
-            background_tasks.add_task(cleanup_folder, tmp_dir)
-            return FileResponse(path=output_path, filename=output_filename, media_type='application/pdf')
+            output_filename = f"{safe_base}_extracted.pdf"
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{output_filename}"',
+                }
+            )
 
-        # === MODE 2 & 3: HASIL BANYAK FILE (ZIP) ===
+        # === MODE 3: SPLIT SETIAP X HALAMAN (OUTPUT: ZIP IN-MEMORY) ===
+        elif split_mode == SplitType.FIXED:
+            if not fixed_step or fixed_step < 1:
+                raise HTTPException(status_code=400, detail="Parameter 'fixed_step' wajib diisi minimal 1.")
+
+            zip_buffer = io.BytesIO()
+            with ZipFile(zip_buffer, mode="w", compression=ZIP_DEFLATED) as zipf:
+                chunk_counter = 1
+                for i in range(0, total_pages, fixed_step):
+                    start_page = i
+                    end_page = min(i + fixed_step - 1, total_pages - 1)
+
+                    chunk_doc = fitz.open()
+                    chunk_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
+                    chunk_bytes = chunk_doc.tobytes(garbage=3, deflate=True)
+                    chunk_doc.close()
+
+                    part_filename = f"{safe_base}_part_{chunk_counter:03d}.pdf"
+                    zipf.writestr(part_filename, chunk_bytes)
+                    chunk_counter += 1
+
+            zip_bytes = zip_buffer.getvalue()
+            zip_buffer.close()
+
+            output_filename = f"{safe_base}_split.zip"
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{output_filename}"',
+                }
+            )
+
+        # === MODE 4: SPLIT SETIAP HALAMAN (OUTPUT: ZIP IN-MEMORY) ===
+        elif split_mode == SplitType.ALL:
+            zip_buffer = io.BytesIO()
+            with ZipFile(zip_buffer, mode="w", compression=ZIP_DEFLATED) as zipf:
+                for i in range(total_pages):
+                    page_doc = fitz.open()
+                    page_doc.insert_pdf(src_doc, from_page=i, to_page=i)
+                    page_bytes = page_doc.tobytes(garbage=3, deflate=True)
+                    page_doc.close()
+
+                    page_filename = f"{safe_base}_page_{i+1:03d}.pdf"
+                    zipf.writestr(page_filename, page_bytes)
+
+            zip_bytes = zip_buffer.getvalue()
+            zip_buffer.close()
+
+            output_filename = f"{safe_base}_split.zip"
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{output_filename}"',
+                }
+            )
+
         else:
-            zip_filename = f"{base_name}_split.zip"
-            zip_path = os.path.join(tmp_dir, zip_filename)
-            
-            with ZipFile(zip_path, 'w') as zipf:
-                
-                # -- SUB-LOGIC: SPLIT SETIAP HALAMAN (ALL) --
-                if split_mode == SplitType.ALL:
-                    for i in range(total_pages):
-                        new_doc = fitz.open()
-                        new_doc.insert_pdf(src_doc, from_page=i, to_page=i)
-                        
-                        # UPDATE: Menggunakan format 03d (page_001.pdf)
-                        pdf_name = f"{base_name}_page_{i+1:03d}.pdf"
-                        pdf_path = os.path.join(tmp_dir, pdf_name)
-                        new_doc.save(pdf_path)
-                        new_doc.close()
-                        
-                        zipf.write(pdf_path, pdf_name)
+            raise HTTPException(status_code=400, detail=f"Mode split '{split_mode}' tidak dikenali.")
 
-                # -- SUB-LOGIC: SPLIT SETIAP X HALAMAN (FIXED) --
-                elif split_mode == SplitType.FIXED:
-                    if not fixed_step or fixed_step < 1:
-                        raise HTTPException(status_code=400, detail="Parameter 'fixed_step' wajib diisi minimal 1.")
-                    
-                    # Loop dengan step (misal 0, 2, 4...)
-                    chunk_counter = 1
-                    for i in range(0, total_pages, fixed_step):
-                        start_page = i
-                        end_page = min(i + fixed_step - 1, total_pages - 1)
-                        
-                        new_doc = fitz.open()
-                        new_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
-                        
-                        # UPDATE: Menggunakan format 03d (part_001.pdf)
-                        pdf_name = f"{base_name}_part_{chunk_counter:03d}.pdf"
-                        pdf_path = os.path.join(tmp_dir, pdf_name)
-                        new_doc.save(pdf_path)
-                        new_doc.close()
-                        
-                        zipf.write(pdf_path, pdf_name)
-                        chunk_counter += 1
-
-            src_doc.close()
-            background_tasks.add_task(cleanup_folder, tmp_dir)
-            return FileResponse(path=zip_path, filename=zip_filename, media_type='application/zip')
-
+    except HTTPException:
+        raise
     except Exception as e:
-        cleanup_folder(tmp_dir)
-        raise HTTPException(status_code=500, detail=f"Gagal Split: {str(e)}")
+        logging.error(f"Error saat memisahkan PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal memisahkan PDF: {str(e)}")
+    finally:
+        if src_doc and not src_doc.is_closed:
+            src_doc.close()
 
 # === 7. KOMPRES PDF (COMPRESS) ===
 class CompressionType(str, Enum):
