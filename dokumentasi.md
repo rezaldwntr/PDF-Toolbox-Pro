@@ -114,6 +114,12 @@ PDF Toolbox Pro/
    - Menghilangkan sepenuhnya efek bayangan hantu tembus pandang bawaan browser (*translucent OS drag ghost*).
    - Kartu yang terangkat (*floating card*) tampil **100% solid, tajam, dan tidak tembus pandang** (`opacity: 1`, latar solid putih / dark slate, aksen border biru cerah, elevasi 3D `rotate(2.5deg) scale(1.06)`, dan bayangan `shadow-2xl ring-4 ring-blue-500/20`).
    - Slot asal di dalam grid bertransisi menjadi placeholder bergaris putus-putus (*dashed placeholder*), dan kartu target tujuan memberikan umpan balik pengangkatan yang halus (`.drag-target-indicator`) dengan performa bebas kedipan (*zero flicker*) di desktop maupun layar sentuh mobile.
+7. **Standar Editor Teks PDF Interaktif (*Client-Side Vector Text Ingestion - Zero Latency*):**
+   - Fitur **Tambahkan Teks** (`frontend/components/tools/AddText.tsx`) diproses 100% di sisi klien menggunakan `pdf-lib` dan rendering kanvas `PDF.js` skala tinggi (1.5x) untuk respons instan (0ms latensi upload/download).
+   - **Matriks Font Standar Lengkap (12 Varian):** Mendukung penuh keluarga Helvetica, Times Roman, dan Courier dengan varian Regular, Bold, Oblique/Italic, dan Bold-Oblique/Bold-Italic tanpa risiko *unsupported font variant*.
+   - **Sanitasi Enkoding Anti-Crash (*WinAnsi Sanitizer*):** Mengonversi tanda kutip lengkung (*curly quotes*), tanda pisah (*em dash/en dash*), simbol butir (*bullet points*), dan elipsis ke padanan WinAnsi standar sebelum digambar untuk mencegah kegagalan `pdf-lib`.
+   - **Pemformatan Vektor Presisi (*Multiline & Text Alignment*):** Mendukung teks multibaris (`\n`) dengan kalkulasi per baris independen untuk perataan Rata Kiri (*Left*), Rata Tengah (*Center*), dan Rata Kanan (*Right*), serta sorotan latar belakang (*background highlight*) dan slider transparansi (*opacity* 0.1–1.0).
+   - **Interaksi Kanvas Standar Industri:** Mendukung *Click-to-Place* langsung pada halaman, *Double-Click Inline Editing* di atas kanvas, tombol duplikat/hapus instan, kontrol zoom (50%–200%), bilah navigasi antar-halaman (*smooth scroll*), dan pemotongan kuota tamu (`useQuota`) yang terproteksi.
 
 ---
 
