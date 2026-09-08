@@ -138,6 +138,24 @@ PDF Toolbox Pro/
       - **Deteksi Scroll Kanvas Dinamis:** Dilengkapi *scroll observer* debounced pada kanvas yang secara otomatis mendeteksi dan memperbarui halaman aktif (`activePageIndex`) mengikuti lembar dokumen yang sedang berada di tengah layar pengguna.
       - **Interaksi Fleksibel:** Penempatan tanda tangan instan langsung ke lembar aktif, atau klik langsung pada posisi lembar kanvas mana saja (*Click-to-Place*).
       - Dukungan *resizing* dengan rasio aspek terkunci (tidak gepeng), tombol cepat duplikat/hapus, bilah navigasi halaman dengan *smooth auto-scroll*, kontrol zoom (50%–200%), dan pemotongan kuota harian tamu (`useQuota`).
+9. **Standar Mesin Konversi PDF ke Dokumen Office & Gambar (iLovePDF & Smallpdf Benchmark):**
+   - **PDF ke Word (`/convert/pdf-to-docx`):**
+     - Menggunakan `pdf2docx` dengan akselerasi paralel multi-core CPU (`multiprocess=True`, `cpu_count()`) yang melipatgandakan kecepatan konversi dokumen multi-halaman hingga 3x-4x lipat.
+     - Mendukung konversi seluruh halaman maupun pemilihan rentang halaman spesifik (`start_page` - `end_page`).
+     - Sanitasi nama berkas aman dari karakter khusus.
+   - **PDF ke Excel (`/convert/pdf-to-excel`):**
+     - Mengeliminasi cacat lama pemecahan teks per kata ke baris terpisah.
+     - Ekstraksi tabel cepat berbasis algoritma C++ PyMuPDF (`fitz.find_tables()`) dengan fallback `pdfplumber.extract_tables()`.
+     - Konversi otomatis nilai numerik string ke tipe angka asli (`int`/`float`) agar formula spreadsheet seperti `=SUM(...)` langsung bekerja.
+     - Pilihan mode: **Hanya Tabel Bersih** (menghilangkan baris sampah teks luar tabel) vs **Tabel & Teks Dokumen**, serta struktur lembar: **Satu Sheet Gabungan** vs **Sheet Per Halaman**.
+   - **PDF ke PowerPoint (`/convert/pdf-to-ppt`):**
+     - Mengeliminasi bug fragmentasi teks (sebelumnya 1 baris teks menjadi 1 textbox terpisah) dengan mengelompokkan teks per blok semantik (`text_block`) dalam satu kesatuan paragraf terpadu.
+     - Mode Tata Letak Cerdas: **Paragraf Teks Utuh (Editable)** untuk presentasi yang mudah diedit, dan **Presisi Visual Slide (HD)** yang menjaga background warna, grafis vektor, dan ornamen slide PDF tetap 100% utuh seperti aslinya.
+   - **PDF ke Gambar (`/convert/pdf-to-image`):**
+     - Arsitektur **Zero Disk I/O In-Memory Streaming**: Seluruh pemrosesan pixmap dialirkan langsung via `io.BytesIO()` dan `pix.tobytes()` tanpa menulis berkas perantara ke harddisk.
+     - **Penanganan Cerdas Dokumen 1 Lembar:** Jika PDF hanya 1 halaman, sistem langsung merespons dengan file gambar murni (`.jpg` atau `.png`) tanpa membungkusnya ke file ZIP.
+     - Pilihan Kualitas Resolusi: **150 DPI (Standar Cepat)** untuk chat/web, dan **300 DPI (Ultra HD)** untuk kebutuhan cetak jernih.
+     - Pilihan Mode: **Setiap Halaman ke Gambar** vs **Ekstrak Foto/Gambar Tertanam** saja.
 
 ---
 
