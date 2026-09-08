@@ -77,16 +77,32 @@ def convert_pdf_to_docx(
         cpu_cores = max(1, multiprocessing.cpu_count())
         use_multiprocess = cpu_cores > 1
 
-        # 0-indexed untuk pdf2docx
-        s_page = (start_page - 1) if (start_page is not None and start_page > 0) else 0
-        e_page = end_page if (end_page is not None and end_page > 0) else None
+        # Tentukan halaman yang akan dikonversi
+        selected_pages = None
+        if start_page is not None or end_page is not None:
+            s_page = (start_page - 1) if (start_page is not None and start_page > 0) else 0
+            e_page = end_page if (end_page is not None and end_page > 0) else None
+            if e_page is not None:
+                selected_pages = list(range(s_page, e_page))
+            elif s_page > 0:
+                doc_check = fitz.open(tmp_pdf_path)
+                selected_pages = list(range(s_page, len(doc_check)))
+                doc_check.close()
 
         cv = Converter(tmp_pdf_path)
         try:
-            cv.convert(tmp_docx_path, start=s_page, end=e_page, multiprocess=use_multiprocess, cpu_count=cpu_cores)
+            if selected_pages is not None:
+                cv.convert(tmp_docx_path, pages=selected_pages)
+            else:
+                cv.convert(tmp_docx_path, multi_processing=use_multiprocess, cpu_count=cpu_cores)
         except Exception as conv_err:
-            logging.warning(f"Multiprocess Word conversion failed, fallback to single process: {conv_err}")
-            cv.convert(tmp_docx_path, start=s_page, end=e_page, multiprocess=False)
+            logging.warning(f"Conversion with multi_processing failed, fallback to standard: {conv_err}")
+            cv.close()
+            cv = Converter(tmp_pdf_path)
+            if selected_pages is not None:
+                cv.convert(tmp_docx_path, pages=selected_pages)
+            else:
+                cv.convert(tmp_docx_path)
         finally:
             cv.close()
 

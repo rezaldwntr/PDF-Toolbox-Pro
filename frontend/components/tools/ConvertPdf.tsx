@@ -9,6 +9,7 @@ import {
   Sparkles, Layers, Table, FileText, Cpu, Check, 
   Settings2, Sliders, Image as ImageIcon, CheckCircle2, Download, Trash2, ArrowRight
 } from 'lucide-react';
+import { PDFDocument } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
@@ -126,8 +127,38 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setIsProcessing(true);
     setProcessingMessage(`Sedang mengonversi ke ${mode.toUpperCase()} dengan akselerasi tinggi...`);
     
+    let fileToSend: File | Blob = fileWithBuffer.file;
+    let sendFilename = fileWithBuffer.file.name;
+
+    // Jika pengguna memilih rentang halaman tertentu pada Word, kita potong (slice) langsung lembar halamannya via pdf-lib di browser
+    // Ini menjamin berkas yang dikirim ke backend HANYA berisi lembar yang diminta (misal: hal 1 sampai 1 = persis 1 lembar)
+    if (mode === 'word' && wordPageRangeMode === 'custom') {
+      const s = Math.max(1, wordStartPage);
+      const e = Math.min(pageCount, Math.max(s, wordEndPage));
+
+      if (s > 1 || e < pageCount) {
+        setProcessingMessage(`Mengekstrak lembar halaman ${s} sampai ${e}...`);
+        try {
+          const srcDoc = await PDFDocument.load(fileWithBuffer.buffer);
+          const subDoc = await PDFDocument.create();
+          const pageIndices: number[] = [];
+          for (let i = s - 1; i <= e - 1; i++) {
+            pageIndices.push(i);
+          }
+          const copiedPages = await subDoc.copyPages(srcDoc, pageIndices);
+          copiedPages.forEach(p => subDoc.addPage(p));
+          const subBytes = await subDoc.save();
+          fileToSend = new Blob([subBytes], { type: 'application/pdf' });
+          const baseName = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
+          sendFilename = s === e ? `${baseName}_hal_${s}.pdf` : `${baseName}_hal_${s}-${e}.pdf`;
+        } catch (subErr) {
+          console.error("Gagal mengekstrak rentang halaman PDF di client:", subErr);
+        }
+      }
+    }
+
     const formData = new FormData();
-    formData.append('file', fileWithBuffer.file);
+    formData.append('file', fileToSend, sendFilename);
 
     if (mode === 'word') {
       if (wordPageRangeMode === 'custom') {
@@ -179,6 +210,11 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           } else {
             finalFilename = `${base}_images.zip`;
           }
+        } else if (mode === 'word' && wordPageRangeMode === 'custom') {
+          const s = Math.max(1, wordStartPage);
+          const e = Math.min(pageCount, Math.max(s, wordEndPage));
+          const rangeSuffix = s === e ? `_hal_${s}` : `_hal_${s}-${e}`;
+          finalFilename = `${base}${rangeSuffix}.docx`;
         } else {
           finalFilename = `${base}.${config.ext}`;
         }
