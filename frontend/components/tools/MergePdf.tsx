@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
@@ -20,6 +21,17 @@ interface PdfFile {
   buffer: ArrayBuffer;
 }
 
+interface FileDragInfo {
+  index: number;
+  startX: number;
+  startY: number;
+  offsetX: number;
+  offsetY: number;
+  cardWidth: number;
+  cardHeight: number;
+  previewImgUrl: string;
+}
+
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
@@ -27,9 +39,15 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null); // Kept for "Tambah File" button logic
   const { addToast } = useToast();
 
-  const draggedItemIndex = useRef<number | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Pointer-based tactile drag and drop state (Opaque, zero ghosting)
+  const [dragInfo, setDragInfo] = useState<FileDragInfo | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [targetIndex, setTargetIndex] = useState<number | null>(null);
+
+  const dragInfoRef = useRef<FileDragInfo | null>(null);
+  const isDraggingRef = useRef(false);
+  const targetIndexRef = useRef<number | null>(null);
+  const floatingCardRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
@@ -51,37 +69,100 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
   const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    draggedItemIndex.current = index;
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
+  // --- Tactile Pointer-Based Drag and Drop Handlers (Zero OS Ghosting) ---
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
+    if (e.button !== 0) return;
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index);
+    const cardElem = e.currentTarget;
+    const rect = cardElem.getBoundingClientRect();
+    const canvas = cardElem.querySelector('canvas');
+    let previewImgUrl = '';
+    try {
+      if (canvas) previewImgUrl = canvas.toDataURL();
+    } catch {
+      // ignore
     }
-  };
 
-  const handleDrop = (index: number) => {
-    if (draggedItemIndex.current !== null && draggedItemIndex.current !== index) {
-      const newFiles = [...files];
-      const [draggedFile] = newFiles.splice(draggedItemIndex.current, 1);
-      newFiles.splice(index, 0, draggedFile);
-      setFiles(newFiles);
-    }
-    draggedItemIndex.current = null;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
+    const info: FileDragInfo = {
+      index,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      cardWidth: rect.width,
+      cardHeight: rect.height,
+      previewImgUrl,
+    };
 
-  const handleDragEnd = () => {
-    draggedItemIndex.current = null;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    dragInfoRef.current = info;
+    isDraggingRef.current = false;
+    targetIndexRef.current = index;
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      if (!dragInfoRef.current) return;
+
+      const dx = ev.clientX - dragInfoRef.current.startX;
+      const dy = ev.clientY - dragInfoRef.current.startY;
+
+      if (!isDraggingRef.current) {
+        if (Math.hypot(dx, dy) > 5) {
+          isDraggingRef.current = true;
+          setIsDragging(true);
+          setDragInfo(dragInfoRef.current);
+          document.body.style.userSelect = 'none';
+        }
+      }
+
+      if (isDraggingRef.current) {
+        if (floatingCardRef.current) {
+          const posX = ev.clientX - dragInfoRef.current.offsetX;
+          const posY = ev.clientY - dragInfoRef.current.offsetY;
+          floatingCardRef.current.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(1.06) rotate(2deg)`;
+        }
+
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const card = el?.closest('[data-drag-index]');
+        if (card) {
+          const hoverIdx = parseInt(card.getAttribute('data-drag-index') || '', 10);
+          if (!isNaN(hoverIdx) && hoverIdx !== targetIndexRef.current) {
+            targetIndexRef.current = hoverIdx;
+            setTargetIndex(hoverIdx);
+          }
+        }
+      }
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      document.body.style.userSelect = '';
+
+      if (isDraggingRef.current && dragInfoRef.current) {
+        const fromIdx = dragInfoRef.current.index;
+        const toIdx = targetIndexRef.current;
+
+        if (toIdx !== null && toIdx !== undefined && toIdx !== fromIdx) {
+          setFiles(prevFiles => {
+            const newFiles = [...prevFiles];
+            const [moved] = newFiles.splice(fromIdx, 1);
+            newFiles.splice(toIdx, 0, moved);
+            return newFiles;
+          });
+        }
+      }
+
+      dragInfoRef.current = null;
+      isDraggingRef.current = false;
+      targetIndexRef.current = null;
+      setIsDragging(false);
+      setDragInfo(null);
+      setTargetIndex(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handleMerge = async () => {
@@ -200,22 +281,39 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {files.map(({ id, file, buffer }, index) => {
-                  const isBeingDragged = draggedIndex === index;
-                  const isDragOver = dragOverIndex === index && draggedIndex !== index;
+                  const isBeingDragged = isDragging && dragInfo?.index === index;
+                  const isDragOver = isDragging && targetIndex === index && dragInfo?.index !== index;
+
+                  if (isBeingDragged) {
+                    return (
+                      <div 
+                        key={id}
+                        data-drag-index={index}
+                        style={{ height: dragInfo?.cardHeight || 180 }}
+                        className="relative p-2.5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-blue-400 dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400 select-none transition-all"
+                      >
+                        <span className="text-xs font-bold text-center truncate max-w-full px-2">{file.name}</span>
+                        <span className="text-[10px] opacity-75 mt-0.5">Sedang dipindah</span>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div 
                       key={id} 
-                      draggable 
-                      onDragStart={(e) => handleDragStart(e, index)} 
-                      onDragOver={(e) => handleDragOver(e, index)} 
-                      onDrop={() => handleDrop(index)} 
-                      onDragEnd={handleDragEnd} 
-                      className={`drag-card bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative group cursor-grab active:cursor-grabbing hover:border-blue-500 dark:hover:border-blue-500 select-none ${
-                        isBeingDragged ? 'dragging' : ''
-                      } ${isDragOver ? 'drag-over' : ''}`}
+                      data-drag-index={index}
+                      onPointerDown={(e) => handlePointerDown(e, index)}
+                      className={`drag-card bg-white dark:bg-slate-800 p-2.5 rounded-xl border shadow-sm relative group cursor-grab active:cursor-grabbing select-none ${
+                        isDragOver 
+                          ? 'drag-target-indicator' 
+                          : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md'
+                      }`}
                     >
-                      <button onClick={() => removeFile(index)} className="absolute top-1.5 right-1.5 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm hover:bg-rose-50 dark:hover:bg-rose-950/40">
+                      <button 
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
+                        className="absolute top-1.5 right-1.5 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
                         <TrashIcon className="w-4 h-4"/>
                       </button>
                       <PdfPreview buffer={buffer} />
@@ -224,6 +322,38 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                   );
                 })}
             </div>
+
+            {/* Floating Lifted Card for MergePdf (100% Solid Opaque, Crisp, Beautiful Elevation - No Ghost!) */}
+            {isDragging && dragInfo && createPortal(
+              (() => {
+                const draggedFile = files[dragInfo.index];
+                if (!draggedFile) return null;
+
+                return (
+                  <div
+                    ref={floatingCardRef}
+                    className="drag-floating-card bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 border-2 border-blue-500 ring-4 ring-blue-500/20 select-none shadow-2xl"
+                    style={{
+                      width: dragInfo.cardWidth,
+                      height: dragInfo.cardHeight,
+                      transform: `translate3d(${dragInfo.startX - dragInfo.offsetX}px, ${dragInfo.startY - dragInfo.offsetY}px, 0) scale(1.06) rotate(2deg)`,
+                    }}
+                  >
+                    <div className="w-full flex-1 min-h-0 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center">
+                      {dragInfo.previewImgUrl ? (
+                        <img src={dragInfo.previewImgUrl} alt={draggedFile.file.name} className="w-full h-full object-contain pointer-events-none" />
+                      ) : (
+                        <span className="text-xs text-slate-400">PDF</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] truncate w-full mt-1.5 text-center font-bold text-slate-700 dark:text-slate-200 px-1">
+                      {draggedFile.file.name}
+                    </p>
+                  </div>
+                );
+              })(),
+              document.body
+            )}
 
             <div className="mt-8">
                 <button onClick={handleMerge} disabled={isMerging || files.length < 2} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50">

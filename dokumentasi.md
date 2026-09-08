@@ -109,9 +109,11 @@ PDF Toolbox Pro/
    - Objek memori DOM di frontend yang dibuat melalui `URL.createObjectURL()` selalu dibersihkan dengan `URL.revokeObjectURL()` saat tidak lagi digunakan.
 5. **Pratinjau Visual Dokumen Seragam (*Universal File Content Preview*):**
    - Seluruh alat pengerjaan (Konversi Word/Excel/PPT/Gambar, Kompres PDF, Gabungkan PDF, Pisahkan PDF, Atur Halaman, Tambah Teks, dan Tanda Tangan) wajib menampilkan kartu pratinjau visual tajam dari lembar dokumen asli yang diunggah menggunakan `PdfPreview.tsx` (didukung penyesuaian Hi-DPI Retina dan rendering canvas PDF.js) sebelum proses konversi dieksekusi.
-6. **Sistem Animasi Drag-and-Drop Terstandar (*Universal Drag & Drop Feedback*):**
-   - Seluruh alat yang mendukung pengurutan posisi halaman atau berkas (**Atur PDF** dan **Gabungkan PDF**) menerapkan animasi terstandar berbasis CSS *hardware-accelerated* (`.drag-card`, `.dragging`, `.drag-over`).
-   - Kartu yang sedang ditarik (*dragged*) beralih menjadi slot transparan bergaris putus-putus (`opacity: 0.35`, `scale: 0.92`, `border: dashed`), sedangkan posisi target (*drag-over*) memberikan umpan balik pengangkatan visual yang mulus (`scale: 1.06`, `translateY: -4px`, ring biru aksen, dan bayangan dinamis) tanpa kedipan (*zero flicker*).
+6. **Sistem Drag-and-Drop Terstandar (*Tactile Solid Drag & Drop - Zero Ghosting*):**
+   - Seluruh alat yang mendukung pengurutan posisi halaman atau berkas (**Atur PDF** dan **Gabungkan PDF**) menerapkan arsitektur *Pointer Events* modern dengan kartu melayang terisolasi (*React Portal*) yang diakselerasi langsung via GPU hardware `translate3d`.
+   - Menghilangkan sepenuhnya efek bayangan hantu tembus pandang bawaan browser (*translucent OS drag ghost*).
+   - Kartu yang terangkat (*floating card*) tampil **100% solid, tajam, dan tidak tembus pandang** (`opacity: 1`, latar solid putih / dark slate, aksen border biru cerah, elevasi 3D `rotate(2.5deg) scale(1.06)`, dan bayangan `shadow-2xl ring-4 ring-blue-500/20`).
+   - Slot asal di dalam grid bertransisi menjadi placeholder bergaris putus-putus (*dashed placeholder*), dan kartu target tujuan memberikan umpan balik pengangkatan yang halus (`.drag-target-indicator`) dengan performa bebas kedipan (*zero flicker*) di desktop maupun layar sentuh mobile.
 
 ---
 

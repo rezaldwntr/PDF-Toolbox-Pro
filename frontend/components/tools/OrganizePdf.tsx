@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon, DuplicateIcon } from '../icons';
 import { PDFDocument, degrees } from 'pdf-lib';
@@ -24,6 +25,16 @@ interface PageInfo {
   height: number;
 }
 
+interface DragInfo {
+  index: number;
+  startX: number;
+  startY: number;
+  offsetX: number;
+  offsetY: number;
+  cardWidth: number;
+  cardHeight: number;
+}
+
 const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [filesWithBuffer, setFilesWithBuffer] = useState<PdfFileWithBuffer[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
@@ -35,10 +46,15 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { addToast } = useToast();
   const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
-  // State for smooth drag and drop reordering
-  const draggedItemIndex = useRef<number | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Pointer-based tactile drag and drop state (Opaque, zero ghosting)
+  const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [targetIndex, setTargetIndex] = useState<number | null>(null);
+
+  const dragInfoRef = useRef<DragInfo | null>(null);
+  const isDraggingRef = useRef(false);
+  const targetIndexRef = useRef<number | null>(null);
+  const floatingCardRef = useRef<HTMLDivElement>(null);
 
   const resetState = useCallback(() => {
     setFilesWithBuffer([]);
@@ -165,38 +181,92 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setPages(newPages);
   };
 
-  // --- Smooth Drag and Drop Handlers ---
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    draggedItemIndex.current = index;
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
+  // --- Tactile Pointer-Based Drag and Drop Handlers (Zero OS Ghosting) ---
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
+    if (e.button !== 0) return;
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index);
-    }
-  };
+    const cardElem = e.currentTarget;
+    const rect = cardElem.getBoundingClientRect();
 
-  const handleDrop = (index: number) => {
-    if (draggedItemIndex.current !== null && draggedItemIndex.current !== index) {
-      const newPages = [...pages];
-      const [movedPage] = newPages.splice(draggedItemIndex.current, 1);
-      newPages.splice(index, 0, movedPage);
-      setPages(newPages);
-    }
-    draggedItemIndex.current = null;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
+    const info: DragInfo = {
+      index,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      cardWidth: rect.width,
+      cardHeight: rect.height,
+    };
 
-  const handleDragEnd = () => {
-    draggedItemIndex.current = null;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    dragInfoRef.current = info;
+    isDraggingRef.current = false;
+    targetIndexRef.current = index;
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      if (!dragInfoRef.current) return;
+
+      const dx = ev.clientX - dragInfoRef.current.startX;
+      const dy = ev.clientY - dragInfoRef.current.startY;
+
+      if (!isDraggingRef.current) {
+        if (Math.hypot(dx, dy) > 5) {
+          isDraggingRef.current = true;
+          setIsDragging(true);
+          setDragInfo(dragInfoRef.current);
+          document.body.style.userSelect = 'none';
+        }
+      }
+
+      if (isDraggingRef.current) {
+        if (floatingCardRef.current) {
+          const posX = ev.clientX - dragInfoRef.current.offsetX;
+          const posY = ev.clientY - dragInfoRef.current.offsetY;
+          floatingCardRef.current.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(1.06) rotate(2.5deg)`;
+        }
+
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const card = el?.closest('[data-drag-index]');
+        if (card) {
+          const hoverIdx = parseInt(card.getAttribute('data-drag-index') || '', 10);
+          if (!isNaN(hoverIdx) && hoverIdx !== targetIndexRef.current) {
+            targetIndexRef.current = hoverIdx;
+            setTargetIndex(hoverIdx);
+          }
+        }
+      }
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      document.body.style.userSelect = '';
+
+      if (isDraggingRef.current && dragInfoRef.current) {
+        const fromIdx = dragInfoRef.current.index;
+        const toIdx = targetIndexRef.current;
+
+        if (toIdx !== null && toIdx !== undefined && toIdx !== fromIdx) {
+          setPages(prevPages => {
+            const newPages = [...prevPages];
+            const [moved] = newPages.splice(fromIdx, 1);
+            newPages.splice(toIdx, 0, moved);
+            return newPages;
+          });
+        }
+      }
+
+      dragInfoRef.current = null;
+      isDraggingRef.current = false;
+      targetIndexRef.current = null;
+      setIsDragging(false);
+      setDragInfo(null);
+      setTargetIndex(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
   };
 
   // Menyimpan hasil akhir PDF
@@ -348,25 +418,62 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               transition: 'transform 0.3s ease-in-out',
             };
             
-            const isBeingDragged = draggedIndex === index;
-            const isDragOver = dragOverIndex === index && draggedIndex !== index;
+            const isBeingDragged = isDragging && dragInfo?.index === index;
+            const isDragOver = isDragging && targetIndex === index && dragInfo?.index !== index;
+
+            if (isBeingDragged) {
+              return (
+                <div 
+                  key={page.id}
+                  data-drag-index={index}
+                  style={{
+                    width: isSideways ? page.height + 20 : page.width + 20,
+                    height: isSideways ? page.width + 50 : page.height + 50,
+                  }}
+                  className="relative p-2.5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-blue-400 dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400 select-none transition-all"
+                >
+                  <span className="text-xs font-bold">Halaman {index + 1}</span>
+                  <span className="text-[10px] opacity-75 mt-0.5">Sedang dipindah</span>
+                </div>
+              );
+            }
 
             return (
               <div 
                 key={page.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDrop={() => handleDrop(index)}
-                onDragEnd={handleDragEnd}
-                className={`drag-card relative group bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 shadow-sm hover:shadow-md select-none ${
-                  isBeingDragged ? 'dragging' : ''
-                } ${isDragOver ? 'drag-over' : ''}`}
+                data-drag-index={index}
+                onPointerDown={(e) => handlePointerDown(e, index)}
+                className={`drag-card relative group bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border shadow-sm select-none ${
+                  isDragOver 
+                    ? 'drag-target-indicator' 
+                    : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md'
+                }`}
               >
                 <div className="absolute top-1 right-1 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-white/95 dark:bg-slate-700/95 backdrop-blur-sm rounded-lg hidden group-hover:flex border border-slate-200 dark:border-slate-600 shadow-md">
-                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
-                  <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
-                  <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-slate-500 hover:text-red-500 dark:text-slate-300 dark:hover:text-red-400 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
+                  <button 
+                    title="Duplikat Halaman" 
+                    onPointerDown={(e) => e.stopPropagation()} 
+                    onClick={(e) => { e.stopPropagation(); handleDuplicatePage(index); }} 
+                    className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"
+                  >
+                    <DuplicateIcon className="w-4 h-4"/>
+                  </button>
+                  <button 
+                    title="Putar Kanan" 
+                    onPointerDown={(e) => e.stopPropagation()} 
+                    onClick={(e) => { e.stopPropagation(); handleRotatePage(page.id); }} 
+                    className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"
+                  >
+                    <RotateIcon className="w-4 h-4"/>
+                  </button>
+                  <button 
+                    title="Hapus Halaman" 
+                    onPointerDown={(e) => e.stopPropagation()} 
+                    onClick={(e) => { e.stopPropagation(); handleDeletePage(page.id); }} 
+                    className="p-1 text-slate-500 hover:text-red-500 dark:text-slate-300 dark:hover:text-red-400 rounded-full transition-colors"
+                  >
+                    <TrashIcon className="w-4 h-4"/>
+                  </button>
                 </div>
                 <div style={imageContainerStyle}>
                     <img 
@@ -381,6 +488,54 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             );
           })}
         </div>
+
+        {/* Floating Lifted Card (100% Solid Opaque, Crisp, Beautiful Elevation - No Ghost!) */}
+        {isDragging && dragInfo && createPortal(
+          (() => {
+            const draggedPage = pages[dragInfo.index];
+            if (!draggedPage) return null;
+
+            const isSideways = draggedPage.rotation === 90 || draggedPage.rotation === 270;
+            const imgContainerStyle: React.CSSProperties = {
+              width: isSideways ? draggedPage.height : draggedPage.width,
+              height: isSideways ? draggedPage.width : draggedPage.height,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            };
+            const imgStyle: React.CSSProperties = {
+              transform: `rotate(${draggedPage.rotation}deg)`,
+              width: draggedPage.width,
+              height: draggedPage.height,
+              maxWidth: 'none',
+            };
+
+            return (
+              <div
+                ref={floatingCardRef}
+                className="drag-floating-card bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 border-2 border-blue-500 ring-4 ring-blue-500/20 select-none shadow-2xl"
+                style={{
+                  width: dragInfo.cardWidth,
+                  height: dragInfo.cardHeight,
+                  transform: `translate3d(${dragInfo.startX - dragInfo.offsetX}px, ${dragInfo.startY - dragInfo.offsetY}px, 0) scale(1.06) rotate(2.5deg)`,
+                }}
+              >
+                <div style={imgContainerStyle}>
+                  <img
+                    src={draggedPage.previewUrl}
+                    alt={`Page ${draggedPage.originalPageIndex + 1}`}
+                    className="rounded-md shadow-xs border border-slate-200 dark:border-slate-600 pointer-events-none"
+                    style={imgStyle}
+                  />
+                </div>
+                <span className="bg-blue-600 text-white font-bold rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md">
+                  {dragInfo.index + 1}
+                </span>
+              </div>
+            );
+          })(),
+          document.body
+        )}
       </div>
     );
   };
