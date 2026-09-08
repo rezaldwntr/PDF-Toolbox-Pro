@@ -7,6 +7,7 @@ import Footer from './components/Footer';
 import LandingPage from './components/LandingPage';
 import ToolsPage from './components/pages/ToolsPage';
 import ProfilePage from './components/pages/ProfilePage';
+import PricingPage from './components/pages/PricingPage';
 
 // Spokes (Tools)
 import MergePdf from './components/tools/MergePdf';
@@ -24,9 +25,15 @@ import Contact from './components/pages/Contact';
 import Faq from './components/pages/Faq';
 import PrivacyPolicy from './components/pages/PrivacyPolicy';
 
+// Modals
+import PaywallModal from './components/modals/PaywallModal';
+import PricingModal from './components/modals/PricingModal';
+import CheckoutModal from './components/modals/CheckoutModal';
+
 // Providers & Telemetry
 import { ToastProvider } from './contexts/ToastContext';
 import { QuotaProvider } from './contexts/QuotaContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -54,6 +61,8 @@ function App() {
         return <ToolsPage onSelectTool={setCurrentView} />;
       case View.PROFILE_TAB:
         return <ProfilePage />;
+      case View.PRICING:
+        return <PricingPage onSelectView={setCurrentView} />;
 
       // Spokes (Tools)
       case View.MERGE:
@@ -97,24 +106,31 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <QuotaProvider>
-          <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
-            {/* Top Sticky Header with Brand, Navigation & Quota Tracker */}
-            <Header currentView={currentView} onSelectView={setCurrentView} />
+        <AuthProvider>
+          <QuotaProvider>
+            <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+              {/* Top Sticky Header with Brand, Navigation & Auth */}
+              <Header currentView={currentView} onSelectView={setCurrentView} />
 
-            {/* Main Hub & Spoke Content */}
-            <main className="flex-1 w-full">
-              {renderContent()}
-            </main>
+              {/* Main Hub & Spoke Content */}
+              <main className="flex-1 w-full">
+                {renderContent()}
+              </main>
 
-            {/* Footer with Security & Trust Badges */}
-            <Footer onSelectView={setCurrentView} />
+              {/* Footer with Security & Trust Badges */}
+              <Footer onSelectView={setCurrentView} />
 
-            {/* Vercel Telemetry */}
-            <Analytics />
-            <SpeedInsights />
-          </div>
-        </QuotaProvider>
+              {/* Global Modals (rendered at root level for z-index isolation) */}
+              <PaywallModal />
+              <PricingModal />
+              <CheckoutModal />
+
+              {/* Vercel Telemetry */}
+              <Analytics />
+              <SpeedInsights />
+            </div>
+          </QuotaProvider>
+        </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
   );

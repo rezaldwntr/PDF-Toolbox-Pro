@@ -3,6 +3,7 @@ export enum View {
   HOME_TAB,
   TOOLS_TAB,
   PROFILE_TAB,
+  PRICING,
 
   MERGE,
   SPLIT,
@@ -23,6 +24,37 @@ export enum View {
 }
 
 export type EnvironmentMode = 'preview' | 'production';
+
+/** Tier langganan pengguna */
+export type UserTier = 'guest' | 'free' | 'flash' | 'monthly' | 'annual';
+
+/** Profil pengguna yang sudah login (dari Supabase) */
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  tier: Exclude<UserTier, 'guest'>;  // login user tidak bisa guest
+  quotaUsedToday: number;
+  quotaResetDate: string; // ISO date string
+  subscriptionExpiry: string | null; // ISO timestamp atau null
+}
+
+/** Konfigurasi per tier */
+export interface TierConfig {
+  tier: UserTier;
+  label: string;
+  dailyQuota: number | null; // null = unlimited
+  maxFileSizeMB: number;
+  maxBatchFiles: number;
+  hasAds: boolean;
+  hasWatermark: boolean;
+  price: string;
+  priceNote: string;
+}
+
+/** Varian tampilan PaywallModal */
+export type PaywallVariant = 'quota_exhausted' | 'file_too_large' | 'pro_feature';
 
 // Deklarasi konstanta yang diinjeksi Vite saat build di Vercel
 declare global {
