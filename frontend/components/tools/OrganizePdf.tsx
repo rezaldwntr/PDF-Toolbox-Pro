@@ -4,6 +4,7 @@ import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, CheckCircleIcon, TrashIcon, RotateIcon, AddIcon, DuplicateIcon } from '../icons';
 import { PDFDocument, degrees } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
+import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 
 declare const pdfjsLib: any;
@@ -32,11 +33,12 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
+  const { quota, consumeQuota, setShowLimitModal } = useQuota();
 
-  // Refs for drag and drop reordering
+  // State for smooth drag and drop reordering
   const draggedItemIndex = useRef<number | null>(null);
-  const dragOverItemIndex = useRef<number | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const resetState = useCallback(() => {
     setFilesWithBuffer([]);
@@ -163,64 +165,49 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setPages(newPages);
   };
 
-  // --- Drag and Drop Handlers ---
+  // --- Smooth Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
-    setDragging(true);
-
-    const target = e.currentTarget;
-    const ghost = target.cloneNode(true) as HTMLElement;
-
-    ghost.style.width = `${target.offsetWidth}px`;
-    ghost.style.height = `${target.offsetHeight}px`;
-
-    ghost.classList.add('drag-ghost');
-    document.body.appendChild(ghost);
-
-    e.dataTransfer.setDragImage(ghost, target.offsetWidth / 2, target.offsetHeight / 2);
-
-    setTimeout(() => {
-        if (ghost.parentNode) {
-            ghost.parentNode.removeChild(ghost);
-        }
-    }, 0);
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-     e.preventDefault();
-     dragOverItemIndex.current = index;
-     const draggedOverEl = e.currentTarget;
-     draggedOverEl.classList.add('drag-over-indicator');
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-      e.currentTarget.classList.remove('drag-over-indicator');
-  }
-
-  const handleDrop = () => {
-    if (draggedItemIndex.current === null || dragOverItemIndex.current === null || draggedItemIndex.current === dragOverItemIndex.current) {
-        setDragging(false);
-        draggedItemIndex.current = null;
-        dragOverItemIndex.current = null;
-        return;
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
     }
-    
-    document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
+  };
 
-    const newPages = [...pages];
-    const draggedItem = newPages.splice(draggedItemIndex.current, 1)[0];
-    newPages.splice(dragOverItemIndex.current, 0, draggedItem);
-    
-    setPages(newPages);
-    
+  const handleDrop = (index: number) => {
+    if (draggedItemIndex.current !== null && draggedItemIndex.current !== index) {
+      const newPages = [...pages];
+      const [movedPage] = newPages.splice(draggedItemIndex.current, 1);
+      newPages.splice(index, 0, movedPage);
+      setPages(newPages);
+    }
     draggedItemIndex.current = null;
-    dragOverItemIndex.current = null;
-    setDragging(false);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    draggedItemIndex.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   // Menyimpan hasil akhir PDF
   const handleSave = async () => {
     if (filesWithBuffer.length === 0 || pages.length === 0) return;
+
+    if (quota <= 0) {
+      setShowLimitModal(true);
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingMessage('Menyusun PDF...');
 
@@ -247,6 +234,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const finalPdfBytes = await newPdfDoc.save();
         const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
         setOutputUrl(URL.createObjectURL(blob));
+        consumeQuota();
         addToast('PDF berhasil diatur!', 'success');
 
     } catch (error) {
@@ -360,31 +348,35 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               transition: 'transform 0.3s ease-in-out',
             };
             
+            const isBeingDragged = draggedIndex === index;
+            const isDragOver = dragOverIndex === index && draggedIndex !== index;
+
             return (
               <div 
                 key={page.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
-                onDragEnter={(e) => handleDragEnter(e, index)}
-                onDragLeave={handleDragLeave}
-                onDragEnd={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                className={`relative group bg-gray-50 dark:bg-slate-800 p-2 rounded-lg flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-gray-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md ${dragging && draggedItemIndex.current === index ? 'dragging-item' : ''}`}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={() => handleDrop(index)}
+                onDragEnd={handleDragEnd}
+                className={`drag-card relative group bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 shadow-sm hover:shadow-md select-none ${
+                  isBeingDragged ? 'dragging' : ''
+                } ${isDragOver ? 'drag-over' : ''}`}
               >
-                <div className="absolute top-0 right-0 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm rounded-bl-lg rounded-tr-md hidden group-hover:flex border-l border-b border-gray-200 dark:border-slate-600 shadow-sm">
-                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
-                  <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
-                  <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
+                <div className="absolute top-1 right-1 z-10 p-1 flex-col items-center justify-center gap-1.5 bg-white/95 dark:bg-slate-700/95 backdrop-blur-sm rounded-lg hidden group-hover:flex border border-slate-200 dark:border-slate-600 shadow-md">
+                  <button title="Duplikat Halaman" onClick={() => handleDuplicatePage(index)} className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"><DuplicateIcon className="w-4 h-4"/></button>
+                  <button title="Putar Kanan" onClick={() => handleRotatePage(page.id)} className="p-1 text-slate-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 rounded-full transition-colors"><RotateIcon className="w-4 h-4"/></button>
+                  <button title="Hapus Halaman" onClick={() => handleDeletePage(page.id)} className="p-1 text-slate-500 hover:text-red-500 dark:text-slate-300 dark:hover:text-red-400 rounded-full transition-colors"><TrashIcon className="w-4 h-4"/></button>
                 </div>
                 <div style={imageContainerStyle}>
                     <img 
                         src={page.previewUrl} 
                         alt={`Page ${page.originalPageIndex + 1}`} 
-                        className="rounded-md shadow-sm border border-gray-200 dark:border-slate-600"
+                        className="rounded-md shadow-xs border border-slate-200 dark:border-slate-600 pointer-events-none"
                         style={imageStyle}
                     />
                 </div>
-                <span className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 font-bold rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-sm">{index + 1}</span>
+                <span className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-xs">{index + 1}</span>
               </div>
             );
           })}

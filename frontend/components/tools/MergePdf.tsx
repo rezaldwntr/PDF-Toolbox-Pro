@@ -28,8 +28,8 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const { addToast } = useToast();
 
   const draggedItemIndex = useRef<number | null>(null);
-  const dragOverItemIndex = useRef<number | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleFileChange = async (selectedFiles: FileList | null) => {
     if (selectedFiles) {
@@ -53,32 +53,35 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     draggedItemIndex.current = index;
-    setDragging(true);
+    setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-     e.preventDefault();
-     dragOverItemIndex.current = index;
-     e.currentTarget.classList.add('drag-over-indicator');
-  };
-  
-  const handleDragLeaveList = (e: React.DragEvent<HTMLDivElement>) => {
-      e.currentTarget.classList.remove('drag-over-indicator');
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
   };
 
-  const handleDropOnList = () => {
-    setDragging(false);
-    if (draggedItemIndex.current === null || dragOverItemIndex.current === null) return;
-    document.querySelectorAll('.drag-over-indicator').forEach(el => el.classList.remove('drag-over-indicator'));
-    
-    const newFiles = [...files];
-    const draggedFile = newFiles.splice(draggedItemIndex.current, 1)[0];
-    newFiles.splice(dragOverItemIndex.current, 0, draggedFile);
-    setFiles(newFiles);
-    setDragging(false);
+  const handleDrop = (index: number) => {
+    if (draggedItemIndex.current !== null && draggedItemIndex.current !== index) {
+      const newFiles = [...files];
+      const [draggedFile] = newFiles.splice(draggedItemIndex.current, 1);
+      newFiles.splice(index, 0, draggedFile);
+      setFiles(newFiles);
+    }
     draggedItemIndex.current = null;
-    dragOverItemIndex.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    draggedItemIndex.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   const handleMerge = async () => {
@@ -196,13 +199,30 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
                 <button onClick={() => fileInputRef.current?.click()} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-slate-600 font-bold py-2 px-4 rounded-lg">Tambah File</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {files.map(({ id, file, buffer }, index) => (
-                <div key={id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragEnter={(e) => handleDragEnter(e, index)} onDragLeave={handleDragLeaveList} onDragEnd={handleDropOnList} onDragOver={(e) => e.preventDefault()} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm relative group cursor-move">
-                    <button onClick={() => removeFile(index)} className="absolute top-1 right-1 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm"><TrashIcon className="w-4 h-4"/></button>
-                    <PdfPreview buffer={buffer} />
-                    <p className="text-[10px] truncate mt-1 text-center font-bold text-gray-600 dark:text-gray-300">{file.name}</p>
-                </div>
-                ))}
+                {files.map(({ id, file, buffer }, index) => {
+                  const isBeingDragged = draggedIndex === index;
+                  const isDragOver = dragOverIndex === index && draggedIndex !== index;
+
+                  return (
+                    <div 
+                      key={id} 
+                      draggable 
+                      onDragStart={(e) => handleDragStart(e, index)} 
+                      onDragOver={(e) => handleDragOver(e, index)} 
+                      onDrop={() => handleDrop(index)} 
+                      onDragEnd={handleDragEnd} 
+                      className={`drag-card bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative group cursor-grab active:cursor-grabbing hover:border-blue-500 dark:hover:border-blue-500 select-none ${
+                        isBeingDragged ? 'dragging' : ''
+                      } ${isDragOver ? 'drag-over' : ''}`}
+                    >
+                      <button onClick={() => removeFile(index)} className="absolute top-1.5 right-1.5 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm hover:bg-rose-50 dark:hover:bg-rose-950/40">
+                        <TrashIcon className="w-4 h-4"/>
+                      </button>
+                      <PdfPreview buffer={buffer} />
+                      <p className="text-[11px] truncate mt-1.5 text-center font-bold text-slate-700 dark:text-slate-300 px-1">{file.name}</p>
+                    </div>
+                  );
+                })}
             </div>
 
             <div className="mt-8">

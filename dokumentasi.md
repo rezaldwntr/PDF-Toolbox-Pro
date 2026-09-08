@@ -109,6 +109,9 @@ PDF Toolbox Pro/
    - Objek memori DOM di frontend yang dibuat melalui `URL.createObjectURL()` selalu dibersihkan dengan `URL.revokeObjectURL()` saat tidak lagi digunakan.
 5. **Pratinjau Visual Dokumen Seragam (*Universal File Content Preview*):**
    - Seluruh alat pengerjaan (Konversi Word/Excel/PPT/Gambar, Kompres PDF, Gabungkan PDF, Pisahkan PDF, Atur Halaman, Tambah Teks, dan Tanda Tangan) wajib menampilkan kartu pratinjau visual tajam dari lembar dokumen asli yang diunggah menggunakan `PdfPreview.tsx` (didukung penyesuaian Hi-DPI Retina dan rendering canvas PDF.js) sebelum proses konversi dieksekusi.
+6. **Sistem Animasi Drag-and-Drop Terstandar (*Universal Drag & Drop Feedback*):**
+   - Seluruh alat yang mendukung pengurutan posisi halaman atau berkas (**Atur PDF** dan **Gabungkan PDF**) menerapkan animasi terstandar berbasis CSS *hardware-accelerated* (`.drag-card`, `.dragging`, `.drag-over`).
+   - Kartu yang sedang ditarik (*dragged*) beralih menjadi slot transparan bergaris putus-putus (`opacity: 0.35`, `scale: 0.92`, `border: dashed`), sedangkan posisi target (*drag-over*) memberikan umpan balik pengangkatan visual yang mulus (`scale: 1.06`, `translateY: -4px`, ring biru aksen, dan bayangan dinamis) tanpa kedipan (*zero flicker*).
 
 ---
 
