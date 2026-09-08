@@ -102,7 +102,9 @@ PDF Toolbox Pro/
      - Tablet (`md` 768px): 2 kolom kartu alat.
      - Desktop (`lg` 1024px+): 4 kolom simetris.
 4. **Keamanan & Manajemen Memori (Zero Disk I/O In-Memory Streaming):**
-   - Operasi manipulasi dokumen PDF seperti **Gabung PDF** (`/tools/merge-pdf`) dan **Pisahkan PDF** (`/tools/split-pdf`) mengadopsi arsitektur standar performa *iLovePDF / Smallpdf* dengan memproses stream biner murni di RAM (Zero Disk I/O). Pemotongan ke ZIP (Mode Pecah X Halaman & Pisah Semua Halaman) ditulis langsung ke memori menggunakan `io.BytesIO()` dan `ZipFile(..., compression=ZIP_DEFLATED)` tanpa overhead disk I/O, menghasilkan lonjakan kecepatan proses hingga 80-95%.
+   - Operasi manipulasi dokumen PDF seperti **Gabung PDF** (`/tools/merge-pdf`), **Pisahkan PDF** (`/tools/split-pdf`), dan **Kompres PDF** (`/tools/compress-pdf`) mengadopsi arsitektur standar performa *iLovePDF / Smallpdf* dengan memproses stream biner murni di RAM (Zero Disk I/O).
+   - Pada **Kompres PDF**, sistem menyediakan 4 mode (*Kompres Tinggi, Rekomendasi, Kompres Rendah, dan Ukuran Target*) dengan optimasi gambar tertanam (*embedded XObject downsampling*) via Pillow, pembersihan struktur *dead-weight* (`doc.scrub`), dan kompresi objek PDF 1.5+ (`use_objstms=True`, `deflate=True`, `garbage=4`) tanpa merusak ketajaman lapisan teks vektor asli.
+   - Pada **Pisahkan PDF**, pemotongan ke ZIP ditulis langsung ke memori menggunakan `io.BytesIO()` dan `ZipFile(..., compression=ZIP_DEFLATED)` tanpa overhead disk I/O, menghasilkan lonjakan kecepatan proses hingga 80-95%.
    - Untuk operasi konversi yang memerlukan berkas perantara di sistem berkas (seperti Office), direktori sementara dibersihkan secara otomatis melalui `BackgroundTasks` FastAPI (`cleanup_folder`).
    - Objek memori DOM di frontend yang dibuat melalui `URL.createObjectURL()` selalu dibersihkan dengan `URL.revokeObjectURL()` saat tidak lagi digunakan.
 5. **Pratinjau Visual Dokumen Seragam (*Universal File Content Preview*):**

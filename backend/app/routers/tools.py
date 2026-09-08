@@ -289,58 +289,235 @@ def split_pdf(
         if src_doc and not src_doc.is_closed:
             src_doc.close()
 
-# === 7. KOMPRES PDF (COMPRESS) ===
+# === 7. KOMPRES PDF (HIGH-SPEED IN-MEMORY COMPRESS - STANDAR ILOVEPDF) ===
 class CompressionType(str, Enum):
-    RECOMMENDED = "recommended"
-    TARGET = "target"
+    EXTREME = "extreme"          # Kompresi Tinggi / Ekstrem (Ukuran Terkecil)
+    HIGH = "high"                # Alias untuk Extreme
+    RECOMMENDED = "recommended"  # Rekomendasi (Keseimbangan Optimal)
+    LOW = "low"                  # Kompresi Rendah (Kualitas Gambar Tinggi)
+    TARGET = "target"            # Ukuran Target (KB Tertentu)
+
+
+def optimize_embedded_images(doc, max_dimension: int, quality: int):
+    """
+    Mengompres dan mengecilkan gambar yang tertanam (XObject) di dalam PDF secara in-memory.
+    Menjaga lapisan teks, font, dan elemen vektor tetap 100% utuh dan tajam.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return
+
+    processed_xrefs = set()
+    for page in doc:
+        try:
+            image_list = page.get_images(full=True)
+        except Exception:
+            continue
+
+        for img_info in image_list:
+            xref = img_info[0]
+            if xref in processed_xrefs:
+                continue
+            processed_xrefs.add(xref)
+
+            try:
+                base_image = doc.extract_image(xref)
+                if not base_image:
+                    continue
+
+                orig_bytes = base_image.get("image")
+                if not orig_bytes or len(orig_bytes) < 15 * 1024:  # Lewati ikon / gambar kecil (<15KB)
+                    continue
+
+                pil_img = Image.open(io.BytesIO(orig_bytes))
+                w, h = pil_img.size
+
+                needs_resize = max(w, h) > max_dimension
+                if needs_resize:
+                    scale = max_dimension / max(w, h)
+                    new_w = max(1, int(w * scale))
+                    new_h = max(1, int(h * scale))
+                    pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+                out_buf = io.BytesIO()
+                # Tangani transparansi
+                if pil_img.mode in ("RGBA", "LA") or (pil_img.mode == "P" and "transparency" in pil_img.info):
+                    pil_img.save(out_buf, format="PNG", optimize=True)
+                else:
+                    if pil_img.mode != "RGB":
+                        pil_img = pil_img.convert("RGB")
+                    pil_img.save(out_buf, format="JPEG", quality=quality, optimize=True)
+
+                new_bytes = out_buf.getvalue()
+
+                # Hanya ganti jika ukuran stream baru setidaknya 8% lebih kecil
+                if len(new_bytes) < len(orig_bytes) * 0.92:
+                    try:
+                        page.replace_image(xref, stream=new_bytes)
+                    except Exception:
+                        pass
+            except Exception as err:
+                logging.debug(f"Lewati optimasi gambar xref {xref}: {err}")
+
 
 @router.post("/compress-pdf")
 def compress_pdf(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     compression_type: CompressionType = Form(CompressionType.RECOMMENDED),
     target_size_kb: Optional[int] = Form(None)
 ):
-    validate_file(file)
-    tmp_dir = tempfile.mkdtemp()
-    tmp_pdf_path = os.path.join(tmp_dir, file.filename)
-    comp_filename = f"compressed_{file.filename}"
-    tmp_comp_path = os.path.join(tmp_dir, comp_filename)
+    """
+    Mengompres berkas PDF dengan standar performa iLovePDF / Smallpdf:
+    - Zero Disk I/O (Streaming langsung di RAM untuk kecepatan ultra-tinggi)
+    - 4 Mode: Kompres Tinggi (Extreme), Rekomendasi (Recommended), Kompres Rendah (Low), Ukuran Target (Target)
+    - Mempertahankan ketajaman teks vektor 100% (teks tetap dapat diseleksi & dicari)
+    - Re-encoding gambar cerdas dengan Pillow & struktur objek terkompresi PDF 1.5+
+    - Menjamin ukuran hasil tidak pernah lebih besar dari berkas aslinya
+    """
+    filename = file.filename or "dokumen.pdf"
 
+    # 1. Validasi format
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Berkas '{filename}' bukan format PDF yang valid."
+        )
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB)."
+        )
+
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    comp_filename = f"compressed_{safe_base}.pdf"
+
+    doc = None
     try:
-        with open(tmp_pdf_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' rusak atau tidak dapat diproses."
+            )
 
-        doc = fitz.open(tmp_pdf_path)
+        # 3. Deteksi proteksi kata sandi
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' terproteksi kata sandi. Harap buka kunci terlebih dahulu."
+            )
 
-        if compression_type == CompressionType.RECOMMENDED:
-            doc.save(tmp_comp_path, garbage=4, deflate=True, clean=True)
-        
+        if len(doc) == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF kosong.")
+
+        # 4. Bersihkan metadata XML dan thumbnail usang (Lossless)
+        try:
+            doc.scrub(
+                metadata=False,
+                xml_metadata=True,
+                attached_files=True,
+                thumbnails=True,
+                reset_fields=False
+            )
+        except Exception:
+            pass
+
+        # 5. Eksekusi kompresi sesuai mode
+        # Mode 1: Kompres Rendah (Low) - Kualitas visual maksimal, kompresi ringan
+        if compression_type == CompressionType.LOW:
+            optimize_embedded_images(doc, max_dimension=2200, quality=85)
+            try:
+                pdf_bytes = doc.tobytes(garbage=3, deflate=True, clean=True)
+            except Exception:
+                pdf_bytes = doc.tobytes(garbage=3, deflate=True)
+
+        # Mode 2: Kompres Tinggi (Extreme / High) - Pengecilan maksimal
+        elif compression_type in (CompressionType.EXTREME, CompressionType.HIGH):
+            optimize_embedded_images(doc, max_dimension=1024, quality=50)
+            try:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True, use_objstms=True)
+            except Exception:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
+
+        # Mode 4: Ukuran Target (Target Size in KB)
         elif compression_type == CompressionType.TARGET and target_size_kb:
             target_bytes = target_size_kb * 1024
-            doc.save(tmp_comp_path, garbage=4, deflate=True)
-            current_size = os.path.getsize(tmp_comp_path)
-            
-            if current_size > target_bytes:
-                for dpi_level in [96, 72, 50]:
-                    if current_size <= target_bytes: break
-                    new_doc = fitz.open()
-                    for page in doc:
-                        pix = page.get_pixmap(dpi=dpi_level)
-                        img_bytes = pix.pil_tobytes(format="JPEG", quality=70, optimize=True)
-                        img_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
-                        img_page.insert_image(page.rect, stream=img_bytes)
-                    new_doc.save(tmp_comp_path, garbage=4, deflate=True)
-                    new_doc.close()
-                    current_size = os.path.getsize(tmp_comp_path)
+
+            # Percobaan tahap 1: Pengaturan Rekomendasi
+            optimize_embedded_images(doc, max_dimension=1600, quality=72)
+            try:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True, use_objstms=True)
+            except Exception:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
+
+            # Percobaan tahap 2: Jika masih di atas target, terapkan kompresi lebih ketat
+            if len(pdf_bytes) > target_bytes:
+                optimize_embedded_images(doc, max_dimension=1024, quality=48)
+                try:
+                    pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True, use_objstms=True)
+                except Exception:
+                    pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
+
+            # Percobaan tahap 3: Jika masih di atas target dan dokumen adalah scan murni (tanpa teks vektor)
+            if len(pdf_bytes) > target_bytes:
+                is_scanned = True
+                for page in doc:
+                    if len(page.get_text().strip()) > 30:
+                        is_scanned = False
+                        break
+
+                # Jika murni dokumen scan/gambar, downscale DPI halaman dengan aman
+                if is_scanned:
+                    for dpi_level in [96, 72, 50]:
+                        if len(pdf_bytes) <= target_bytes:
+                            break
+                        scan_doc = fitz.open()
+                        for page in doc:
+                            pix = page.get_pixmap(dpi=dpi_level)
+                            img_bytes = pix.pil_tobytes(format="JPEG", quality=60, optimize=True)
+                            new_page = scan_doc.new_page(width=page.rect.width, height=page.rect.height)
+                            new_page.insert_image(page.rect, stream=img_bytes)
+                        scan_bytes = scan_doc.tobytes(garbage=4, deflate=True)
+                        scan_doc.close()
+                        if len(scan_bytes) < len(pdf_bytes):
+                            pdf_bytes = scan_bytes
+
+        # Mode 3 (Default): Rekomendasi (Recommended) - Keseimbangan optimal (Standar iLovePDF)
         else:
-            doc.save(tmp_comp_path, garbage=4, deflate=True)
+            optimize_embedded_images(doc, max_dimension=1500, quality=72)
+            try:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True, use_objstms=True)
+            except Exception:
+                pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
 
-        doc.close()
-        background_tasks.add_task(cleanup_folder, tmp_dir)
-        return FileResponse(path=tmp_comp_path, filename=comp_filename, media_type='application/pdf')
+        # Garansi Standar Industri: Berkas hasil kompresi tidak boleh lebih besar dari berkas aslinya
+        if len(pdf_bytes) >= len(content):
+            try:
+                clean_bytes = doc.tobytes(garbage=4, deflate=True)
+                pdf_bytes = clean_bytes if len(clean_bytes) < len(content) else content
+            except Exception:
+                pdf_bytes = content
 
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{comp_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
-        cleanup_folder(tmp_dir)
         logging.error(f"ERROR COMPRESS: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Gagal kompres PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
