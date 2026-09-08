@@ -88,13 +88,13 @@ function App() {
 
       // Informational Pages
       case View.ABOUT:
-        return <AboutUs onBack={handleBackToHome} />;
+        return <AboutUs onBack={handleBackToHome} onSelectView={setCurrentView} />;
       case View.BLOG:
         return <Blog onBack={handleBackToHome} />;
       case View.CONTACT:
         return <Contact onBack={handleBackToHome} />;
       case View.FAQ:
-        return <Faq onBack={handleBackToHome} />;
+        return <Faq onBack={handleBackToHome} onSelectView={setCurrentView} />;
       case View.PRIVACY:
         return <PrivacyPolicy onBack={handleBackToHome} />;
 
