@@ -123,6 +123,11 @@ const Footer: React.FC<FooterProps> = ({ onSelectView }) => {
                 </button>
               </li>
               <li>
+                <button onClick={() => onSelectView(View.TERMS)} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Syarat & Ketentuan
+                </button>
+              </li>
+              <li>
                 <button onClick={() => onSelectView(View.FAQ)} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   FAQ & Tanya Jawab
                 </button>
@@ -144,6 +149,10 @@ const Footer: React.FC<FooterProps> = ({ onSelectView }) => {
           <div className="flex items-center gap-4">
             <button onClick={() => onSelectView(View.PRIVACY)} className="hover:underline hover:text-blue-600 dark:hover:text-blue-400">
               Privasi & Keamanan
+            </button>
+            <span>•</span>
+            <button onClick={() => onSelectView(View.TERMS)} className="hover:underline hover:text-blue-600 dark:hover:text-blue-400">
+              Syarat & Ketentuan
             </button>
             <span>•</span>
             <button onClick={() => onSelectView(View.CONTACT)} className="hover:underline hover:text-blue-600 dark:hover:text-blue-400">

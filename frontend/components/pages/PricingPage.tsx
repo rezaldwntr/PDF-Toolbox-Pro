@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { View } from "../../types";
 import { useQuota } from "../../contexts/QuotaContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -234,8 +234,27 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
       </div>
 
       {/* FAQ Bottom */}
-      <div className="text-center text-sm text-slate-500 dark:text-slate-400">
+      <div className="text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
         <p>Semua pembayaran aman via QRIS / GoPay / OVO / Dana &nbsp;·&nbsp; Tidak ada auto-renew &nbsp;·&nbsp; Data berkas dihapus otomatis</p>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          Dengan membeli, Anda menyetujui{' '}
+          <button
+            type="button"
+            onClick={() => onSelectView(View.TERMS)}
+            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+          >
+            Syarat & Ketentuan
+          </button>{' '}
+          serta{' '}
+          <button
+            type="button"
+            onClick={() => onSelectView(View.PRIVACY)}
+            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+          >
+            Kebijakan Privasi
+          </button>
+          .
+        </p>
       </div>
     </div>
   );

@@ -1,9 +1,14 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, QrCode, Timer, CheckCircle2, Shield, Loader2, ExternalLink, Sparkles, AlertCircle } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { BACKEND_URL } from '../../config';
+import { View } from '../../types';
+
+interface CheckoutModalProps {
+  onSelectView?: (view: View) => void;
+}
 
 const PLAN_DETAILS: Record<string, { name: string; price: string; rawPrice: number; priceNote: string; desc: string; features: string[] }> = {
   flash: {
@@ -39,7 +44,7 @@ const PAYMENT_METHODS = [
   { id: 'va', label: 'Virtual Account', emoji: '🏦', desc: 'BCA, Mandiri, BRI, BNI' },
 ];
 
-const CheckoutModal: React.FC = () => {
+const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const { showCheckoutModal, checkoutPlan, closeCheckout } = useQuota();
   const { user, isGuest, signInWithGoogle, refreshUser } = useAuth();
 
@@ -451,10 +456,45 @@ const CheckoutModal: React.FC = () => {
             </button>
           )}
 
-          {/* Trust Footer */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-            <Shield size={12} className="text-emerald-500" />
-            <span>Didukung Midtrans Payment Gateway · Lisensi Resmi BI</span>
+          {/* Trust Footer & Terms Agreement */}
+          <div className="space-y-1.5 text-center text-[11px] text-slate-400 dark:text-slate-500 pt-1">
+            <p>
+              Dengan membayar, Anda menyetujui{' '}
+              {onSelectView ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeCheckout();
+                    onSelectView(View.TERMS);
+                  }}
+                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+                >
+                  Syarat & Ketentuan
+                </button>
+              ) : (
+                <span className="underline">Syarat & Ketentuan</span>
+              )}{' '}
+              serta{' '}
+              {onSelectView ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeCheckout();
+                    onSelectView(View.PRIVACY);
+                  }}
+                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+                >
+                  Kebijakan Privasi
+                </button>
+              ) : (
+                <span className="underline">Kebijakan Privasi</span>
+              )}
+              .
+            </p>
+            <div className="flex items-center justify-center gap-1.5">
+              <Shield size={12} className="text-emerald-500" />
+              <span>Didukung Midtrans Payment Gateway · Lisensi Resmi BI</span>
+            </div>
           </div>
         </div>
       </div>

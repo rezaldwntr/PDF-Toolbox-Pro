@@ -19,6 +19,7 @@ export enum View {
   BLOG,
   FAQ,
   PRIVACY,
+  TERMS,
   ABOUT,
   CONTACT,
 }

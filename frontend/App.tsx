@@ -24,6 +24,7 @@ import Blog from './components/pages/Blog';
 import Contact from './components/pages/Contact';
 import Faq from './components/pages/Faq';
 import PrivacyPolicy from './components/pages/PrivacyPolicy';
+import TermsOfService from './components/pages/TermsOfService';
 
 // Modals
 import PaywallModal from './components/modals/PaywallModal';
@@ -97,6 +98,8 @@ function App() {
         return <Faq onBack={handleBackToHome} onSelectView={setCurrentView} />;
       case View.PRIVACY:
         return <PrivacyPolicy onBack={handleBackToHome} />;
+      case View.TERMS:
+        return <TermsOfService onBack={handleBackToHome} onSelectView={setCurrentView} />;
 
       default:
         return <LandingPage onSelectView={setCurrentView} />;
@@ -122,8 +125,8 @@ function App() {
 
               {/* Global Modals (rendered at root level for z-index isolation) */}
               <PaywallModal />
-              <PricingModal />
-              <CheckoutModal />
+              <PricingModal onSelectView={setCurrentView} />
+              <CheckoutModal onSelectView={setCurrentView} />
 
               {/* Vercel Telemetry */}
               <Analytics />

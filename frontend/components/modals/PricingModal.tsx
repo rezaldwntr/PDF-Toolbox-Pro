@@ -1,7 +1,12 @@
-﻿import React from 'react';
+import React from 'react';
 import { X, Check, Zap, Star, Crown } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { View } from '../../types';
+
+interface PricingModalProps {
+  onSelectView?: (view: View) => void;
+}
 
 const PLANS = [
   {
@@ -75,7 +80,7 @@ const PLANS = [
   },
 ];
 
-const PricingModal: React.FC = () => {
+const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
   const { showPricingModal, setShowPricingModal, openCheckout } = useQuota();
   const { isGuest, signInWithGoogle, userTier } = useAuth();
 
@@ -159,9 +164,42 @@ const PricingModal: React.FC = () => {
         </div>
 
         {/* Footer comparison note */}
-        <div className="px-6 pb-6 text-center">
+        <div className="px-6 pb-6 text-center space-y-2">
           <p className="text-xs text-slate-400 dark:text-slate-500">
             Semua pembayaran aman via QRIS / GoPay / OVO / Dana · Data berkas dihapus otomatis · Tidak ada auto-renew tanpa konfirmasi
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            Dengan melakukan pembelian, Anda menyetujui{' '}
+            {onSelectView ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPricingModal(false);
+                  onSelectView(View.TERMS);
+                }}
+                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+              >
+                Syarat & Ketentuan
+              </button>
+            ) : (
+              <span className="underline">Syarat & Ketentuan</span>
+            )}{' '}
+            serta{' '}
+            {onSelectView ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPricingModal(false);
+                  onSelectView(View.PRIVACY);
+                }}
+                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium"
+              >
+                Kebijakan Privasi
+              </button>
+            ) : (
+              <span className="underline">Kebijakan Privasi</span>
+            )}
+            .
           </p>
         </div>
       </div>
