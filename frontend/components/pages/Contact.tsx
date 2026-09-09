@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { useAuth } from '../../contexts/AuthContext';
-import { Mail, Clock, MapPin, Send, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
+import { Mail, Clock, MapPin, Send, CheckCircle2, AlertCircle, MessageSquare, User, EyeOff } from 'lucide-react';
 
 interface ContactProps {
   onBack: () => void;
@@ -9,6 +9,7 @@ interface ContactProps {
 
 const Contact: React.FC<ContactProps> = ({ onBack }) => {
   const { user } = useAuth();
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [formData, setFormData] = useState({ 
     name: '', 
     email: '', 
@@ -22,11 +23,20 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
     if (user) {
       setFormData(prev => ({
         ...prev,
-        name: user.fullName || prev.name,
-        email: user.email || prev.email,
+        name: prev.name || user.fullName || '',
+        email: prev.email || user.email || '',
       }));
     }
   }, [user]);
+
+  const handleToggleAnonymous = (checked: boolean) => {
+    setIsAnonymous(checked);
+    if (checked) {
+      setFormData(prev => ({ ...prev, name: 'Anonim' }));
+    } else {
+      setFormData(prev => ({ ...prev, name: user?.fullName || '' }));
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -36,13 +46,18 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormStatus('submitting');
+    const senderName = isAnonymous ? 'Anonim' : (formData.name.trim() || 'Pengguna PDF Toolbox');
     try {
       const response = await fetch('https://formsubmit.co/ajax/rezaldewantara@gmail.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          _subject: `[PDF Toolbox Pro] Pesan Baru: ${formData.category} dari ${formData.name}`,
+          name: senderName,
+          email: formData.email,
+          category: formData.category,
+          message: formData.message,
+          _replyto: formData.email,
+          _subject: `[PDF Toolbox Pro] Tiket Dukungan: ${formData.category} (${senderName})`,
           _template: "table",
           _captcha: "false"
         }),
@@ -134,9 +149,77 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Input Tersembunyi (Hidden) untuk Nama dan Email agar data tetap terkirim tanpa tampil di layar */}
-            <input type="hidden" name="name" value={formData.name || 'Pengguna PDF Toolbox'} />
-            <input type="hidden" name="email" value={formData.email || 'pengguna@pdftoolbox.pro'} />
+            {/* Input Nama & Email Pengirim */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Nama Pengirim */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="name" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Nama Pengirim {!isAnonymous && <span className="text-rose-500">*</span>}
+                  </label>
+                  {/* Pilihan Kirim sebagai Anonim */}
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={isAnonymous}
+                      onChange={(e) => handleToggleAnonymous(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <span>Kirim sebagai Anon</span>
+                  </label>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    {isAnonymous ? <EyeOff size={15} /> : <User size={15} />}
+                  </div>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={isAnonymous ? 'Anonim' : formData.name}
+                    onChange={handleChange}
+                    disabled={isAnonymous}
+                    required={!isAnonymous}
+                    placeholder={isAnonymous ? 'Anonim' : 'Nama lengkap Anda'}
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-xs sm:text-sm outline-none transition-all ${
+                      isAnonymous
+                        ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 italic cursor-not-allowed'
+                        : 'bg-slate-50 dark:bg-[#1E222B] border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-slate-200'
+                    }`}
+                  />
+                </div>
+                {isAnonymous && (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                    Identitas nama Anda akan dikirimkan sebagai "Anonim".
+                  </p>
+                )}
+              </div>
+
+              {/* Email Pengirim */}
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Email Anda <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Mail size={15} />
+                  </div>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="nama@email.com"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  Admin kami akan membalas langsung ke alamat email ini.
+                </p>
+              </div>
+            </div>
 
             <div className="space-y-1.5">
               <label htmlFor="category" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
