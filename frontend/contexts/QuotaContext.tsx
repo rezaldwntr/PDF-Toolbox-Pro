@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { EnvironmentMode, UserTier, PaywallVariant } from '../types';
 import { useAuth, TIER_CONFIGS } from './AuthContext';
 import { supabase } from '../lib/supabase';
@@ -39,9 +39,20 @@ interface QuotaContextType {
 const QuotaContext = createContext<QuotaContextType | undefined>(undefined);
 
 const GUEST_MAX_QUOTA = 3;
- const STORAGE_KEY = 'pdf_toolbox_guest_quota';
+const STORAGE_KEY = 'pdf_toolbox_guest_quota';
 const STORAGE_DATE_KEY = 'pdf_toolbox_quota_date';
 const STORAGE_ENV_KEY = 'pdf_toolbox_env_mode';
+
+export const isProductionDomain = (hostname: string): boolean => {
+  if (!hostname) return false;
+  const h = hostname.toLowerCase();
+  return (
+    h === 'pdftoolbox.app' ||
+    h.endsWith('.pdftoolbox.app') ||
+    h === 'pdf-toolbox-pro.vercel.app' ||
+    (typeof __VERCEL_ENV__ !== 'undefined' && __VERCEL_ENV__ === 'production' && !h.includes('-git-') && !h.includes('preview'))
+  );
+};
 
 const detectInitialEnvironment = (): { mode: EnvironmentMode; branch: string } => {
   let detectedMode: EnvironmentMode = 'production';
@@ -49,15 +60,24 @@ const detectInitialEnvironment = (): { mode: EnvironmentMode; branch: string } =
   try {
     if (typeof __GIT_BRANCH__ !== 'undefined' && __GIT_BRANCH__) branch = __GIT_BRANCH__;
     if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+
+      // JIKA DI DOMAIN PRODUKSI (pdftoolbox.app, dll.), KUNCI MUTLAK KE PRODUCTION!
+      if (isProductionDomain(hostname)) {
+        try { localStorage.removeItem(STORAGE_ENV_KEY); } catch (e) { /* ignore */ }
+        return { mode: 'production', branch: '' };
+      }
+
+      // Khusus lingkungan non-produksi (localhost / Vercel preview URLs):
       const searchParams = new URLSearchParams(window.location.search);
       const urlEnv = searchParams.get('env') || searchParams.get('mode');
       const urlPreview = searchParams.get('preview');
       if (urlEnv === 'preview' || urlPreview === 'true' || urlPreview === '1') {
-        localStorage.setItem(STORAGE_ENV_KEY, 'preview');
+        try { localStorage.setItem(STORAGE_ENV_KEY, 'preview'); } catch (e) {}
         return { mode: 'preview', branch };
       }
       if (urlEnv === 'production' || urlPreview === 'false' || urlPreview === '0') {
-        localStorage.setItem(STORAGE_ENV_KEY, 'production');
+        try { localStorage.setItem(STORAGE_ENV_KEY, 'production'); } catch (e) {}
         return { mode: 'production', branch };
       }
       const savedEnv = localStorage.getItem(STORAGE_ENV_KEY);
@@ -66,7 +86,7 @@ const detectInitialEnvironment = (): { mode: EnvironmentMode; branch: string } =
         if (__VERCEL_ENV__ === 'preview' || __VERCEL_ENV__ === 'development') return { mode: 'preview', branch };
         if (__VERCEL_ENV__ === 'production') return { mode: 'production', branch };
       }
-      const hostname = window.location.hostname;
+
       const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
       const isVercelPreview = hostname.includes('-git-') || (hostname.includes('.vercel.app') && !hostname.startsWith('pdf-toolbox-pro.vercel.app'));
       if (isLocal || isVercelPreview) detectedMode = 'preview';
@@ -123,6 +143,9 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [user]);
 
   const setMode = (newMode: EnvironmentMode) => {
+    if (typeof window !== 'undefined' && isProductionDomain(window.location.hostname)) {
+      return; // Tidak bisa beralih ke preview di domain produksi
+    }
     setModeState(newMode);
     try { localStorage.setItem(STORAGE_ENV_KEY, newMode); } catch (e) { /* ignore */ }
   };

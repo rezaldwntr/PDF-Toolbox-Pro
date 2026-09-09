@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View } from '../types';
 import { useQuota } from '../contexts/QuotaContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -122,7 +122,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             ) : (
               // Guest / Free: tampilkan kuota counter
               <div
-                onClick={() => (quota !== null && quota <= 0) ? openPaywall('quota_exhausted') : setShowEnvModal(true)}
+                onClick={() => (quota !== null && quota <= 0) ? openPaywall('quota_exhausted') : setShowPricingModal(true)}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                   quota === null || quota > 1
                     ? 'bg-blue-50/80 dark:bg-[#1E293B] text-blue-700 dark:text-blue-400 border-blue-200/80 dark:border-slate-700 hover:bg-blue-100 dark:hover:bg-slate-800'
@@ -231,8 +231,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
         </div>
       </header>
 
-      {/* Environment Info & Switcher Modal */}
-      {showEnvModal && (
+      {/* Environment Info & Switcher Modal (Hanya ada di lingkungan Vercel Preview, TIDAK PERNAH di Production) */}
+      {isPreview && showEnvModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-[#1E222B] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
             <button
