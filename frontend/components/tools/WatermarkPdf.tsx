@@ -115,7 +115,7 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const renderTaskRef = useRef<any>(null);
 
   const { addToast } = useToast();
-  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
 
   // 1. Tangani pemilihan file PDF
   const handlePdfSelect = async (files: FileList | null) => {
@@ -213,8 +213,7 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleApplyWatermark = async () => {
     if (!file) return;
 
-    if (quota <= 0) {
-      setShowLimitModal(true);
+    if (!checkQuotaBeforeAction()) {
       return;
     }
 

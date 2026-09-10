@@ -168,7 +168,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const { addToast } = useToast();
-  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
 
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
@@ -365,8 +365,7 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       return;
     }
 
-    if (quota <= 0) {
-      setShowLimitModal(true);
+    if (!checkQuotaBeforeAction()) {
       return;
     }
 

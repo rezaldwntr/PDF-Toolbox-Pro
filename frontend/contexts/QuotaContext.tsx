@@ -24,6 +24,9 @@ interface QuotaContextType {
   // File size guard
   checkFileSizeLimit: (bytes: number) => boolean;
   maxFileSizeMB: number;
+  // Quota action guard
+  isUnlimited: boolean;
+  checkQuotaBeforeAction: () => boolean;
   // Environment (legacy — tetap ada untuk backward compat)
   mode: EnvironmentMode;
   isPreview: boolean;
@@ -174,13 +177,40 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCheckoutPlan(null);
   };
 
+  const isProTier = userTier === 'flash' || userTier === 'monthly' || userTier === 'annual';
+  const isUnlimited = isPreview || isProTier;
+
   const tierConfig = TIER_CONFIGS[userTier];
-  const maxFileSizeMB = tierConfig.maxFileSizeMB;
+  const maxFileSizeMB = isPreview ? 500 : tierConfig.maxFileSizeMB;
 
   const checkFileSizeLimit = (bytes: number): boolean => {
+    // Mode Preview: Bebas tanpa batas ukuran berkas
+    if (isPreview) return true;
+
     const mb = bytes / (1024 * 1024);
     if (mb > maxFileSizeMB) {
       openPaywall('file_too_large');
+      return false;
+    }
+    return true;
+  };
+
+  const checkQuotaBeforeAction = (): boolean => {
+    // Mode Preview & Tier Pro: 100% Bebas Kuota tanpa batasan
+    if (isUnlimited) return true;
+
+    if (isGuest) {
+      if (guestQuota <= 0) {
+        openPaywall('quota_exhausted');
+        return false;
+      }
+      return true;
+    }
+
+    // Pengguna Terdaftar (Free Account): 10 konversi / hari
+    const maxQ = TIER_CONFIGS.free.dailyQuota!;
+    if (userQuotaUsed >= maxQ) {
+      openPaywall('quota_exhausted');
       return false;
     }
     return true;
@@ -191,7 +221,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isPreview) return true;
 
     // Tier Pro (flash/monthly/annual): unlimited
-    if (userTier === 'flash' || userTier === 'monthly' || userTier === 'annual') return true;
+    if (isProTier) return true;
 
     if (isGuest) {
       if (guestQuota <= 0) {
@@ -234,7 +264,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     displayQuota = guestQuota;
     displayMaxQuota = GUEST_MAX_QUOTA;
   } else if (user?.tier === 'free') {
-    displayQuota = TIER_CONFIGS.free.dailyQuota! - userQuotaUsed;
+    displayQuota = Math.max(0, TIER_CONFIGS.free.dailyQuota! - userQuotaUsed);
     displayMaxQuota = TIER_CONFIGS.free.dailyQuota;
   } else {
     displayQuota = null;  // Pro: unlimited
@@ -244,6 +274,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Legacy aliases for backward-compat with existing tool components
   const showLimitModal = showPaywallModal && paywallVariant === 'quota_exhausted';
   const setShowLimitModal = (show: boolean) => {
+    if (isUnlimited) return; // Mode Preview & Pro tidak pernah menampilkan modal batas kuota
     if (show) openPaywall('quota_exhausted');
     else closePaywall();
   };
@@ -266,6 +297,8 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       closeCheckout,
       checkFileSizeLimit,
       maxFileSizeMB,
+      isUnlimited,
+      checkQuotaBeforeAction,
       mode,
       isPreview,
       branchName,

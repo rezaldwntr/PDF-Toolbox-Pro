@@ -22,7 +22,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
   const { addToast } = useToast();
-  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
 
   const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
@@ -51,8 +51,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleCompress = async () => {
     if (!file) return;
 
-    if (quota <= 0) {
-      setShowLimitModal(true);
+    if (!checkQuotaBeforeAction()) {
       return;
     }
 

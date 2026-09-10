@@ -41,7 +41,7 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
-  const { quota, consumeQuota, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
 
   const resetState = () => {
     setFile(null);
@@ -119,8 +119,7 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const handleProcess = async () => {
     if (!file) return;
 
-    if (quota <= 0) {
-      setShowLimitModal(true);
+    if (!checkQuotaBeforeAction()) {
       return;
     }
 
