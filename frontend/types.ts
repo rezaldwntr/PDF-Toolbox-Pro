@@ -15,6 +15,7 @@ export enum View {
   ADD_TEXT,
   ADD_SIGNATURE,
   ORGANIZE,
+  WATERMARK,
   
   BLOG,
   FAQ,

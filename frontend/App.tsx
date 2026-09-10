@@ -17,6 +17,7 @@ import ConvertPdf from './components/tools/ConvertPdf';
 import AddText from './components/tools/AddText';
 import AddSignature from './components/tools/AddSignature';
 import OrganizePdf from './components/tools/OrganizePdf';
+import WatermarkPdf from './components/tools/WatermarkPdf';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -86,6 +87,8 @@ function App() {
         return <AddSignature onBack={handleBackToHome} />;
       case View.ORGANIZE:
         return <OrganizePdf onBack={handleBackToHome} />;
+      case View.WATERMARK:
+        return <WatermarkPdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:

@@ -184,7 +184,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'Watermark',
           description: 'Sisipkan cap air teks atau logo untuk melindungi hak cipta dokumen.',
           icon: <Stamp size={22} />,
-          active: false,
+          active: true,
+          view: View.WATERMARK,
           category: 'Edit & Organisasi',
           keywords: ['watermark', 'cap air', 'logo', 'hak cipta']
         }

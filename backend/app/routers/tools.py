@@ -12,6 +12,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form, Response
 from fastapi.responses import FileResponse
 import fitz  # PyMuPDF
+from PIL import Image
 
 from app.core.config import MAX_FILE_SIZE
 from app.utils.file_utils import validate_file, cleanup_folder
@@ -523,3 +524,387 @@ def compress_pdf(
     finally:
         if doc and not doc.is_closed:
             doc.close()
+
+
+# =====================================================================
+# === 8. WATERMARK PDF (STANDAR INDUSTRI ILOVEPDF & SMALLPDF)       ===
+# =====================================================================
+
+def _hex_to_rgb(hex_str: str) -> tuple:
+    """Mengonversi kode warna hex (#RRGGBB) ke tuple RGB (0.0 - 1.0) untuk PyMuPDF."""
+    cleaned = (hex_str or "#EF4444").strip().lstrip("#")
+    if len(cleaned) == 3:
+        cleaned = "".join(c * 2 for c in cleaned)
+    if len(cleaned) != 6:
+        return (0.93, 0.26, 0.26)
+    try:
+        r = int(cleaned[0:2], 16) / 255.0
+        g = int(cleaned[2:4], 16) / 255.0
+        b = int(cleaned[4:6], 16) / 255.0
+        return (r, g, b)
+    except Exception:
+        return (0.93, 0.26, 0.26)
+
+
+def _get_fontname(font_family: str, is_bold: bool, is_italic: bool) -> str:
+    """Mendapatkan kode font standar 14 PyMuPDF berdasarkan preferensi tipografi."""
+    fam = (font_family or "helv").lower()
+    if "times" in fam:
+        if is_bold and is_italic:
+            return "tibi"
+        elif is_bold:
+            return "tibo"
+        elif is_italic:
+            return "tiit"
+        return "times"
+    elif "courier" in fam:
+        if is_bold and is_italic:
+            return "cobi"
+        elif is_bold:
+            return "cobo"
+        elif is_italic:
+            return "coit"
+        return "couri"
+    else:  # Helvetica / Arial default
+        if is_bold and is_italic:
+            return "hebi"
+        elif is_bold:
+            return "hebo"
+        elif is_italic:
+            return "heit"
+        return "helv"
+
+
+def _get_target_pages(doc_len: int, page_selection: str, custom_pages: Optional[str], exclude_first_page: bool) -> List[int]:
+    """Menentukan daftar index halaman (0-based) yang akan dibubuhi cap air."""
+    target_indices = []
+    sel = (page_selection or "all").lower().strip()
+
+    if sel == "odd":
+        target_indices = [i for i in range(doc_len) if (i + 1) % 2 != 0]
+    elif sel == "even":
+        target_indices = [i for i in range(doc_len) if (i + 1) % 2 == 0]
+    elif sel == "custom" and custom_pages:
+        for part in custom_pages.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if "-" in part:
+                tokens = part.split("-")
+                if len(tokens) == 2 and tokens[0].strip().isdigit() and tokens[1].strip().isdigit():
+                    s, e = int(tokens[0].strip()), int(tokens[1].strip())
+                    step = 1 if s <= e else -1
+                    for p in range(s, e + step, step):
+                        if 1 <= p <= doc_len and (p - 1) not in target_indices:
+                            target_indices.append(p - 1)
+            elif part.isdigit():
+                p = int(part)
+                if 1 <= p <= doc_len and (p - 1) not in target_indices:
+                    target_indices.append(p - 1)
+    else:  # "all"
+        target_indices = list(range(doc_len))
+
+    # Fitur iLovePDF: Lewati halaman cover (halaman pertama / index 0)
+    if exclude_first_page and 0 in target_indices:
+        target_indices.remove(0)
+
+    return target_indices
+
+
+@router.post("/watermark-pdf")
+def watermark_pdf(
+    file: UploadFile = File(...),
+    watermark_type: str = Form("text"),              # "text" atau "image"
+    # Parameter Mode Teks
+    text: str = Form("CONFIDENTIAL"),
+    font_family: str = Form("helv"),                 # "helv" (Arial), "times", "courier"
+    font_size: float = Form(36.0),
+    is_bold: bool = Form(False),
+    is_italic: bool = Form(False),
+    color: str = Form("#EF4444"),                    # Hex color
+    # Parameter Mode Gambar
+    image_file: Optional[UploadFile] = File(None),
+    image_scale: float = Form(0.35),                 # 0.1 - 1.0 (proporsi lebar halaman)
+    # Parameter Umum (Positioning & Layout)
+    opacity: float = Form(0.3),                      # 0.05 - 1.0
+    rotation: float = Form(-45.0),                   # -90 hingga +90 derajat
+    layer: str = Form("over"),                       # "over" (di atas konten) atau "under" (di bawah konten)
+    position: str = Form("center"),                  # 9 anchor grid: top-left, top-center, top-right, middle-left, center, middle-right, bottom-left, bottom-center, bottom-right
+    is_mosaic: bool = Form(False),                   # Tiling / pola berulang diagonal di seluruh halaman
+    # Target Halaman
+    page_selection: str = Form("all"),               # "all", "odd", "even", "custom"
+    custom_pages: Optional[str] = Form(None),        # Contoh: "1-5, 8"
+    exclude_first_page: bool = Form(False)           # Lewati cover dokumen
+):
+    """
+    Membubuhkan cap air (watermark) teks atau gambar ke dokumen PDF
+    dengan standar industri sekelas iLovePDF & Smallpdf:
+    - Zero Disk I/O (In-Memory streaming ultra-cepat berbasis PyMuPDF)
+    - Dukungan 2 mode: Cap Air Teks & Cap Air Gambar / Logo transparan
+    - Layering: Over content (overlay) vs Behind content (underlay)
+    - Positioning: 9-Anchor Grid (3x3) & Pola Mosaic Tiling Diagonal
+    - Fleksibilitas halaman: Semua, Ganjil, Genap, Rentang Kustom, & Exclude First Page
+    - Optimasi kompresi output stream (deflate=True, garbage=3)
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    # Sanitasi nama berkas output
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    out_filename = f"watermarked-{safe_base}.pdf"
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        # 3. Deteksi proteksi kata sandi
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' dilindungi kata sandi. Buka kunci proteksi terlebih dahulu."
+            )
+
+        total_pages = len(doc)
+        if total_pages == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        # 4. Filter halaman target
+        target_page_indices = _get_target_pages(total_pages, page_selection, custom_pages, exclude_first_page)
+        if not target_page_indices:
+            raise HTTPException(status_code=400, detail="Tidak ada halaman yang cocok dengan target halaman yang dipilih.")
+
+        # Parameter umum
+        clamped_opacity = max(0.05, min(1.0, float(opacity)))
+        is_overlay = layer.lower() in ("over", "above")
+        pos = (position or "center").lower().strip()
+
+        # =====================================================================
+        # EKSEKUSI MODE TEKS
+        # =====================================================================
+        if watermark_type.lower() == "text":
+            watermark_text = (text or "CONFIDENTIAL").strip()
+            if not watermark_text:
+                raise HTTPException(status_code=400, detail="Teks watermark tidak boleh kosong.")
+
+            font_name = _get_fontname(font_family, is_bold, is_italic)
+            rgb_color = _hex_to_rgb(color)
+            f_size = max(8.0, min(160.0, float(font_size)))
+            rot_angle = float(rotation)
+
+            for page_idx in target_page_indices:
+                page = doc[page_idx]
+                p_width = page.rect.width
+                p_height = page.rect.height
+
+                # Ukur dimensi teks menggunakan PyMuPDF font metrics
+                try:
+                    text_w = fitz.get_text_length(watermark_text, fontname=font_name, fontsize=f_size)
+                except Exception:
+                    text_w = len(watermark_text) * f_size * 0.55
+                text_h = f_size * 0.85
+
+                if is_mosaic:
+                    # Mode Mosaic: Pola grid berulang diagonal di seluruh halaman
+                    step_x = max(180.0, text_w + 60.0)
+                    step_y = max(120.0, f_size * 3.8)
+
+                    start_x = -int(step_x)
+                    end_x = int(p_width + step_x * 2)
+                    start_y = -int(step_y)
+                    end_y = int(p_height + step_y * 2)
+
+                    row = 0
+                    for cy in range(start_y, end_y, int(step_y)):
+                        # Pola selang-seling (staggered) ala iLovePDF
+                        x_offset = (row % 2) * (step_x / 2)
+                        for cx in range(start_x, end_x, int(step_x)):
+                            actual_cx = cx + x_offset
+                            pt = fitz.Point(actual_cx - text_w / 2, cy + f_size * 0.3)
+                            fp = fitz.Point(actual_cx, cy)
+                            page.insert_text(
+                                pt,
+                                watermark_text,
+                                fontsize=f_size,
+                                fontname=font_name,
+                                color=rgb_color,
+                                fill_opacity=clamped_opacity,
+                                morph=(fp, fitz.Matrix(rot_angle)),
+                                overlay=is_overlay
+                            )
+                        row += 1
+                else:
+                    # Mode 9-Anchor Grid
+                    margin_x = 40.0
+                    margin_y = 40.0
+
+                    if pos == "top-left":
+                        cx = margin_x + text_w / 2
+                        cy = margin_y + text_h / 2
+                    elif pos == "top-center":
+                        cx = p_width / 2
+                        cy = margin_y + text_h / 2
+                    elif pos == "top-right":
+                        cx = p_width - margin_x - text_w / 2
+                        cy = margin_y + text_h / 2
+                    elif pos == "middle-left":
+                        cx = margin_x + text_w / 2
+                        cy = p_height / 2
+                    elif pos == "middle-right":
+                        cx = p_width - margin_x - text_w / 2
+                        cy = p_height / 2
+                    elif pos == "bottom-left":
+                        cx = margin_x + text_w / 2
+                        cy = p_height - margin_y - text_h / 2
+                    elif pos == "bottom-center":
+                        cx = p_width / 2
+                        cy = p_height - margin_y - text_h / 2
+                    elif pos == "bottom-right":
+                        cx = p_width - margin_x - text_w / 2
+                        cy = p_height - margin_y - text_h / 2
+                    else:  # center default
+                        cx = p_width / 2
+                        cy = p_height / 2
+
+                    pt = fitz.Point(cx - text_w / 2, cy + f_size * 0.3)
+                    fp = fitz.Point(cx, cy)
+                    page.insert_text(
+                        pt,
+                        watermark_text,
+                        fontsize=f_size,
+                        fontname=font_name,
+                        color=rgb_color,
+                        fill_opacity=clamped_opacity,
+                        morph=(fp, fitz.Matrix(rot_angle)),
+                        overlay=is_overlay
+                    )
+
+        # =====================================================================
+        # EKSEKUSI MODE GAMBAR / LOGO
+        # =====================================================================
+        elif watermark_type.lower() == "image":
+            if not image_file:
+                raise HTTPException(status_code=400, detail="Unggah berkas gambar/logo untuk mode cap air gambar.")
+
+            img_bytes = image_file.file.read()
+            if len(img_bytes) == 0:
+                raise HTTPException(status_code=400, detail="Berkas gambar kosong.")
+
+            # Sesuaikan transparansi gambar menggunakan Pillow
+            processed_img_bytes = img_bytes
+            try:
+                pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+                orig_w, orig_h = pil_img.size
+
+                if clamped_opacity < 0.98:
+                    r_ch, g_ch, b_ch, a_ch = pil_img.split()
+                    a_ch = a_ch.point(lambda p: int(p * clamped_opacity))
+                    pil_img.putalpha(a_ch)
+
+                buf = io.BytesIO()
+                pil_img.save(buf, format="PNG")
+                processed_img_bytes = buf.getvalue()
+            except Exception as img_err:
+                logging.warning(f"Pillow alpha adjustment fallback: {img_err}")
+                orig_w, orig_h = (300, 300)
+
+            aspect_ratio = (orig_h / orig_w) if orig_w > 0 else 1.0
+            scale = max(0.1, min(1.0, float(image_scale)))
+
+            for page_idx in target_page_indices:
+                page = doc[page_idx]
+                p_width = page.rect.width
+                p_height = page.rect.height
+
+                target_w = p_width * scale
+                target_h = target_w * aspect_ratio
+
+                # Cegah gambar melebihi batas tinggi halaman
+                if target_h > p_height * 0.85:
+                    target_h = p_height * 0.85
+                    target_w = target_h / aspect_ratio
+
+                if is_mosaic:
+                    # Pola berulang gambar
+                    step_x = max(180.0, target_w * 1.6)
+                    step_y = max(140.0, target_h * 1.6)
+
+                    start_x = -int(step_x)
+                    end_x = int(p_width + step_x * 2)
+                    start_y = -int(step_y)
+                    end_y = int(p_height + step_y * 2)
+
+                    row = 0
+                    for cy in range(start_y, end_y, int(step_y)):
+                        x_offset = (row % 2) * (step_x / 2)
+                        for cx in range(start_x, end_x, int(step_x)):
+                            actual_cx = cx + x_offset
+                            img_rect = fitz.Rect(
+                                actual_cx - target_w / 2,
+                                cy - target_h / 2,
+                                actual_cx + target_w / 2,
+                                cy + target_h / 2
+                            )
+                            page.insert_image(img_rect, stream=processed_img_bytes, overlay=is_overlay)
+                        row += 1
+                else:
+                    margin_x = 35.0
+                    margin_y = 35.0
+
+                    if pos == "top-left":
+                        x0, y0 = margin_x, margin_y
+                    elif pos == "top-center":
+                        x0, y0 = (p_width - target_w) / 2, margin_y
+                    elif pos == "top-right":
+                        x0, y0 = p_width - margin_x - target_w, margin_y
+                    elif pos == "middle-left":
+                        x0, y0 = margin_x, (p_height - target_h) / 2
+                    elif pos == "middle-right":
+                        x0, y0 = p_width - margin_x - target_w, (p_height - target_h) / 2
+                    elif pos == "bottom-left":
+                        x0, y0 = margin_x, p_height - margin_y - target_h
+                    elif pos == "bottom-center":
+                        x0, y0 = (p_width - target_w) / 2, p_height - margin_y - target_h
+                    elif pos == "bottom-right":
+                        x0, y0 = p_width - margin_x - target_w, p_height - margin_y - target_h
+                    else:  # center
+                        x0, y0 = (p_width - target_w) / 2, (p_height - target_h) / 2
+
+                    img_rect = fitz.Rect(x0, y0, x0 + target_w, y0 + target_h)
+                    page.insert_image(img_rect, stream=processed_img_bytes, overlay=is_overlay)
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Tipe watermark '{watermark_type}' tidak dikenali. Pilih 'text' atau 'image'.")
+
+        # 5. Serialisasi In-Memory dengan optimasi stream standar iLovePDF
+        pdf_bytes = doc.tobytes(garbage=3, deflate=True)
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{out_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR WATERMARK: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal menambahkan watermark: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
