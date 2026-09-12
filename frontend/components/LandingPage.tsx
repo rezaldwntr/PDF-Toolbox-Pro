@@ -120,7 +120,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'PDF/A',
           description: 'Standarisasi dokumen PDF untuk pengarsipan jangka panjang ISO.',
           icon: <FileCheck size={22} />,
-          active: false,
+          active: true,
+          view: View.PDF_A,
           category: 'Konversi PDF',
           keywords: ['pdf/a', 'arsip', 'iso', 'standar']
         }

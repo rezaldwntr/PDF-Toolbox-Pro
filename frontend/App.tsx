@@ -21,6 +21,7 @@ import WatermarkPdf from './components/tools/WatermarkPdf';
 import ProtectPdf from './components/tools/ProtectPdf';
 import UnlockPdf from './components/tools/UnlockPdf';
 import CropPdf from './components/tools/CropPdf';
+import PdfToPdfa from './components/tools/PdfToPdfa';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -98,6 +99,8 @@ function App() {
         return <UnlockPdf onBack={handleBackToHome} />;
       case View.CROP_PDF:
         return <CropPdf onBack={handleBackToHome} />;
+      case View.PDF_A:
+        return <PdfToPdfa onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:

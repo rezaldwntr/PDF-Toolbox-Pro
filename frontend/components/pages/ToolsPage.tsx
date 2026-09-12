@@ -43,7 +43,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
         { title: "PDF ke Excel", description: "Ekstrak tabel PDF ke spreadsheet Excel.", icon: <FileSpreadsheet size={22} />, active: true, view: View.PDF_TO_EXCEL },
         { title: "PDF ke PPT", description: "Ubah slide PDF menjadi presentasi PowerPoint.", icon: <Presentation size={22} />, active: true, view: View.PDF_TO_PPT },
         { title: "PDF ke Gambar (JPG)", description: "Simpan halaman PDF sebagai gambar tajam.", icon: <Image size={22} />, active: true, view: View.PDF_TO_IMAGE },
-        { title: "PDF/A", description: "Format arsip jangka panjang berstandar ISO.", icon: <FileCheck size={22} />, active: false },
+        { title: "PDF/A", description: "Format arsip jangka panjang berstandar ISO.", icon: <FileCheck size={22} />, active: true, view: View.PDF_A },
       ]
     },
     {

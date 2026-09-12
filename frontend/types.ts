@@ -19,6 +19,7 @@ export enum View {
   PROTECT_PDF,
   UNLOCK_PDF,
   CROP_PDF,
+  PDF_A,
   
   BLOG,
   FAQ,
