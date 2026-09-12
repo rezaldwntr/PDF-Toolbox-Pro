@@ -220,7 +220,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'Buka Kunci',
           description: 'Hapus proteksi kata sandi pada dokumen PDF milik Anda.',
           icon: <Unlock size={22} />,
-          active: false,
+          active: true,
+          view: View.UNLOCK_PDF,
           category: 'Keamanan & Lanjutan',
           keywords: ['unlock', 'buka kunci', 'hapus sandi', 'password']
         },

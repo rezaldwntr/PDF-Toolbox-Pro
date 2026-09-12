@@ -17,6 +17,7 @@ export enum View {
   ORGANIZE,
   WATERMARK,
   PROTECT_PDF,
+  UNLOCK_PDF,
   
   BLOG,
   FAQ,

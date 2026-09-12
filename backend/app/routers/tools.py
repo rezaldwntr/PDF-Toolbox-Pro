@@ -1022,3 +1022,103 @@ def protect_pdf(
             doc.close()
 
 
+@router.post("/unlock-pdf")
+def unlock_pdf(
+    file: UploadFile = File(...),
+    password: Optional[str] = Form(None)
+):
+    """
+    Membuka kunci dan menghapus proteksi kata sandi serta batasan izin pada dokumen PDF:
+    - Zero Disk I/O (In-Memory streaming PyMuPDF)
+    - Otentikasi kata sandi pengguna atau pemilik
+    - Auto-unlock untuk dokumen yang hanya dibatasi izin akses tanpa sandi buka
+    - Menghasilkan PDF bebas proteksi (unlocked)
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    raw_base = os.path.splitext(filename)[0]
+    if raw_base.startswith("protected-"):
+        raw_base = raw_base[len("protected-"):]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    out_filename = f"unlocked-{safe_base}.pdf"
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        # 3. Cek status enkripsi
+        if not doc.is_encrypted and not doc.needs_pass:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' tidak terproteksi kata sandi."
+            )
+
+        clean_pw = (password or "").strip()
+        auth_success = False
+
+        # 4. Otentikasi
+        if clean_pw:
+            auth_result = doc.authenticate(clean_pw)
+            if auth_result > 0:
+                auth_success = True
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Kata sandi salah. Silakan periksa kembali kata sandi dokumen Anda."
+                )
+        else:
+            # Auto-unlock jika dokumen hanya memiliki batasan owner / izin tanpa password buka
+            try:
+                auth_result = doc.authenticate("")
+                if auth_result > 0:
+                    auth_success = True
+            except Exception:
+                pass
+
+            if not auth_success:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Dokumen ini dilindungi kata sandi. Silakan masukkan kata sandi yang valid."
+                )
+
+        if len(doc) == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        # 5. Serialisasi In-Memory tanpa enkripsi (menghapus password dan seluruh batasan)
+        pdf_bytes = doc.tobytes(
+            garbage=3,
+            deflate=True
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{out_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR UNLOCK PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal membuka kunci PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
+
+

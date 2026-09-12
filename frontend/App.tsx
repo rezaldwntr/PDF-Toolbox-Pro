@@ -19,6 +19,7 @@ import AddSignature from './components/tools/AddSignature';
 import OrganizePdf from './components/tools/OrganizePdf';
 import WatermarkPdf from './components/tools/WatermarkPdf';
 import ProtectPdf from './components/tools/ProtectPdf';
+import UnlockPdf from './components/tools/UnlockPdf';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -92,6 +93,8 @@ function App() {
         return <WatermarkPdf onBack={handleBackToHome} />;
       case View.PROTECT_PDF:
         return <ProtectPdf onBack={handleBackToHome} />;
+      case View.UNLOCK_PDF:
+        return <UnlockPdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:
