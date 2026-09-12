@@ -3,8 +3,9 @@ import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { BACKEND_URL } from '../../config';
-import { handleJobOrDirectResponse } from '../../lib/jobPoller';
+import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import {
   Languages,
   FileText,
@@ -98,6 +99,7 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const { addToast } = useToast();
   const { consumeQuota, checkQuotaBeforeAction } = useQuota();
+  const { user } = useAuth();
 
   // 1. Tangani pemilihan file PDF
   const handlePdfSelect = async (files: FileList | null) => {
@@ -198,19 +200,26 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         formData.append('custom_pages', customRange);
       }
 
-      const res = await fetch(`${BACKEND_URL}/tools/translate-pdf`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const jobResult = await handleJobOrDirectResponse(
-        res,
-        BACKEND_URL,
-        (pct, msg) => {
+      const jobResult = await smartUploadAndProcess({
+        file,
+        action: 'translate',
+        directEndpoint: '/tools/translate-pdf',
+        formData,
+        actionOptions: {
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          output_format: outputMode,
+          page_selection: pageScope,
+          current_page: activePage,
+          custom_pages: customRange,
+        },
+        userTier: user?.tier || 'free',
+        onProgress: (pct, msg) => {
           setTranslateProgress(pct);
           setProcessStep(msg);
-        }
-      );
+        },
+      });
+
 
       if (jobResult.sample) {
         setExtractedSample(jobResult.sample);

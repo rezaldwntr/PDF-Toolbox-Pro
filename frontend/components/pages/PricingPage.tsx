@@ -38,7 +38,7 @@ const PLANS = [
     badge: "TERPOPULER",
     features: [
       "Unlimited konversi 24 jam penuh",
-      "Berkas hingga 75 MB",
+      "Berkas hingga 100 MB",
       "Batch hingga 20 file sekaligus",
       "Bebas iklan selama 24 jam",
       "OCR PDF ✓ Aktif",
@@ -56,7 +56,7 @@ const PLANS = [
     highlight: false,
     features: [
       "Unlimited konversi setiap hari",
-      "Berkas hingga 100 MB (s.d. 250 MB segera)",
+      "Berkas hingga 250 MB (GCS Direct Upload)",
       "Batch hingga 50 file sekaligus",
       "Bebas iklan selamanya",
       "OCR PDF ✓ Aktif",
@@ -75,7 +75,7 @@ const PLANS = [
     badge: "HEMAT 57%",
     features: [
       "Semua fitur Monthly Pro",
-      "Berkas hingga 100 MB (s.d. 500 MB segera)",
+      "Berkas hingga 500 MB (GCS Direct Upload)",
       "Batch hingga 100 file sekaligus",
       "File disimpan 24 jam di cloud",
       "Prioritas customer support",
@@ -87,13 +87,14 @@ const PLANS = [
 
 const COMPARE_ROWS = [
   { label: "Kuota Harian", free: "10/hari", flash: "Unlimited", monthly: "Unlimited", annual: "Unlimited" },
-  { label: "Ukuran Maks. File", free: "50 MB", flash: "75 MB", monthly: "100 MB*", annual: "100 MB*" },
+  { label: "Ukuran Maks. File", free: "50 MB", flash: "100 MB", monthly: "250 MB", annual: "500 MB" },
   { label: "Pemrosesan Batch", free: "3 file", flash: "20 file", monthly: "50 file", annual: "100 file" },
   { label: "OCR PDF", free: "—", flash: "✓ Aktif", monthly: "✓ Aktif", annual: "✓ Aktif" },
   { label: "Terjemahkan PDF", free: "—", flash: "✓ Aktif", monthly: "✓ Aktif", annual: "✓ Aktif" },
   { label: "Bebas Iklan", free: "—", flash: "24 jam", monthly: "Selalu", annual: "Selalu" },
   { label: "Simpan di Cloud", free: "1 jam", flash: "6 jam", monthly: "24 jam", annual: "24 jam" },
 ];
+
 
 const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
   const { openCheckout, setShowPricingModal } = useQuota();
@@ -233,15 +234,14 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
           </table>
         </div>
         {/* Footnote Ukuran File */}
-        <div className="px-6 py-3 bg-blue-50 dark:bg-blue-950/20 border-t border-blue-100 dark:border-blue-900/30">
-          <p className="text-[11px] text-blue-700 dark:text-blue-400">
-            <span className="font-bold">* Catatan Kapasitas:</span>{" "}
-            Batas ukuran berkas saat ini berdasarkan infrastruktur HTTP standar (maks. 100 MB per upload).
-            Peningkatan kapasitas hingga <strong>250 MB (Monthly)</strong> dan <strong>500 MB (Annual)</strong>{" "}
-            via Google Cloud Storage sedang dalam pengembangan aktif dan akan segera tersedia tanpa perubahan biaya langganan.
+        <div className="px-6 py-3 bg-emerald-50 dark:bg-emerald-950/20 border-t border-emerald-100 dark:border-emerald-900/30">
+          <p className="text-[11px] text-emerald-800 dark:text-emerald-400">
+            <span className="font-bold">✓ Kapasitas Cloud Storage Aktif:</span>{" "}
+            Didukung arsitektur Google Cloud Storage (GCS) Direct Upload, pengguna Monthly Pro kini dapat memproses berkas hingga <strong>250 MB</strong> dan Annual Pass hingga <strong>500 MB</strong> tanpa batasan gateway HTTP.
           </p>
         </div>
       </div>
+
 
       {/* FAQ Bottom */}
       <div className="text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">

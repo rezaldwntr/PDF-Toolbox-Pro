@@ -13,14 +13,21 @@ import os
 # Batas global fallback (guest / free)
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# Batas per tier (dalam bytes) — digunakan ketika backend menerima header X-User-Tier
+# Batas per tier (dalam bytes) — didukung Tier 3 GCS Direct Presigned Upload
 MAX_FILE_SIZE_BY_TIER = {
     "guest":   20  * 1024 * 1024,   # 20 MB
     "free":    50  * 1024 * 1024,   # 50 MB
-    "flash":   75  * 1024 * 1024,   # 75 MB
-    "monthly": 100 * 1024 * 1024,   # 100 MB
-    "annual":  100 * 1024 * 1024,   # 100 MB (akan dinaikkan ke 500 MB via GCS di Tier 3)
+    "flash":   100 * 1024 * 1024,   # 100 MB
+    "monthly": 250 * 1024 * 1024,   # 250 MB (GCS Direct Upload)
+    "annual":  500 * 1024 * 1024,   # 500 MB (GCS Direct Upload)
 }
+
+# ===========================================================================
+# KONFIGURASI GOOGLE CLOUD STORAGE (GCS) — TIER 3
+# ===========================================================================
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "pdf-toolbox-pro-storage")
+GCS_PROJECT_ID = os.getenv("GCS_PROJECT_ID", "pdf-toolbox-pro")
+GCS_ENABLED = os.getenv("GCS_ENABLED", "true").lower() in ("true", "1", "yes")
 
 # ===========================================================================
 # KONFIGURASI MIDTRANS PAYMENT GATEWAY

@@ -3,8 +3,9 @@ import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { BACKEND_URL } from '../../config';
-import { handleJobOrDirectResponse } from '../../lib/jobPoller';
+import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import {
   Eye,
   FileSearch,
@@ -75,6 +76,7 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const { addToast } = useToast();
   const { consumeQuota, checkQuotaBeforeAction } = useQuota();
+  const { user } = useAuth();
 
   // 1. Tangani pemilihan file PDF
   const handlePdfSelect = async (files: FileList | null) => {
@@ -151,19 +153,21 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     formData.append('output_format', outputFormat);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/tools/ocr-pdf`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const jobResult = await handleJobOrDirectResponse(
-        response,
-        BACKEND_URL,
-        (pct, msg) => {
+      const jobResult = await smartUploadAndProcess({
+        file,
+        action: 'ocr',
+        directEndpoint: '/tools/ocr-pdf',
+        formData,
+        actionOptions: {
+          languages: selectedLangs.join('+'),
+          output_format: outputFormat,
+        },
+        userTier: user?.tier || 'free',
+        onProgress: (pct, msg) => {
           setOcrProgress(pct);
           setProcessStep(msg);
-        }
-      );
+        },
+      });
 
       if (jobResult.sample) {
         setExtractedSample(jobResult.sample);

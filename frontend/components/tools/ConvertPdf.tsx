@@ -12,6 +12,7 @@ import {
 import { PDFDocument } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
 import PdfPreview from './PdfPreview';
 
@@ -19,7 +20,7 @@ import PdfPreview from './PdfPreview';
 declare const pdfjsLib: any;
 
 import { BACKEND_URL } from '../../config';
-import { handleJobOrDirectResponse } from '../../lib/jobPoller';
+import { smartUploadAndProcess } from '../../lib/gcsUploader';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -64,6 +65,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
   const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+  const { user } = useAuth();
 
   const getModeConfig = () => {
     switch (mode) {
@@ -187,24 +189,28 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setProcessingMessage('Mengirim berkas ke engine pemroses...');
 
     try {
-      const fullUrl = `${BACKEND_URL}${config.endpoint}`;
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      const jobResult = await handleJobOrDirectResponse(
-        response,
-        BACKEND_URL,
-        (pct, msg) => {
+      const jobResult = await smartUploadAndProcess({
+        file: fileWithBuffer.file,
+        action: mode,
+        directEndpoint: config.endpoint,
+        formData,
+        actionOptions: {
+          mode: excelExtractionMode,
+          sheet_per_page: excelSheetStructure === 'per_page',
+          layout_mode: pptLayoutMode,
+          output_format: selectedImageFormat,
+          dpi: imageDpi,
+          extract_mode: imageExtractMode,
+        },
+        userTier: user?.tier || 'free',
+        onProgress: (pct, msg) => {
           setProcessProgress(pct);
           setProcessingMessage(msg);
         },
-        controller.signal
-      );
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
 
       let finalFilename = jobResult.filename;
       if (!finalFilename || finalFilename === 'dokumen' || finalFilename === 'hasil-dokumen') {

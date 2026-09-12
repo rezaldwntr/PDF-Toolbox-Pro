@@ -3,16 +3,16 @@ import { supabase } from '../lib/supabase';
 import type { UserProfile, UserTier } from '../types';
 
 // --- Tier Configs ---
-// CATATAN: maxFileSizeMB diselaraskan dengan batas backend aktual.
-// Batas 250 MB (monthly) dan 500 MB (annual) akan diaktifkan setelah
-// implementasi GCS Presigned Upload (Tier 3 roadmap) selesai.
+// Didukung Tier 3 Google Cloud Storage (GCS) Direct Upload:
+// Batas ukuran berkas kini mencapai 250 MB (Monthly Pro) dan 500 MB (Annual Value Pass).
 export const TIER_CONFIGS = {
   guest:   { dailyQuota: 3,    maxFileSizeMB: 20,  maxBatchFiles: 3,   hasAds: true,  hasWatermark: true,  label: 'Tamu',            price: 'Gratis', priceNote: '' },
   free:    { dailyQuota: 10,   maxFileSizeMB: 50,  maxBatchFiles: 3,   hasAds: true,  hasWatermark: true,  label: 'Gratis (Login)',  price: 'Gratis', priceNote: '' },
-  flash:   { dailyQuota: null, maxFileSizeMB: 75,  maxBatchFiles: 20,  hasAds: false, hasWatermark: false, label: '24-Hour Pass',    price: 'Rp5.000', priceNote: 'sekali bayar' },
-  monthly: { dailyQuota: null, maxFileSizeMB: 100, maxBatchFiles: 50,  hasAds: false, hasWatermark: false, label: 'Monthly Pro',     price: 'Rp29.000', priceNote: '/bulan' },
-  annual:  { dailyQuota: null, maxFileSizeMB: 100, maxBatchFiles: 100, hasAds: false, hasWatermark: false, label: 'Annual Pass',     price: 'Rp149.000', priceNote: '/tahun' },
+  flash:   { dailyQuota: null, maxFileSizeMB: 100, maxBatchFiles: 20,  hasAds: false, hasWatermark: false, label: '24-Hour Pass',    price: 'Rp5.000', priceNote: 'sekali bayar' },
+  monthly: { dailyQuota: null, maxFileSizeMB: 250, maxBatchFiles: 50,  hasAds: false, hasWatermark: false, label: 'Monthly Pro',     price: 'Rp29.000', priceNote: '/bulan' },
+  annual:  { dailyQuota: null, maxFileSizeMB: 500, maxBatchFiles: 100, hasAds: false, hasWatermark: false, label: 'Annual Pass',     price: 'Rp149.000', priceNote: '/tahun' },
 } as const;
+
 
 interface AuthContextType {
   user: UserProfile | null;
