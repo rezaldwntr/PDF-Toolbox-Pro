@@ -283,11 +283,10 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         {!file && (
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
             <FileUploader
-              onFilesSelected={handlePdfSelect}
+              onFileSelect={handlePdfSelect}
               accept=".pdf"
-              title="Pilih atau Letakkan Dokumen PDF di Sini"
-              subtitle="Format PDF berekstensi .pdf hingga 25 MB"
-              icon={Languages}
+              label="Pilih atau Letakkan Dokumen PDF di Sini"
+              description="Format PDF berekstensi .pdf hingga 25 MB"
             />
 
             {/* Fitur Utama */}
