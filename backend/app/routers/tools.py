@@ -6,6 +6,7 @@ import shutil
 import logging
 import tempfile
 import datetime
+import json
 from typing import List, Optional
 from enum import Enum
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -1379,6 +1380,164 @@ def convert_pdfa(
     finally:
         if doc and not doc.is_closed:
             doc.close()
+
+
+@router.post("/edit-pdf")
+def edit_pdf(
+    file: UploadFile = File(...),
+    edit_mode: str = Form("find_replace"),
+    # Parameter Mode Cari & Ganti
+    search_text: Optional[str] = Form(None),
+    replace_text: Optional[str] = Form(None),
+    case_sensitive: bool = Form(False),
+    page_selection: str = Form("all"),
+    current_page: int = Form(1),
+    custom_pages: Optional[str] = Form(None),
+    # Parameter Mode Sunting Blok / Visual
+    edits_json: Optional[str] = Form(None)
+):
+    """
+    Menyunting atau mengubah teks yang ada di dalam dokumen PDF:
+    - Zero Disk I/O (In-Memory PyMuPDF processing)
+    - Mode 1: Cari & Ganti (Find & Replace) kata/kalimat di seluruh dokumen
+    - Mode 2: Sunting Visual (Block/Line Edits) dengan redaksi bersih dan penulisan teks baru
+    - Menjaga keutuhan tata letak grafis, gambar, dan elemen halaman lain
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    out_filename = f"edited-{safe_base}.pdf"
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu sebelum mengedit teks."
+            )
+
+        doc_len = len(doc)
+        if doc_len == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        mode = (edit_mode or "find_replace").lower().strip()
+
+        # ===================================================================
+        # MODE 1: CARI & GANTI (FIND & REPLACE)
+        # ===================================================================
+        if mode == "find_replace":
+            search_str = (search_text or "").strip()
+            replace_str = replace_text or ""
+            if not search_str:
+                raise HTTPException(status_code=400, detail="Teks pencarian tidak boleh kosong.")
+
+            # Tentukan halaman target
+            sel = (page_selection or "all").lower().strip()
+            if sel == "current":
+                target_pages = [max(0, min(current_page - 1, doc_len - 1))]
+            else:
+                target_pages = _get_target_pages(doc_len, sel, custom_pages, exclude_first_page=False)
+
+            for p_idx in target_pages:
+                page = doc[p_idx]
+                matches = page.search_for(search_str)
+                if not case_sensitive and search_str.lower() != search_str:
+                    matches += [m for m in page.search_for(search_str.lower()) if m not in matches]
+                    matches += [m for m in page.search_for(search_str.capitalize()) if m not in matches]
+                    matches += [m for m in page.search_for(search_str.upper()) if m not in matches]
+
+                for rect in matches:
+                    # Redaksi teks lama dengan background putih bersih
+                    page.add_redact_annot(rect, fill=(1, 1, 1))
+                    page.apply_redactions()
+
+                    # Cetak teks pengganti jika ada
+                    if replace_str:
+                        font_size = max(7.0, min(28.0, rect.height * 0.85))
+                        text_w = fitz.get_text_length(replace_str, fontname="helv", fontsize=font_size)
+                        target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 4), rect.y1)
+                        page.insert_textbox(target_rect, replace_str, fontsize=font_size, fontname="helv", color=(0, 0, 0), align=0)
+
+        # ===================================================================
+        # MODE 2: SUNTING BLOK / VISUAL (BLOCK EDITS)
+        # ===================================================================
+        elif mode == "block_edits":
+            if not edits_json:
+                raise HTTPException(status_code=400, detail="Tidak ada data perubahan teks yang dikirimkan.")
+
+            try:
+                edits = json.loads(edits_json)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Format JSON data suntingan tidak valid.")
+
+            if not isinstance(edits, list) or len(edits) == 0:
+                raise HTTPException(status_code=400, detail="Daftar suntingan teks kosong.")
+
+            for item in edits:
+                p_num = int(item.get("page", 1))
+                p_idx = max(0, min(p_num - 1, doc_len - 1))
+                page = doc[p_idx]
+
+                raw_rect = item.get("rect", [])
+                if len(raw_rect) == 4:
+                    rect = fitz.Rect(raw_rect[0], raw_rect[1], raw_rect[2], raw_rect[3])
+                    bg_color = _hex_to_rgb(item.get("bg_color", "#ffffff"))
+                    fg_color = _hex_to_rgb(item.get("color", "#000000"))
+                    font_size = float(item.get("font_size", 12.0))
+                    new_text = str(item.get("new_text", ""))
+
+                    # Redaksi area teks lama
+                    page.add_redact_annot(rect, fill=bg_color)
+                    page.apply_redactions()
+
+                    # Sisipkan teks baru
+                    if new_text.strip():
+                        text_w = fitz.get_text_length(new_text, fontname="helv", fontsize=font_size)
+                        target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 4), rect.y1 + 4)
+                        page.insert_textbox(target_rect, new_text, fontsize=font_size, fontname="helv", color=fg_color, align=0)
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Mode sunting '{mode}' tidak dikenal.")
+
+        # Serialisasi hasil In-Memory terkompresi
+        pdf_bytes = doc.tobytes(
+            garbage=3,
+            deflate=True
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{out_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR EDIT PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal menyunting teks PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
 
 
 

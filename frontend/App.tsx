@@ -22,6 +22,7 @@ import ProtectPdf from './components/tools/ProtectPdf';
 import UnlockPdf from './components/tools/UnlockPdf';
 import CropPdf from './components/tools/CropPdf';
 import PdfToPdfa from './components/tools/PdfToPdfa';
+import EditPdf from './components/tools/EditPdf';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -101,6 +102,8 @@ function App() {
         return <CropPdf onBack={handleBackToHome} />;
       case View.PDF_A:
         return <PdfToPdfa onBack={handleBackToHome} />;
+      case View.EDIT_PDF:
+        return <EditPdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:

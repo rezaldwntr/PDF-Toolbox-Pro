@@ -52,7 +52,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
         { title: "Atur PDF", description: "Hapus, putar, atau ubah urutan halaman.", icon: <FolderTree size={22} />, active: true, view: View.ORGANIZE },
         { title: "Pisahkan PDF", description: "Pisahkan file atau ambil halaman tertentu.", icon: <Scissors size={22} />, active: true, view: View.SPLIT },
         { title: "Tambah Teks", description: "Ketik teks tambahan di halaman dokumen.", icon: <Type size={22} />, active: true, view: View.ADD_TEXT },
-        { title: "Edit Teks", description: "Sunting teks yang sudah ada di dokumen.", icon: <Edit3 size={22} />, active: false },
+        { title: "Edit Teks", description: "Sunting teks yang sudah ada di dokumen.", icon: <Edit3 size={22} />, active: true, view: View.EDIT_PDF },
         { title: "Crop PDF", description: "Pangkas bagian tepi berkas yang tidak perlu.", icon: <Crop size={22} />, active: true, view: View.CROP_PDF },
         { title: "Watermark", description: "Bubuhkan cap air perlindungan hak cipta.", icon: <Stamp size={22} />, active: true, view: View.WATERMARK },
       ]

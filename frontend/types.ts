@@ -20,6 +20,7 @@ export enum View {
   UNLOCK_PDF,
   CROP_PDF,
   PDF_A,
+  EDIT_PDF,
   
   BLOG,
   FAQ,

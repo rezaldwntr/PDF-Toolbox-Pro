@@ -167,7 +167,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'Edit Teks',
           description: 'Ubah teks asli yang sudah ada di dalam dokumen PDF.',
           icon: <Edit3 size={22} />,
-          active: false,
+          active: true,
+          view: View.EDIT_PDF,
           category: 'Edit & Organisasi',
           keywords: ['edit', 'sunting', 'ubah teks']
         },
