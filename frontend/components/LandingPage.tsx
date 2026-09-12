@@ -175,7 +175,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'Crop PDF',
           description: 'Pangkas margin atau area kosong yang tidak diinginkan pada dokumen.',
           icon: <Crop size={22} />,
-          active: false,
+          active: true,
+          view: View.CROP_PDF,
           category: 'Edit & Organisasi',
           keywords: ['crop', 'potong margin', 'pangkas']
         },

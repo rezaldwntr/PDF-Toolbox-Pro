@@ -18,6 +18,7 @@ export enum View {
   WATERMARK,
   PROTECT_PDF,
   UNLOCK_PDF,
+  CROP_PDF,
   
   BLOG,
   FAQ,

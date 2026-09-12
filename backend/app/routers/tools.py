@@ -1121,4 +1121,113 @@ def unlock_pdf(
             doc.close()
 
 
+@router.post("/crop-pdf")
+def crop_pdf(
+    file: UploadFile = File(...),
+    crop_x: float = Form(...),
+    crop_y: float = Form(...),
+    crop_width: float = Form(...),
+    crop_height: float = Form(...),
+    page_selection: str = Form("all"),
+    current_page: int = Form(1),
+    custom_pages: Optional[str] = Form(None)
+):
+    """
+    Memangkas margin atau area spesifik dokumen PDF secara visual dan presisi:
+    - Zero Disk I/O (In-Memory streaming PyMuPDF)
+    - Dukungan rasio koordinat relatif (0.0 - 1.0) untuk menjaga konsistensi resolusi dan ragam ukuran halaman
+    - Pilihan target: Semua Halaman, Halaman Tertentu (Current Page), atau Rentang Kustom
+    - Mempertahankan ketajaman teks vektor dan grafis asli tanpa degradasi kualitas
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Validasi rasio pangkas
+    if crop_width <= 0.01 or crop_height <= 0.01:
+        raise HTTPException(status_code=400, detail="Area pangkas terlalu kecil.")
+    if crop_x < 0.0 or crop_y < 0.0 or (crop_x + crop_width) > 1.05 or (crop_y + crop_height) > 1.05:
+        # Sedikit toleransi floating point
+        crop_x = max(0.0, min(crop_x, 0.95))
+        crop_y = max(0.0, min(crop_y, 0.95))
+        crop_width = min(crop_width, 1.0 - crop_x)
+        crop_height = min(crop_height, 1.0 - crop_y)
+
+    # 3. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    out_filename = f"cropped-{safe_base}.pdf"
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu sebelum memangkas."
+            )
+
+        doc_len = len(doc)
+        if doc_len == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        # 4. Tentukan target halaman
+        sel = (page_selection or "all").lower().strip()
+        if sel == "current":
+            p_idx = max(0, min(current_page - 1, doc_len - 1))
+            target_indices = [p_idx]
+        else:
+            target_indices = _get_target_pages(doc_len, sel, custom_pages, exclude_first_page=False)
+
+        if not target_indices:
+            raise HTTPException(status_code=400, detail="Tidak ada halaman yang dipilih untuk dipangkas.")
+
+        # 5. Terapkan Cropbox pada setiap halaman yang ditargetkan
+        for idx in target_indices:
+            page = doc[idx]
+            rect = page.rect
+            x0 = rect.x0 + (crop_x * rect.width)
+            y0 = rect.y0 + (crop_y * rect.height)
+            x1 = min(rect.x1, x0 + (crop_width * rect.width))
+            y1 = min(rect.y1, y0 + (crop_height * rect.height))
+
+            # PyMuPDF set_cropbox
+            page.set_cropbox(fitz.Rect(x0, y0, x1, y1))
+
+        # 6. Serialisasi In-Memory dengan kompresi
+        pdf_bytes = doc.tobytes(
+            garbage=3,
+            deflate=True
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{out_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR CROP PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal memangkas PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
+
+
 
