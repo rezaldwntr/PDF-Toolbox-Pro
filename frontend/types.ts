@@ -21,6 +21,7 @@ export enum View {
   CROP_PDF,
   PDF_A,
   EDIT_PDF,
+  OCR_PDF,
   
   BLOG,
   FAQ,

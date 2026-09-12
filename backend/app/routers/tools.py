@@ -1539,6 +1539,130 @@ def edit_pdf(
             doc.close()
 
 
+@router.post("/ocr-pdf")
+def ocr_pdf(
+    file: UploadFile = File(...),
+    languages: str = Form("ind+eng"),
+    output_format: str = Form("pdf")
+):
+    """
+    Mengenali teks dari gambar/pindaian dokumen PDF (OCR) dan menghasilkan Searchable PDF atau teks murni:
+    - Zero Disk I/O (In-Memory processing dengan PyMuPDF)
+    - Dukungan multibahasa Tesseract (Indonesia, Inggris, Arab, Mandarin, Jepang, dll)
+    - Membuat lapisan teks tak terlihat (invisible text layer) yang dapat dicari (Ctrl+F), disalin, dan disorot
+    - Opsi unduh Searchable PDF atau berkas teks (.txt)
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    clean_langs = (languages or "eng").strip()
+    out_format = (output_format or "pdf").lower().strip()
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu sebelum menjalankan OCR."
+            )
+
+        doc_len = len(doc)
+        if doc_len == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        all_extracted_text = []
+        searchable_doc = fitz.open()
+
+        for page_idx in range(doc_len):
+            page = doc[page_idx]
+            page_text = page.get_text()
+
+            # Jika halaman sudah memiliki teks digital memadai
+            if len(page_text.strip()) > 50:
+                searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + page_text.strip())
+                continue
+
+            # Jika halaman adalah hasil scan atau gambar, terapkan OCR
+            try:
+                # Coba ekstrak TextPage OCR via PyMuPDF (Tesseract)
+                textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
+                ocr_text = textpage.extractText()
+                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + ocr_text.strip())
+
+                # Buat halaman baru pada dokumen hasil
+                new_page = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                new_page.insert_image(page.rect, stream=img_bytes)
+
+                # Sisipkan kata-kata OCR sebagai teks transparan (render_mode=3)
+                words = textpage.extractWORDS()
+                for w in words:
+                    w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+                    w_text = w[4]
+                    font_size = max(6.0, w_rect.height * 0.9)
+                    new_page.insert_text(
+                        fitz.Point(w_rect.x0, w_rect.y1),
+                        w_text,
+                        fontsize=font_size,
+                        fontname="helv",
+                        render_mode=3
+                    )
+            except Exception as ocr_err:
+                logging.warning(f"OCR fallback pada halaman {page_idx + 1}: {ocr_err}")
+                searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + (page_text.strip() or "[Teks tidak terdeteksi]"))
+
+        # Output teks murni (.txt)
+        if out_format == "txt":
+            full_text_output = "\n\n".join(all_extracted_text)
+            txt_bytes = full_text_output.encode("utf-8")
+            return Response(
+                content=txt_bytes,
+                media_type="text/plain; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="ocr-{safe_base}.txt"',
+                }
+            )
+
+        # Output Searchable PDF
+        out_pdf_bytes = searchable_doc.tobytes(garbage=3, deflate=True)
+        return Response(
+            content=out_pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="searchable-{safe_base}.pdf"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR OCR PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal memproses OCR PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
+
+
 
 
 

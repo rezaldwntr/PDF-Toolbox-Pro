@@ -23,6 +23,7 @@ import UnlockPdf from './components/tools/UnlockPdf';
 import CropPdf from './components/tools/CropPdf';
 import PdfToPdfa from './components/tools/PdfToPdfa';
 import EditPdf from './components/tools/EditPdf';
+import OcrPdf from './components/tools/OcrPdf';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -104,6 +105,8 @@ function App() {
         return <PdfToPdfa onBack={handleBackToHome} />;
       case View.EDIT_PDF:
         return <EditPdf onBack={handleBackToHome} />;
+      case View.OCR_PDF:
+        return <OcrPdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:

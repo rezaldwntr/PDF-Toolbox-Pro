@@ -60,7 +60,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
     {
       title: "4. Keamanan & Lanjutan",
       tools: [
-        { title: "OCR PDF", description: "Pindai dan kenali teks dari gambar scan.", icon: <Eye size={22} />, active: false },
+        { title: "OCR PDF", description: "Pindai dan kenali teks dari gambar scan.", icon: <Eye size={22} />, active: true, view: View.OCR_PDF },
         { title: "Proteksi PDF", description: "Kunci dokumen dengan kata sandi kuat.", icon: <Lock size={22} />, active: true, view: View.PROTECT_PDF },
         { title: "Buka Kunci", description: "Buka sandi perlindungan PDF milik Anda.", icon: <Unlock size={22} />, active: true, view: View.UNLOCK_PDF },
         { title: "Terjemahkan", description: "Terjemahkan teks dokumen secara otomatis.", icon: <Languages size={22} />, active: false },

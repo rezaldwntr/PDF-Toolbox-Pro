@@ -204,7 +204,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'OCR PDF',
           description: 'Kenali dan ubah teks dari pindaian scan/foto menjadi teks digital.',
           icon: <Eye size={22} />,
-          active: false,
+          active: true,
+          view: View.OCR_PDF,
           category: 'Keamanan & Lanjutan',
           keywords: ['ocr', 'scan', 'pindai', 'baca gambar']
         },
