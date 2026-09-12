@@ -908,3 +908,117 @@ def watermark_pdf(
         if doc and not doc.is_closed:
             doc.close()
 
+
+# =====================================================================
+# === 9. PROTEKSI PDF (STANDAR INDUSTRI ILOVEPDF & SMALLPDF)        ===
+# =====================================================================
+
+@router.post("/protect-pdf")
+def protect_pdf(
+    file: UploadFile = File(...),
+    password: str = Form(...),                      # Kata sandi buka dokumen (User Password)
+    owner_password: Optional[str] = Form(None),     # Kata sandi pemilik/master (Owner Password)
+    allow_print: bool = Form(True),                 # Izin cetak dokumen
+    allow_copy: bool = Form(True),                  # Izin salin teks & grafik
+    allow_modify: bool = Form(False),               # Izin modifikasi dokumen
+    allow_annotate: bool = Form(True),              # Izin beri anotasi / komentar
+    allow_fill_forms: bool = Form(True)             # Izin isi formulir PDF
+):
+    """
+    Mengunci dan mengenkripsi dokumen PDF dengan standar industri internasional AES-256 (ISO 32000):
+    - Zero Disk I/O (In-Memory streaming ultra-cepat berbasis PyMuPDF)
+    - Enkripsi kuat AES-256 bit (PDF_ENCRYPT_AES_256)
+    - Dukungan kata sandi pengguna (buka dokumen) & kata sandi pemilik (master permissions)
+    - Pengaturan izin akses granular (Cetak, Salin, Modifikasi, Anotasi, Formulir)
+    - Deteksi dokumen yang telah terenkripsi sebelumnya
+    - Optimasi kompresi stream output (deflate=True, garbage=3)
+    """
+    filename = file.filename or "dokumen.pdf"
+
+    # 1. Validasi ekstensi
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
+
+    # 2. Validasi kata sandi
+    clean_password = (password or "").strip()
+    if len(clean_password) < 4:
+        raise HTTPException(status_code=400, detail="Kata sandi minimal harus terdiri dari 4 karakter.")
+
+    # 3. Baca biner langsung ke memori (Zero Disk I/O)
+    content = file.file.read()
+    if len(content) > MAX_FILE_SIZE:
+        max_mb = MAX_FILE_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
+
+    raw_base = os.path.splitext(filename)[0]
+    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    out_filename = f"protected-{safe_base}.pdf"
+
+    doc = None
+    try:
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+
+        # 4. Deteksi apakah sudah terenkripsi
+        if doc.needs_pass or doc.is_encrypted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' sudah dilindungi kata sandi. Dokumen tidak dapat diproteksi dua kali."
+            )
+
+        if len(doc) == 0:
+            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+
+        # 5. Kalkulasi Bitmask Izin (Permissions) Standar ISO PDF
+        perm = 0
+        if allow_print:
+            perm |= fitz.PDF_PERM_PRINT
+        if allow_modify:
+            perm |= fitz.PDF_PERM_MODIFY
+        if allow_copy:
+            perm |= fitz.PDF_PERM_COPY
+        if allow_annotate:
+            perm |= fitz.PDF_PERM_ANNOTATE
+        if allow_fill_forms:
+            perm |= fitz.PDF_PERM_FILL_FORM
+        # Aksesibilitas (screen reader untuk tuna netra) selalu diaktifkan sesuai rekomendasi ISO
+        perm |= fitz.PDF_PERM_ACCESSIBILITY
+
+        # 6. Algoritma Enkripsi Standar Industri (AES-256)
+        try:
+            enc_algo = fitz.PDF_ENCRYPT_AES_256
+        except AttributeError:
+            enc_algo = fitz.PDF_ENCRYPT_AES_128
+
+        clean_owner = owner_password.strip() if (owner_password and owner_password.strip()) else clean_password
+
+        # 7. Serialisasi In-Memory Terenkripsi
+        pdf_bytes = doc.tobytes(
+            encryption=enc_algo,
+            user_pw=clean_password,
+            owner_pw=clean_owner,
+            permissions=perm,
+            garbage=3,
+            deflate=True
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{out_filename}"',
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"ERROR PROTECT PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gagal memproteksi PDF: {str(e)}")
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
+
+

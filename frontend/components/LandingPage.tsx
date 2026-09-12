@@ -210,7 +210,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           title: 'Proteksi PDF',
           description: 'Kunci dokumen dengan kata sandi kuat dan enkripsi tingkat tinggi.',
           icon: <Lock size={22} />,
-          active: false,
+          active: true,
+          view: View.PROTECT_PDF,
           category: 'Keamanan & Lanjutan',
           keywords: ['protect', 'kunci', 'sandi', 'password', 'enkripsi']
         },

@@ -16,6 +16,7 @@ export enum View {
   ADD_SIGNATURE,
   ORGANIZE,
   WATERMARK,
+  PROTECT_PDF,
   
   BLOG,
   FAQ,
