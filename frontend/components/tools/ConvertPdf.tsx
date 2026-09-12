@@ -19,6 +19,7 @@ import PdfPreview from './PdfPreview';
 declare const pdfjsLib: any;
 
 import { BACKEND_URL } from '../../config';
+import { handleJobOrDirectResponse } from '../../lib/jobPoller';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -38,6 +39,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [pageCount, setPageCount] = useState<number>(0); 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
+  const [processProgress, setProcessProgress] = useState<number>(0);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState<string>('');
   const [isSingleImageOutput, setIsSingleImageOutput] = useState(false);
@@ -178,7 +180,11 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 menit
+    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 menit (didukung async queue)
+
+    setIsProcessing(true);
+    setProcessProgress(5);
+    setProcessingMessage('Mengirim berkas ke engine pemroses...');
 
     try {
       const fullUrl = `${BACKEND_URL}${config.endpoint}`;
@@ -190,20 +196,18 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.error || `Gagal memproses (Status: ${response.status})`);
-      }
+      const jobResult = await handleJobOrDirectResponse(
+        response,
+        BACKEND_URL,
+        (pct, msg) => {
+          setProcessProgress(pct);
+          setProcessingMessage(msg);
+        },
+        controller.signal
+      );
 
-      const contentType = response.headers.get('content-type') || '';
-      const contentDisp = response.headers.get('content-disposition') || '';
-
-      // Tentukan nama berkas hasil
-      let finalFilename = '';
-      const filenameMatch = contentDisp.match(/filename="?([^";]+)"?/);
-      if (filenameMatch && filenameMatch[1]) {
-        finalFilename = filenameMatch[1];
-      } else {
+      let finalFilename = jobResult.filename;
+      if (!finalFilename || finalFilename === 'dokumen' || finalFilename === 'hasil-dokumen') {
         const base = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
         const isRangeActive = pageRangeMode === 'custom' && (startPage > 1 || endPage < pageCount);
         const rangeSuffix = isRangeActive
@@ -211,21 +215,16 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           : '';
 
         if (mode === 'image') {
-          if (contentType.includes('image/')) {
-            finalFilename = `${base}${rangeSuffix}.${selectedImageFormat}`;
-          } else {
-            finalFilename = `${base}${rangeSuffix}_images.zip`;
-          }
+          finalFilename = `${base}${rangeSuffix}.${selectedImageFormat}`;
         } else {
           finalFilename = `${base}${rangeSuffix}.${config.ext}`;
         }
       }
 
-      const isSingleImg = contentType.includes('image/') || finalFilename.endsWith('.jpg') || finalFilename.endsWith('.png');
+      const isSingleImg = finalFilename.endsWith('.jpg') || finalFilename.endsWith('.png');
       setIsSingleImageOutput(isSingleImg);
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(jobResult.blob);
       setOutputUrl(url);
       setOutputFilename(finalFilename);
       consumeQuota();
@@ -233,7 +232,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        addToast("Batas waktu terlampaui. Server sedang sibuk atau berkas terlalu kompleks.", 'error');
+        addToast("Batas waktu terlampaui atau proses dibatalkan.", 'error');
       } else {
         addToast(error.message || "Terjadi kesalahan saat konversi.", 'error');
       }
@@ -289,13 +288,30 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
               <Sparkles className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-pulse" />
             </div>
           </div>
-          <h4 className="text-lg text-slate-900 dark:text-white font-bold mb-1">{processingMessage}</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
-            Memproses stream dokumen dengan akselerasi engine server berkecepatan tinggi.
+          <h4 className="text-lg text-slate-900 dark:text-white font-bold mb-1">{processingMessage || 'Memproses dokumen...'}</h4>
+
+          {processProgress > 0 && (
+            <div className="w-full max-w-xs mt-3 mb-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                <span>Kemajuan</span>
+                <span className="font-mono text-blue-600 dark:text-blue-400">{processProgress}%</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
+                <div 
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 h-1.5 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(5, processProgress))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-2">
+            Pemrosesan asinkronus aktif untuk stabilitas tanpa batas waktu gateway.
           </p>
         </div>
       );
     }
+
 
     if (fileWithBuffer) {
       return (

@@ -9,17 +9,19 @@ import datetime
 import json
 import urllib.parse
 import urllib.request
+import asyncio
 from typing import List, Optional
 from enum import Enum
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import fitz  # PyMuPDF
 from PIL import Image
 
 from app.core.config import MAX_FILE_SIZE
 from app.utils.file_utils import validate_file, cleanup_folder
+from app.utils.job_store import create_job, update_job
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
@@ -1541,27 +1543,21 @@ def edit_pdf(
             doc.close()
 
 
-@router.post("/ocr-pdf")
-def ocr_pdf(
+@router.post("/ocr-pdf", status_code=202)
+async def ocr_pdf(
     file: UploadFile = File(...),
     languages: str = Form("ind+eng"),
     output_format: str = Form("pdf")
 ):
     """
-    Mengenali teks dari gambar/pindaian dokumen PDF (OCR) dan menghasilkan Searchable PDF atau teks murni:
-    - Zero Disk I/O (In-Memory processing dengan PyMuPDF)
-    - Dukungan multibahasa Tesseract (Indonesia, Inggris, Arab, Mandarin, Jepang, dll)
-    - Membuat lapisan teks tak terlihat (invisible text layer) yang dapat dicari (Ctrl+F), disalin, dan disorot
-    - Opsi unduh Searchable PDF atau berkas teks (.txt)
+    Mengenali teks dari gambar/pindaian dokumen PDF (OCR) secara asinkronus (Async Job).
     """
     filename = file.filename or "dokumen.pdf"
 
-    # 1. Validasi ekstensi
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
 
-    # 2. Baca biner langsung ke memori (Zero Disk I/O)
-    content = file.file.read()
+    content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1571,97 +1567,101 @@ def ocr_pdf(
     clean_langs = (languages or "eng").strip()
     out_format = (output_format or "pdf").lower().strip()
 
-    doc = None
-    try:
-        try:
-            doc = fitz.open(stream=content, filetype="pdf")
-        except Exception:
-            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+    job_id = create_job(message="Mempersiapkan analisis OCR...")
 
-        if doc.needs_pass or doc.is_encrypted:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu sebelum menjalankan OCR."
-            )
-
-        doc_len = len(doc)
-        if doc_len == 0:
-            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
-
-        all_extracted_text = []
-        searchable_doc = fitz.open()
-
-        for page_idx in range(doc_len):
-            page = doc[page_idx]
-            page_text = page.get_text()
-
-            # Jika halaman sudah memiliki teks digital memadai
-            if len(page_text.strip()) > 50:
-                searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
-                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + page_text.strip())
-                continue
-
-            # Jika halaman adalah hasil scan atau gambar, terapkan OCR
+    async def _run():
+        def _do_ocr():
+            update_job(job_id, status="processing", progress=10, message="Membaca struktur PDF & mendeteksi halaman...")
             try:
-                # Coba ekstrak TextPage OCR via PyMuPDF (Tesseract)
-                textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
-                ocr_text = textpage.extractText()
-                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + ocr_text.strip())
+                doc = fitz.open(stream=content, filetype="pdf")
+            except Exception:
+                raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
 
-                # Buat halaman baru pada dokumen hasil
-                new_page = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
-                pix = page.get_pixmap(dpi=150)
-                img_bytes = pix.tobytes("png")
-                new_page.insert_image(page.rect, stream=img_bytes)
+            if doc.needs_pass or doc.is_encrypted:
+                doc.close()
+                raise HTTPException(status_code=400, detail=f"Berkas '{filename}' dilindungi kata sandi. Harap buka kuncinya terlebih dahulu sebelum menjalankan OCR.")
 
-                # Sisipkan kata-kata OCR sebagai teks transparan (render_mode=3)
-                words = textpage.extractWORDS()
-                for w in words:
-                    w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
-                    w_text = w[4]
-                    font_size = max(6.0, w_rect.height * 0.9)
-                    new_page.insert_text(
-                        fitz.Point(w_rect.x0, w_rect.y1),
-                        w_text,
-                        fontsize=font_size,
-                        fontname="helv",
-                        render_mode=3
-                    )
-            except Exception as ocr_err:
-                logging.warning(f"OCR fallback pada halaman {page_idx + 1}: {ocr_err}")
-                searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
-                all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + (page_text.strip() or "[Teks tidak terdeteksi]"))
+            doc_len = len(doc)
+            if doc_len == 0:
+                doc.close()
+                raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
 
-        # Output teks murni (.txt)
-        if out_format == "txt":
-            full_text_output = "\n\n".join(all_extracted_text)
-            txt_bytes = full_text_output.encode("utf-8")
-            return Response(
-                content=txt_bytes,
-                media_type="text/plain; charset=utf-8",
-                headers={
-                    "Content-Disposition": f'attachment; filename="ocr-{safe_base}.txt"',
-                }
-            )
+            all_extracted_text = []
+            searchable_doc = fitz.open()
 
-        # Output Searchable PDF
-        out_pdf_bytes = searchable_doc.tobytes(garbage=3, deflate=True)
-        return Response(
-            content=out_pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="searchable-{safe_base}.pdf"',
-            }
-        )
+            for page_idx in range(doc_len):
+                pct = int(15 + (page_idx / doc_len) * 75)
+                update_job(job_id, progress=pct, message=f"Menjalankan OCR halaman {page_idx + 1} dari {doc_len} ({clean_langs})...")
+                page = doc[page_idx]
+                page_text = page.get_text()
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"ERROR OCR PDF: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Gagal memproses OCR PDF: {str(e)}")
-    finally:
-        if doc and not doc.is_closed:
+                if len(page_text.strip()) > 50:
+                    searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + page_text.strip())
+                    continue
+
+                try:
+                    textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
+                    ocr_text = textpage.extractText()
+                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + ocr_text.strip())
+
+                    new_page = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
+                    pix = page.get_pixmap(dpi=150)
+                    img_bytes = pix.tobytes("png")
+                    new_page.insert_image(page.rect, stream=img_bytes)
+
+                    words = textpage.extractWORDS()
+                    for w in words:
+                        w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+                        w_text = w[4]
+                        font_size = max(6.0, w_rect.height * 0.9)
+                        new_page.insert_text(
+                            fitz.Point(w_rect.x0, w_rect.y1),
+                            w_text,
+                            fontsize=font_size,
+                            fontname="helv",
+                            render_mode=3
+                        )
+                except Exception as ocr_err:
+                    logging.warning(f"OCR fallback pada halaman {page_idx + 1}: {ocr_err}")
+                    searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + (page_text.strip() or "[Teks tidak terdeteksi]"))
+
             doc.close()
+            update_job(job_id, progress=92, message="Menyusun dokumen hasil OCR...")
+
+            full_sample = "\n".join(all_extracted_text)[:500].strip()
+
+            if out_format == "txt":
+                full_text_output = "\n\n".join(all_extracted_text)
+                txt_bytes = full_text_output.encode("utf-8")
+                searchable_doc.close()
+                return txt_bytes, "text/plain; charset=utf-8", f"ocr-{safe_base}.txt", full_sample
+
+            out_pdf_bytes = searchable_doc.tobytes(garbage=3, deflate=True)
+            searchable_doc.close()
+            return out_pdf_bytes, "application/pdf", f"searchable-{safe_base}.pdf", full_sample
+
+        try:
+            res_bytes, media_type, out_filename, sample_text = await asyncio.to_thread(_do_ocr)
+            update_job(
+                job_id,
+                status="done",
+                progress=100,
+                message="Proses OCR selesai!",
+                result=res_bytes,
+                media_type=media_type,
+                filename=out_filename,
+                sample=sample_text,
+            )
+        except Exception as e:
+            logging.error(f"[Job {job_id}] OCR error: {e}")
+            err_msg = e.detail if isinstance(e, HTTPException) else str(e)
+            update_job(job_id, status="error", error=f"Gagal memproses OCR: {err_msg}", message="Terjadi kesalahan.")
+
+    asyncio.create_task(_run())
+    return JSONResponse({"job_id": job_id, "status": "pending", "message": "Proses OCR dimulai..."}, status_code=202)
+
 
 
 # =====================================================================
@@ -1729,8 +1729,8 @@ def _translate_text_chunk(text: str, source_lang: str = "auto", target_lang: str
     return text
 
 
-@router.post("/translate-pdf")
-def translate_pdf(
+@router.post("/translate-pdf", status_code=202)
+async def translate_pdf(
     file: UploadFile = File(...),
     source_lang: str = Form("auto"),
     target_lang: str = Form("id"),
@@ -1740,22 +1740,14 @@ def translate_pdf(
     custom_pages: Optional[str] = Form(None)
 ):
     """
-    Menerjemahkan dokumen PDF dengan teknologi AI Document Translation (In-Memory Zero Disk I/O):
-    - Benchmark setara iLovePDF & Smallpdf
-    - Preservasi tata letak asli (Layout Preservation) menggunakan in-memory redaction & bounding box refit
-    - Deteksi bahasa otomatis (Auto-Detect) + 35+ bahasa dunia
-    - Fallback otomatis ke OCR jika halaman berupa pindaian/gambar tanpa teks digital
-    - Mode output: Searchable Layout-Preserved PDF atau Dokumen Teks (.txt)
-    - Pilihan rentang halaman (Semua Halaman, Halaman Terpilih, Rentang Kustom)
+    Menerjemahkan dokumen PDF secara asinkronus (Async Job) dengan AI Document Translation.
     """
     filename = file.filename or "dokumen.pdf"
 
-    # 1. Validasi ekstensi
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
 
-    # 2. Baca biner langsung ke memori (Zero Disk I/O)
-    content = file.file.read()
+    content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1766,122 +1758,127 @@ def translate_pdf(
     src_l = (source_lang or "auto").lower().strip()
     tgt_l = (target_lang or "id").lower().strip()
 
-    doc = None
-    try:
-        try:
-            doc = fitz.open(stream=content, filetype="pdf")
-        except Exception:
-            raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
+    job_id = create_job(message="Mempersiapkan terjemahan dokumen AI...")
 
-        if doc.needs_pass or doc.is_encrypted:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Berkas '{filename}' dilindungi kata sandi. Buka kunci proteksi terlebih dahulu sebelum menerjemahkan."
-            )
+    async def _run():
+        def _do_translate():
+            update_job(job_id, status="processing", progress=10, message="Menganalisis tata letak dan teks dokumen...")
+            try:
+                doc = fitz.open(stream=content, filetype="pdf")
+            except Exception:
+                raise HTTPException(status_code=400, detail=f"Berkas '{filename}' rusak atau tidak dapat diproses.")
 
-        doc_len = len(doc)
-        if doc_len == 0:
-            raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
+            if doc.needs_pass or doc.is_encrypted:
+                doc.close()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Berkas '{filename}' dilindungi kata sandi. Buka kunci proteksi terlebih dahulu sebelum menerjemahkan."
+                )
 
-        # Tentukan halaman target
-        sel = (page_selection or "all").lower().strip()
-        if sel == "current":
-            target_pages = [max(0, min(current_page - 1, doc_len - 1))]
-        else:
-            target_pages = _get_target_pages(doc_len, sel, custom_pages, exclude_first_page=False)
+            doc_len = len(doc)
+            if doc_len == 0:
+                doc.close()
+                raise HTTPException(status_code=400, detail="Dokumen PDF tidak memiliki halaman.")
 
-        if not target_pages:
-            raise HTTPException(status_code=400, detail="Tidak ada halaman yang cocok dengan pilihan cakupan halaman.")
+            # Tentukan halaman target
+            sel = (page_selection or "all").lower().strip()
+            if sel == "current":
+                target_pages = [max(0, min(current_page - 1, doc_len - 1))]
+            else:
+                target_pages = _get_target_pages(doc_len, sel, custom_pages, exclude_first_page=False)
 
-        all_translated_text_pages = []
+            if not target_pages:
+                doc.close()
+                raise HTTPException(status_code=400, detail="Tidak ada halaman yang cocok dengan pilihan cakupan halaman.")
 
-        for p_idx in range(doc_len):
-            page = doc[p_idx]
+            all_translated_text_pages = []
+            num_targets = len(target_pages)
 
-            # Jika halaman ini bukan halaman target, lewati
-            if p_idx not in target_pages:
-                continue
+            for idx_t, p_idx in enumerate(target_pages):
+                pct = int(15 + (idx_t / max(1, num_targets)) * 75)
+                update_job(job_id, progress=pct, message=f"Menerjemahkan halaman {p_idx + 1} ({idx_t + 1}/{num_targets})...")
+                page = doc[p_idx]
 
-            page_blocks = page.get_text("blocks")
-            # Filter blok teks (block_type == 0)
-            text_blocks = [b for b in page_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
+                page_blocks = page.get_text("blocks")
+                text_blocks = [b for b in page_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
 
-            # Jika halaman berupa hasil pindaian/scan (tidak ada teks digital memadai), coba auto-OCR
-            if len(text_blocks) == 0 or sum(len(b[4].strip()) for b in text_blocks) < 30:
-                try:
-                    ocr_lang = "eng" if src_l in ("auto", "en") else (src_l if len(src_l) == 3 else "eng")
-                    tp = page.get_textpage_ocr(language=ocr_lang, dpi=150, full=True)
-                    ocr_blocks = tp.extractBLOCKS()
-                    text_blocks = [b for b in ocr_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
-                except Exception as ocr_e:
-                    logging.warning(f"Auto-OCR pada halaman {p_idx + 1} dilewati: {ocr_e}")
+                if len(text_blocks) == 0 or sum(len(b[4].strip()) for b in text_blocks) < 30:
+                    try:
+                        ocr_lang = "eng" if src_l in ("auto", "en") else (src_l if len(src_l) == 3 else "eng")
+                        tp = page.get_textpage_ocr(language=ocr_lang, dpi=150, full=True)
+                        ocr_blocks = tp.extractBLOCKS()
+                        text_blocks = [b for b in ocr_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
+                    except Exception as ocr_e:
+                        logging.warning(f"Auto-OCR pada halaman {p_idx + 1} dilewati: {ocr_e}")
 
-            page_extracted_translations = []
+                page_extracted_translations = []
 
-            for b in text_blocks:
-                orig_text = b[4].strip()
-                if not orig_text:
-                    continue
+                for b in text_blocks:
+                    orig_text = b[4].strip()
+                    if not orig_text:
+                        continue
 
-                trans_text = _translate_text_chunk(orig_text, src_l, tgt_l)
-                page_extracted_translations.append(trans_text)
+                    trans_text = _translate_text_chunk(orig_text, src_l, tgt_l)
+                    page_extracted_translations.append(trans_text)
 
-                if out_format == "pdf":
-                    rect = fitz.Rect(b[0], b[1], b[2], b[3])
-                    # Redaksi blok teks lama dengan warna putih bersih
-                    page.add_redact_annot(rect, fill=(1, 1, 1))
-                    page.apply_redactions()
+                    if out_format == "pdf":
+                        rect = fitz.Rect(b[0], b[1], b[2], b[3])
+                        page.add_redact_annot(rect, fill=(1, 1, 1))
+                        page.apply_redactions()
 
-                    # Kalkulasi ukuran font adaptif agar rapi dalam batas kotak (bounding box)
-                    line_count = max(1, len(orig_text.splitlines()))
-                    approx_fs = max(6.0, min(24.0, (rect.height / line_count) * 0.72))
+                        line_count = max(1, len(orig_text.splitlines()))
+                        approx_fs = max(6.0, min(24.0, (rect.height / line_count) * 0.72))
 
-                    inserted = False
-                    for fs in [approx_fs, approx_fs * 0.9, approx_fs * 0.8, approx_fs * 0.7, 7.0, 6.0]:
-                        rc = page.insert_textbox(rect, trans_text, fontsize=fs, fontname="helv", color=(0, 0, 0), align=0)
-                        if rc >= 0:
-                            inserted = True
-                            break
+                        inserted = False
+                        for fs in [approx_fs, approx_fs * 0.9, approx_fs * 0.8, approx_fs * 0.7, 7.0, 6.0]:
+                            rc = page.insert_textbox(rect, trans_text, fontsize=fs, fontname="helv", color=(0, 0, 0), align=0)
+                            if rc >= 0:
+                                inserted = True
+                                break
 
-                    if not inserted:
-                        expanded_rect = fitz.Rect(rect.x0, rect.y0, rect.x1 + 10, rect.y1 + 8)
-                        page.insert_textbox(expanded_rect, trans_text, fontsize=6.0, fontname="helv", color=(0, 0, 0), align=0)
+                        if not inserted:
+                            expanded_rect = fitz.Rect(rect.x0, rect.y0, rect.x1 + 10, rect.y1 + 8)
+                            page.insert_textbox(expanded_rect, trans_text, fontsize=6.0, fontname="helv", color=(0, 0, 0), align=0)
 
-            if page_extracted_translations:
-                all_translated_text_pages.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(page_extracted_translations))
+                if page_extracted_translations:
+                    all_translated_text_pages.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(page_extracted_translations))
 
-        # Output Teks Murni (.txt)
-        if out_format == "txt":
-            full_txt = "\n\n".join(all_translated_text_pages)
-            if not full_txt.strip():
-                full_txt = "[Tidak ada teks yang dapat diekstrak atau diterjemahkan dari halaman terpilih]"
-            txt_bytes = full_txt.encode("utf-8")
-            return Response(
-                content=txt_bytes,
-                media_type="text/plain; charset=utf-8",
-                headers={
-                    "Content-Disposition": f'attachment; filename="translated-{safe_base}.txt"',
-                }
-            )
+            update_job(job_id, progress=92, message="Menyusun dokumen hasil terjemahan...")
 
-        # Output PDF (Pertahankan Tata Letak)
-        pdf_bytes = doc.tobytes(garbage=3, deflate=True)
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="translated-{safe_base}.pdf"',
-            }
-        )
+            full_sample = "\n".join(all_translated_text_pages)[:500].strip()
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"ERROR TRANSLATE PDF: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Gagal menerjemahkan dokumen PDF: {str(e)}")
-    finally:
-        if doc and not doc.is_closed:
+            if out_format == "txt":
+                full_txt = "\n\n".join(all_translated_text_pages)
+                if not full_txt.strip():
+                    full_txt = "[Tidak ada teks yang dapat diekstrak atau diterjemahkan dari halaman terpilih]"
+                txt_bytes = full_txt.encode("utf-8")
+                doc.close()
+                return txt_bytes, "text/plain; charset=utf-8", f"translated-{safe_base}.txt", full_sample
+
+            pdf_bytes = doc.tobytes(garbage=3, deflate=True)
             doc.close()
+            return pdf_bytes, "application/pdf", f"translated-{safe_base}.pdf", full_sample
+
+        try:
+            res_bytes, media_type, out_filename, sample_text = await asyncio.to_thread(_do_translate)
+            update_job(
+                job_id,
+                status="done",
+                progress=100,
+                message="Penerjemahan selesai!",
+                result=res_bytes,
+                media_type=media_type,
+                filename=out_filename,
+                sample=sample_text,
+            )
+        except Exception as e:
+            logging.error(f"[Job {job_id}] Translate error: {e}")
+            err_msg = e.detail if isinstance(e, HTTPException) else str(e)
+            update_job(job_id, status="error", error=f"Gagal menerjemahkan dokumen: {err_msg}", message="Terjadi kesalahan.")
+
+    asyncio.create_task(_run())
+    return JSONResponse({"job_id": job_id, "status": "pending", "message": "Penerjemahan dokumen dimulai..."}, status_code=202)
+
 
 
 

@@ -4,6 +4,7 @@ import FileUploader from '../common/FileUploader';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { BACKEND_URL } from '../../config';
+import { handleJobOrDirectResponse } from '../../lib/jobPoller';
 import {
   Languages,
   FileText,
@@ -89,6 +90,7 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Status Pemrosesan & Hasil
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processStep, setProcessStep] = useState<string>('');
+  const [translateProgress, setTranslateProgress] = useState<number>(0);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
   const [extractedSample, setExtractedSample] = useState<string>('');
@@ -181,15 +183,8 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
 
     setIsProcessing(true);
-    setProcessStep('Menganalisis teks & tata letak dokumen...');
-
-    const stepTimer1 = setTimeout(() => {
-      setProcessStep('Menerjemahkan teks dengan AI Translation Engine...');
-    }, 1200);
-
-    const stepTimer2 = setTimeout(() => {
-      setProcessStep('Menata ulang tata letak & merender dokumen baru...');
-    }, 3200);
+    setTranslateProgress(5);
+    setProcessStep('Mempersiapkan terjemahan dokumen AI...');
 
     try {
       const formData = new FormData();
@@ -208,19 +203,26 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         body: formData,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.detail || 'Gagal menerjemahkan dokumen PDF.');
+      const jobResult = await handleJobOrDirectResponse(
+        res,
+        BACKEND_URL,
+        (pct, msg) => {
+          setTranslateProgress(pct);
+          setProcessStep(msg);
+        }
+      );
+
+      if (jobResult.sample) {
+        setExtractedSample(jobResult.sample);
       }
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(jobResult.blob);
       setResultUrl(url);
-      setResultSize(blob.size);
+      setResultSize(jobResult.blob.size);
 
       // Jika format teks, baca sampel teks
       if (outputMode === 'txt') {
-        const txt = await blob.text();
+        const txt = await jobResult.blob.text();
         setExtractedSample(txt);
       }
 
@@ -231,11 +233,10 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       console.error(err);
       addToast(err.message || 'Terjadi kesalahan saat memproses terjemahan.', 'error');
     } finally {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
       setIsProcessing(false);
       setProcessStep('');
     }
+
   };
 
   // Salin teks sampel
@@ -755,17 +756,32 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 space-y-3 animate-in fade-in">
                     <div className="flex items-center gap-3">
                       <div className="w-5 h-5 border-2 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
                           Sedang Menerjemahkan Dokumen...
                         </p>
-                        <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-0.5">
+                        <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-0.5 truncate">
                           {processStep || 'Memproses berkas secara in-memory...'}
                         </p>
                       </div>
+                      {translateProgress > 0 && (
+                        <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                          {translateProgress}%
+                        </span>
+                      )}
                     </div>
+
+                    {translateProgress > 0 && (
+                      <div className="w-full bg-indigo-200/60 dark:bg-indigo-900/60 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${Math.min(100, Math.max(5, translateProgress))}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
+
 
                 {/* TOMBOL EKSEKUSI */}
                 <button

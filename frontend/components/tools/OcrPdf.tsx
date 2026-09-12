@@ -4,6 +4,7 @@ import FileUploader from '../common/FileUploader';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { BACKEND_URL } from '../../config';
+import { handleJobOrDirectResponse } from '../../lib/jobPoller';
 import {
   Eye,
   FileSearch,
@@ -65,10 +66,12 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // State Pemrosesan & Hasil
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processStep, setProcessStep] = useState<string>('');
+  const [ocrProgress, setOcrProgress] = useState<number>(0);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
   const [extractedSample, setExtractedSample] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+
 
   const { addToast } = useToast();
   const { consumeQuota, checkQuotaBeforeAction } = useQuota();
@@ -139,15 +142,8 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
 
     setIsProcessing(true);
-    setProcessStep('Membaca citra pindaian halaman...');
-
-    const stepTimer1 = setTimeout(() => {
-      setProcessStep('Menjalankan pengenalan karakter multi-bahasa...');
-    }, 1500);
-
-    const stepTimer2 = setTimeout(() => {
-      setProcessStep('Menyusun lapisan teks Searchable PDF...');
-    }, 3500);
+    setOcrProgress(5);
+    setProcessStep('Mempersiapkan analisis OCR...');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -160,35 +156,26 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         body: formData,
       });
 
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-
-      if (!response.ok) {
-        let errDetail = 'Gagal memproses OCR dokumen';
-        try {
-          const errJson = await response.json();
-          if (errJson.detail) errDetail = errJson.detail;
-        } catch {
-          // json parse fallback
+      const jobResult = await handleJobOrDirectResponse(
+        response,
+        BACKEND_URL,
+        (pct, msg) => {
+          setOcrProgress(pct);
+          setProcessStep(msg);
         }
-        addToast(errDetail, 'error');
-        setIsProcessing(false);
-        return;
+      );
+
+      if (jobResult.sample) {
+        setExtractedSample(jobResult.sample);
       }
 
-      const sampleHeader = response.headers.get('X-Extracted-Text-Sample');
-      if (sampleHeader) {
-        setExtractedSample(sampleHeader);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(jobResult.blob);
       setResultUrl(url);
-      setResultSize(blob.size);
+      setResultSize(jobResult.blob.size);
 
       // Jika user memilih output format teks, baca cuplikan dari blob
       if (outputFormat === 'txt') {
-        const textContent = await blob.text();
+        const textContent = await jobResult.blob.text();
         setExtractedSample(textContent.slice(0, 500));
       }
 
@@ -197,14 +184,13 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       addToast('Proses OCR selesai! Dokumen siap diunduh.', 'success');
     } catch (error: any) {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
       console.error('Error OCR PDF:', error);
-      addToast(error.message || 'Terjadi kesalahan jaringan saat menjalankan OCR.', 'error');
+      addToast(error.message || 'Terjadi kesalahan saat menjalankan OCR.', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
+
 
   // 4. Salin teks ke clipboard
   const handleCopyText = () => {
@@ -465,6 +451,22 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             </div>
 
+            {/* Progress Bar Asinkronus */}
+            {isProcessing && ocrProgress > 0 && (
+              <div className="w-full bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 animate-fade-in">
+                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <span className="truncate mr-2">{processStep || 'Menjalankan OCR...'}</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400">{ocrProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${Math.min(100, Math.max(5, ocrProgress))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Tombol Eksekusi OCR */}
             <button
               type="button"
@@ -484,6 +486,7 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </>
               )}
             </button>
+
           </div>
         </div>
       )}
