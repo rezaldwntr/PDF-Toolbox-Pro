@@ -231,12 +231,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
         },
         {
           id: 'translate-pdf',
-          title: 'Terjemahkan',
-          description: 'Terjemahkan seluruh isi dokumen PDF ke berbagai bahasa dunia.',
+          title: 'Terjemahkan PDF',
+          description: 'Terjemahkan seluruh dokumen ke 30+ bahasa dengan AI dan tata letak asli.',
           icon: <Languages size={22} />,
-          active: false,
+          active: true,
+          view: View.TRANSLATE_PDF,
           category: 'Keamanan & Lanjutan',
-          keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia']
+          keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
         }
       ]
     }

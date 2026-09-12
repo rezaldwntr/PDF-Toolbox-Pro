@@ -24,6 +24,7 @@ import CropPdf from './components/tools/CropPdf';
 import PdfToPdfa from './components/tools/PdfToPdfa';
 import EditPdf from './components/tools/EditPdf';
 import OcrPdf from './components/tools/OcrPdf';
+import TranslatePdf from './components/tools/TranslatePdf';
 
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
@@ -107,6 +108,8 @@ function App() {
         return <EditPdf onBack={handleBackToHome} />;
       case View.OCR_PDF:
         return <OcrPdf onBack={handleBackToHome} />;
+      case View.TRANSLATE_PDF:
+        return <TranslatePdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:
