@@ -13,13 +13,24 @@ import os
 # Batas global fallback (guest / free)
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# Batas per tier (dalam bytes) — didukung Tier 3 GCS Direct Presigned Upload
+# Batas ukuran per tier (dalam bytes) sesuai matriks kapasitas:
+# Alat Standar (Grup B: PyMuPDF C-Engine hingga 300 MB)
 MAX_FILE_SIZE_BY_TIER = {
-    "guest":   20  * 1024 * 1024,   # 20 MB
-    "free":    50  * 1024 * 1024,   # 50 MB
+    "guest":    30 * 1024 * 1024,   # 30 MB
+    "free":     30 * 1024 * 1024,   # 30 MB
     "flash":   100 * 1024 * 1024,   # 100 MB
-    "monthly": 250 * 1024 * 1024,   # 250 MB (GCS Direct Upload)
-    "annual":  500 * 1024 * 1024,   # 500 MB (GCS Direct Upload)
+    "monthly": 200 * 1024 * 1024,   # 200 MB
+    "annual":  300 * 1024 * 1024,   # 300 MB
+}
+
+# Alat Berat / OCR (Grup C: Word, Excel, PPT, Image, OCR, Translate)
+# Dibatasi maksimal 50 MB untuk menjaga stabilitas RAM kontainer 2 GB
+MAX_FILE_SIZE_HEAVY_BY_TIER = {
+    "guest":   10 * 1024 * 1024,   # 10 MB
+    "free":    10 * 1024 * 1024,   # 10 MB
+    "flash":   35 * 1024 * 1024,   # 35 MB
+    "monthly": 50 * 1024 * 1024,   # 50 MB
+    "annual":  50 * 1024 * 1024,   # 50 MB (Batas aman RAM)
 }
 
 # ===========================================================================
