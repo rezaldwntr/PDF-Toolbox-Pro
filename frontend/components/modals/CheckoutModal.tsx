@@ -5,9 +5,9 @@ import {
   Copy, Check, ArrowRight, ArrowLeft, Smartphone
 } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, TIER_RANK, TIER_CONFIGS } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { View } from '../../types';
+import { View, UserTier } from '../../types';
 
 interface CheckoutModalProps {
   onSelectView?: (view: View) => void;
@@ -96,7 +96,7 @@ const ADMIN_EMAIL = 'rezaldewantara@gmail.com';
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const { showCheckoutModal, checkoutPlan, closeCheckout } = useQuota();
-  const { user, isGuest, signInWithGoogle, refreshUser } = useAuth();
+  const { user, isGuest, userTier, signInWithGoogle, refreshUser } = useAuth();
 
   const [activeStep, setActiveStep] = useState<'scan' | 'confirm'>('scan');
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 menit
@@ -111,6 +111,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const [accountEmail, setAccountEmail] = useState('');
   const [refNumber, setRefNumber] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Proteksi Hierarki Tier: Cek apakah paket yang dipilih lebih rendah dari paket aktif
+  const currentRank = TIER_RANK[userTier] || 0;
+  const targetPlanRank = checkoutPlan ? (TIER_RANK[checkoutPlan as UserTier] || 0) : 0;
+  const isDowngrade = !isGuest && userTier !== 'free' && currentRank > targetPlanRank;
+  const isExtension = !isGuest && user?.tier === checkoutPlan && !!user?.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date();
 
   // Sinkronisasi data user saat terbuka
   useEffect(() => {
@@ -147,6 +153,47 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   if (!showCheckoutModal || !checkoutPlan) return null;
   const plan = PLAN_DETAILS[checkoutPlan];
   if (!plan) return null;
+
+  // Layar Proteksi: Jika user mencoba membeli paket yang lebih rendah dari paket aktifnya
+  if (isDowngrade) {
+    const currentConfig = TIER_CONFIGS[userTier];
+    const expiryFormatted = user?.subscriptionExpiry
+      ? new Date(user.subscriptionExpiry).toLocaleDateString('id-ID', { dateStyle: 'long' })
+      : null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
+        <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-950/60 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-blue-500/20 text-blue-600 dark:text-blue-400">
+            <Shield size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Paket Aktif Anda Lebih Tinggi</h3>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-left">
+            Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{accountEmail || user?.email}</span>) saat ini memiliki paket <span className="font-bold text-slate-900 dark:text-white">{currentConfig.label}</span> yang masih aktif{expiryFormatted ? ` hingga ${expiryFormatted}` : ''}.
+          </p>
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl text-left text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+              <Check size={14} /> Semua Fitur Sudah Termasuk
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+              Semua fasilitas dari paket <strong>{plan.name}</strong> sudah otomatis aktif di akun Anda dengan batas ukuran berkas hingga <strong>{currentConfig.maxFileSizeMB} MB</strong> dan antrean prioritas.
+            </p>
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium pt-1">
+              Pembelian paket ini dinonaktifkan agar akun Anda tidak mengalami penurunan spesifikasi (downgrade).
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={closeCheckout}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all active:scale-95 cursor-pointer"
+            >
+              Kembali ke Aplikasi
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -215,9 +262,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
         console.warn('Pengiriman FormSubmit email mengalami kendala jaringan:', emailErr);
       }
 
-      // 2. Aktifkan paket langsung pada profil Supabase pengguna
+      // 2. Aktifkan atau perpanjang paket pada profil Supabase pengguna
       if (user?.id) {
-        let expiry = new Date();
+        let baseDate = now;
+        // Jika memperpanjang paket yang sama dan masih aktif, tambahkan durasi dari expiry sebelumnya (Stacking)
+        if (user?.subscriptionExpiry) {
+          const existingExpiry = new Date(user.subscriptionExpiry);
+          if (existingExpiry > now && user.tier === checkoutPlan) {
+            baseDate = existingExpiry;
+          }
+        }
+
+        let expiry = new Date(baseDate.getTime());
         if (checkoutPlan === 'flash') {
           expiry.setHours(expiry.getHours() + 24);
         } else if (checkoutPlan === 'monthly') {
@@ -392,6 +448,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                 >
                   Masuk dengan Google Sekarang →
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Banner Perpanjangan jika memperpanjang paket yang sama */}
+          {isExtension && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 rounded-xl flex items-center gap-2.5 text-xs text-blue-900 dark:text-blue-300">
+              <Sparkles size={16} className="text-amber-500 shrink-0" />
+              <div>
+                <p className="font-bold">Perpanjangan Paket (+Masa Aktif)</p>
+                <p className="text-[11px] text-blue-800 dark:text-blue-400/90 leading-relaxed">
+                  Durasi baru akan ditambahkan langsung dari sisa masa aktif akun Anda saat ini (Stacking).
+                </p>
               </div>
             </div>
           )}

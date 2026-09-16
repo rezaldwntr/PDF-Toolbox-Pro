@@ -1,7 +1,7 @@
 import React from "react";
-import { View } from "../../types";
+import { View, UserTier } from "../../types";
 import { useQuota } from "../../contexts/QuotaContext";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth, TIER_RANK } from "../../contexts/AuthContext";
 import { Check, ArrowLeft, Zap, Star, Crown, Gift } from "lucide-react";
 
 interface PricingPageProps {
@@ -105,6 +105,7 @@ const COMPARE_ROWS = [
 const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
   const { openCheckout, setShowPricingModal } = useQuota();
   const { isGuest, signInWithGoogle, userTier } = useAuth();
+  const currentRank = TIER_RANK[userTier] || 0;
 
   const handleCTA = async (planId: string) => {
     if (planId === "free") {
@@ -139,50 +140,59 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
       {/* Plan Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
         {PLANS.map(plan => {
+          const planRank = TIER_RANK[plan.id as UserTier] || 0;
           const isActive = plan.id === userTier || (plan.id === "free" && userTier === "guest");
+          const isLower = currentRank > planRank && !isGuest && userTier !== "free";
+          const isUpgrade = planRank > currentRank && currentRank > 1;
+
           return (
             <div
               key={plan.id}
               className={`relative rounded-2xl p-6 flex flex-col border transition-all ${
-                plan.highlight
+                plan.highlight && !isLower
                   ? "bg-gradient-to-b from-blue-600 to-indigo-700 text-white border-transparent shadow-2xl shadow-blue-500/30 scale-[1.02]"
                   : "bg-white dark:bg-[#1E222B] border-slate-200 dark:border-slate-700 shadow-sm"
-              } ${isActive ? "ring-2 ring-emerald-500" : ""}`}
+              } ${isActive ? "ring-2 ring-emerald-500" : ""} ${isLower ? "opacity-80" : ""}`}
             >
-              {plan.badge && (
-                <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 text-[11px] font-extrabold px-3 py-1 rounded-full ${
+              {plan.badge && !isLower && (
+                <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 text-[11px] font-extrabold px-3 py-1 rounded-full shadow-xs ${
                   plan.id === "flash" ? "bg-amber-400 text-amber-900" : "bg-purple-500 text-white"
                 }`}>
                   {plan.badge}
                 </div>
               )}
               {isActive && (
-                <div className="absolute -top-3.5 right-4 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                <div className="absolute -top-3.5 right-4 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
                   Aktif
+                </div>
+              )}
+              {isLower && (
+                <div className="absolute -top-3.5 right-4 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  Sudah Termasuk
                 </div>
               )}
 
               {/* Icon + Name */}
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
-                plan.highlight ? "bg-white/20 text-white" : plan.iconBg
+                plan.highlight && !isLower ? "bg-white/20 text-white" : plan.iconBg
               }`}>
                 {plan.icon}
               </div>
-              <h3 className={`font-bold text-base mb-1 ${plan.highlight ? "text-white" : "text-slate-900 dark:text-white"}`}>
+              <h3 className={`font-bold text-base mb-1 ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
                 {plan.name}
               </h3>
-              <p className={`text-3xl font-extrabold mb-0.5 ${plan.highlight ? "text-white" : "text-slate-900 dark:text-white"}`}>
+              <p className={`text-3xl font-extrabold mb-0.5 ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
                 {plan.price}
               </p>
-              <p className={`text-xs mb-5 ${plan.highlight ? "text-blue-200" : "text-slate-500 dark:text-slate-400"}`}>
+              <p className={`text-xs mb-5 ${plan.highlight && !isLower ? "text-blue-200" : "text-slate-500 dark:text-slate-400"}`}>
                 {plan.priceNote}
               </p>
 
               {/* Features */}
               <ul className="space-y-2.5 flex-1 mb-6">
                 {plan.features.map((f, i) => (
-                  <li key={i} className={`flex items-start gap-2 text-sm ${plan.highlight ? "text-blue-100" : "text-slate-600 dark:text-slate-400"}`}>
-                    <Check size={14} className={`mt-0.5 shrink-0 ${plan.highlight ? "text-blue-300" : "text-emerald-500"}`} />
+                  <li key={i} className={`flex items-start gap-2 text-sm ${plan.highlight && !isLower ? "text-blue-100" : "text-slate-600 dark:text-slate-400"}`}>
+                    <Check size={14} className={`mt-0.5 shrink-0 ${plan.highlight && !isLower ? "text-blue-300" : "text-emerald-500"}`} />
                     {f}
                   </li>
                 ))}
@@ -191,19 +201,31 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
               {/* CTA */}
               <button
                 onClick={() => handleCTA(plan.id)}
-                disabled={isActive && plan.id !== "free"}
+                disabled={isLower || (isActive && plan.id !== "free") || (isActive && plan.id === "free" && !isGuest)}
                 className={`w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-98 ${
-                  plan.highlight
-                    ? "bg-white text-blue-700 hover:bg-blue-50"
+                  isLower
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed"
                     : isActive && plan.id !== "free"
                     ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default"
+                    : isActive && plan.id === "free" && !isGuest
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 cursor-default"
+                    : plan.highlight
+                    ? "bg-white text-blue-700 hover:bg-blue-50"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {isActive && plan.id !== "free" ? "✓ Paket Aktif" : plan.cta}
+                {isLower
+                  ? "Sudah Termasuk ✓"
+                  : isActive && plan.id !== "free"
+                  ? "✓ Paket Aktif"
+                  : isActive && plan.id === "free" && !isGuest
+                  ? "✓ Paket Saat Ini"
+                  : isUpgrade
+                  ? `Upgrade ke ${plan.name} →`
+                  : plan.cta}
               </button>
-              <p className={`text-[11px] text-center mt-2 ${plan.highlight ? "text-blue-300" : "text-slate-400 dark:text-slate-500"}`}>
-                {plan.note}
+              <p className={`text-[11px] text-center mt-2 ${plan.highlight && !isLower ? "text-blue-300" : "text-slate-400 dark:text-slate-500"}`}>
+                {isLower ? "Fasilitas sudah aktif di akun Anda" : plan.note}
               </p>
             </div>
           );

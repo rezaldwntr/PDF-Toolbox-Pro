@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Check, Zap, Star, Crown } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { View } from '../../types';
+import { useAuth, TIER_RANK } from '../../contexts/AuthContext';
+import { View, UserTier } from '../../types';
 
 interface PricingModalProps {
   onSelectView?: (view: View) => void;
@@ -84,6 +84,7 @@ const PLANS = [
 const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
   const { showPricingModal, setShowPricingModal, openCheckout } = useQuota();
   const { isGuest, signInWithGoogle, userTier } = useAuth();
+  const currentRank = TIER_RANK[userTier] || 0;
 
   if (!showPricingModal) return null;
 
@@ -111,36 +112,46 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
         {/* Plan Cards */}
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLANS.map(plan => {
+            const planRank = TIER_RANK[plan.id as UserTier] || 0;
             const isActive = plan.id === userTier || (plan.id === 'free' && userTier === 'guest');
+            // Proteksi: Pengguna berbayar tidak boleh downgrade ke paket di bawahnya
+            const isLower = currentRank > planRank && !isGuest && userTier !== 'free';
+            const isUpgrade = planRank > currentRank && currentRank > 1;
+
             return (
               <div
                 key={plan.id}
                 className={`relative rounded-xl p-5 flex flex-col border transition-all ${
-                  plan.highlight
+                  plan.highlight && !isLower
                     ? 'bg-gradient-to-b from-blue-600 to-indigo-700 text-white border-transparent shadow-xl shadow-blue-500/30'
                     : 'bg-white dark:bg-[#1E222B] border-slate-200 dark:border-slate-700'
-                } ${isActive ? 'ring-2 ring-emerald-500' : ''}`}
+                } ${isActive ? 'ring-2 ring-emerald-500' : ''} ${isLower ? 'opacity-80' : ''}`}
               >
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 rounded-full">
+                {plan.badge && !isLower && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 rounded-full shadow-xs">
                     {plan.badge}
                   </div>
                 )}
                 {isActive && (
-                  <div className="absolute -top-3 right-3 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  <div className="absolute -top-3 right-3 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
                     Aktif
+                  </div>
+                )}
+                {isLower && (
+                  <div className="absolute -top-3 right-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                    Sudah Termasuk
                   </div>
                 )}
 
                 <div className="text-2xl mb-2">{plan.icon}</div>
-                <h3 className={`font-bold text-sm mb-1 ${plan.highlight ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{plan.name}</h3>
-                <p className={`text-2xl font-extrabold mb-0.5 ${plan.highlight ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{plan.price}</p>
-                <p className={`text-xs mb-4 ${plan.highlight ? 'text-blue-200' : 'text-slate-500 dark:text-slate-400'}`}>{plan.priceNote}</p>
+                <h3 className={`font-bold text-sm mb-1 ${plan.highlight && !isLower ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{plan.name}</h3>
+                <p className={`text-2xl font-extrabold mb-0.5 ${plan.highlight && !isLower ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{plan.price}</p>
+                <p className={`text-xs mb-4 ${plan.highlight && !isLower ? 'text-blue-200' : 'text-slate-500 dark:text-slate-400'}`}>{plan.priceNote}</p>
 
                 <ul className="space-y-2 flex-1 mb-5">
                   {plan.features.map((f, i) => (
-                    <li key={i} className={`flex items-start gap-2 text-xs ${plan.highlight ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'}`}>
-                      <Check size={13} className={`mt-0.5 shrink-0 ${plan.highlight ? 'text-blue-300' : 'text-emerald-500'}`} />
+                    <li key={i} className={`flex items-start gap-2 text-xs ${plan.highlight && !isLower ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                      <Check size={13} className={`mt-0.5 shrink-0 ${plan.highlight && !isLower ? 'text-blue-300' : 'text-emerald-500'}`} />
                       {f}
                     </li>
                   ))}
@@ -148,16 +159,28 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
 
                 <button
                   onClick={() => handleCTA(plan.id)}
-                  disabled={isActive && plan.id !== 'free'}
+                  disabled={isLower || (isActive && plan.id !== 'free') || (isActive && plan.id === 'free' && !isGuest)}
                   className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-98 ${
-                    plan.highlight
-                      ? 'bg-white text-blue-700 hover:bg-blue-50'
-                      : isActive
+                    isLower
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                      : isActive && plan.id !== 'free'
                       ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default'
+                      : isActive && plan.id === 'free' && !isGuest
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 cursor-default'
+                      : plan.highlight
+                      ? 'bg-white text-blue-700 hover:bg-blue-50'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  {isActive && plan.id !== 'free' ? '✓ Paket Aktif' : plan.cta}
+                  {isLower
+                    ? 'Sudah Termasuk ✓'
+                    : isActive && plan.id !== 'free'
+                    ? '✓ Paket Aktif'
+                    : isActive && plan.id === 'free' && !isGuest
+                    ? '✓ Paket Saat Ini'
+                    : isUpgrade
+                    ? `Upgrade →`
+                    : plan.cta}
                 </button>
               </div>
             );

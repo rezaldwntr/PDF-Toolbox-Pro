@@ -12,6 +12,15 @@ export const TIER_CONFIGS = {
   annual:  { dailyQuota: null, maxFileSizeMB: 300, maxFileSizeHeavyMB: 50, maxBatchFiles: 50, hasAds: false, hasWatermark: false, label: 'Annual Pass',     price: 'Rp149.000', priceNote: '/tahun' },
 } as const;
 
+// Tingkatan level tier untuk proteksi hierarki & pencegahan downgrade tidak disengaja
+export const TIER_RANK: Record<UserTier, number> = {
+  guest: 0,
+  free: 1,
+  flash: 2,
+  monthly: 3,
+  annual: 4,
+};
+
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -61,9 +70,9 @@ const mapSupabaseUser = async (authUser: any): Promise<UserProfile> => {
       return defaultProfile;
     }
 
-    // Pastikan subscription flash pass belum kadaluarsa
+    // Pastikan masa aktif subscription berbayar (flash, monthly, annual) belum kedaluwarsa
     let effectiveTier: Exclude<UserTier, 'guest'> = data.tier || 'free';
-    if (effectiveTier === 'flash' && data.subscription_expiry) {
+    if (['flash', 'monthly', 'annual'].includes(effectiveTier) && data.subscription_expiry) {
       const expiry = new Date(data.subscription_expiry);
       if (expiry < new Date()) {
         effectiveTier = 'free';
