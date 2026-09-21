@@ -33,12 +33,15 @@ import {
   Send,
   Percent,
   Crown,
+  UserCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { View, PromoSetting } from '../../types';
 import type { PresenceState } from '../../lib/presence';
 import { fetchPromoSettings, updatePromoSetting, DEFAULT_BASE_PRICES } from '../../lib/promo';
+import { TargetUserSelectorModal } from '../modals/TargetUserSelectorModal';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -149,6 +152,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   ]);
   const [isLoadingPromos, setIsLoadingPromos] = useState<boolean>(false);
   const [savingPromoPlan, setSavingPromoPlan] = useState<string | null>(null);
+  const [targetModalPromo, setTargetModalPromo] = useState<PromoSetting | null>(null);
 
   const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
 
@@ -1487,32 +1491,113 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
 
                         {/* Target Pengguna (Emails) */}
                         <div>
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-1.5">
                             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                               Target Akun Penerima
                             </label>
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                              isTargeted ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isTargeted
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                             }`}>
                               {isTargeted ? `🎯 ${targetEmails.length} Email Khusus` : '🌐 Global (Semua User)'}
                             </span>
                           </div>
-                          <textarea
-                            rows={3}
-                            value={targetEmails.join(', ')}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const parsed = raw.split(',').map((x: string) => x.trim()).filter(Boolean);
-                              setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: parsed } : p)));
-                            }}
-                            placeholder="Biarkan KOSONG untuk semua orang, atau isi email dipisah koma (misal: mau.ibra5@gmail.com, user2@gmail.com)"
-                            className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed resize-none"
-                          />
-                          <p className="text-[10px] text-slate-400 mt-1">
-                            {isTargeted
-                              ? 'Promo HANYA terlihat dan berlaku saat akun terdaftar di atas login.'
-                              : 'Promo ini berlaku untuk SEMUA pengunjung dan pengguna.'}
-                          </p>
+
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                            {/* Tombol Utama Buka Modal & Reset */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setTargetModalPromo(promo)}
+                                className="flex-1 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+                              >
+                                <UserCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>{isTargeted ? `Ubah / Filter Target (${targetEmails.length})` : 'Pilih Target Pengguna...'}</span>
+                              </button>
+
+                              {isTargeted && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: [] } : p)));
+                                  }}
+                                  title="Reset ke mode Global (Semua Pengunjung & User)"
+                                  className="p-2 rounded-xl bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 text-xs transition"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Preview Chips Tag Email */}
+                            {isTargeted ? (
+                              <div>
+                                <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-0.5">
+                                  {targetEmails.slice(0, 5).map((email: string) => (
+                                    <span
+                                      key={email}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-[10px] font-mono border border-slate-200 dark:border-slate-700 shadow-2xs"
+                                    >
+                                      <span className="truncate max-w-[120px]">{email}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = targetEmails.filter((e: string) => e.toLowerCase() !== email.toLowerCase());
+                                          setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: updated } : p)));
+                                        }}
+                                        className="text-slate-400 hover:text-rose-500 transition font-bold text-xs"
+                                        title="Hapus email ini dari target"
+                                      >
+                                        ✕
+                                      </button>
+                                    </span>
+                                  ))}
+                                  {targetEmails.length > 5 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTargetModalPromo(promo)}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold hover:underline"
+                                    >
+                                      +{targetEmails.length - 5} lainnya...
+                                    </button>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                                  <span>🎯</span>
+                                  <span>Promo HANYA terlihat & berlaku untuk {targetEmails.length} akun terpilih di atas.</span>
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <span>🌐</span>
+                                <span>Promo berlaku untuk <strong>SEMUA</strong> pengunjung dan pengguna.</span>
+                              </p>
+                            )}
+
+                            {/* Opsi Accordion Manual */}
+                            <details className="text-[10px] text-slate-400 group pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                              <summary className="cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 select-none">
+                                ✏️ Edit Manual / Salin Daftar Teks
+                              </summary>
+                              <div className="mt-2 space-y-1">
+                                <textarea
+                                  rows={2}
+                                  value={targetEmails.join(', ')}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const parsed = raw.split(',').map((x: string) => x.trim()).filter(Boolean);
+                                    setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: parsed } : p)));
+                                  }}
+                                  placeholder="Pisahkan dengan koma (misal: user1@gmail.com, user2@gmail.com)"
+                                  className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed resize-none"
+                                />
+                                <span className="text-[9px] text-slate-400">
+                                  Anda dapat menempelkan banyak email sekaligus dipisahkan koma di sini.
+                                </span>
+                              </div>
+                            </details>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1642,6 +1727,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
               </div>
             </div>
           </div>
+        )}
+
+        {/* Modal Pemilih Pengguna Target Promo */}
+        {targetModalPromo && (
+          <TargetUserSelectorModal
+            isOpen={Boolean(targetModalPromo)}
+            onClose={() => setTargetModalPromo(null)}
+            planId={targetModalPromo.plan_id}
+            planTitle={targetModalPromo.title || `Paket ${targetModalPromo.plan_id.toUpperCase()}`}
+            userList={userList}
+            selectedEmails={
+              Array.isArray(targetModalPromo.target_emails)
+                ? targetModalPromo.target_emails
+                : typeof targetModalPromo.target_emails === 'string'
+                ? (targetModalPromo.target_emails as string).replace(/[{}"']/g, '').split(',').map((s) => s.trim()).filter(Boolean)
+                : []
+            }
+            onApply={(emails) => {
+              setPromos((prev) =>
+                prev.map((p) =>
+                  p.plan_id === targetModalPromo.plan_id
+                    ? { ...p, target_emails: emails }
+                    : p
+                )
+              );
+              setTargetModalPromo(null);
+            }}
+          />
         )}
       </div>
     </div>
