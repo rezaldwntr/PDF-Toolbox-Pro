@@ -1,4 +1,4 @@
-﻿# app/routers/payment.py
+# app/routers/payment.py
 import hashlib
 import time
 import logging
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 import httpx
 import midtransclient
 
