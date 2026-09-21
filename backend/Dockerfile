@@ -25,13 +25,6 @@ COPY . .
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request, os; port = os.environ.get('PORT', '7860'); urllib.request.urlopen(f'http://localhost:{port}/')" || exit 1
 
-# 7. JALANKAN SERVER (Uvicorn dengan 2 worker & port adaptif)
-# - Menggunakan exec shell agar ${PORT:-7860} dievaluasi dinamis untuk Cloud Run ($PORT) & default (7860)
-# - 2 worker: memungkinkan request berjalan paralel secara asinkron
-# - keep-alive 75s: mencegah koneksi Cloud Run Load Balancer putus dini
-CMD exec uvicorn app.main:app \
-     --host 0.0.0.0 \
-     --port ${PORT:-7860} \
-     --workers 2 \
-     --timeout-keep-alive 75
+# 7. JALANKAN SERVER (Direct python entrypoint via run.py)
+CMD ["python", "run.py"]
 
