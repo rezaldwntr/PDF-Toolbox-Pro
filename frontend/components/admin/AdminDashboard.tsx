@@ -24,6 +24,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { View } from '../../types';
 import type { PresenceState } from '../../lib/presence';
 
@@ -63,40 +64,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     setActionMessage(null);
 
     const durationDays = newTier === 'annual' ? 365 : newTier === 'monthly' ? 30 : newTier === 'flash' ? 1 : null;
-    try {
-      const resp = await fetch(`${BACKEND_URL}/admin/users/update-tier`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': ADMIN_EMAIL,
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          tier: newTier,
-          duration_days: durationDays,
-        }),
-      });
+    let expiry: string | null = null;
+    if (durationDays) {
+      const d = new Date();
+      d.setDate(d.getDate() + durationDays);
+      expiry = d.toISOString();
+    }
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.detail || 'Gagal mengubah status tier.');
+    try {
+      let success = false;
+
+      // 1. Coba update via Cloud Run backend jika sudah ter-deploy
+      try {
+        const resp = await fetch(`${BACKEND_URL}/admin/users/update-tier`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Email': ADMIN_EMAIL,
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            tier: newTier,
+            duration_days: durationDays,
+          }),
+        });
+
+        if (resp.ok) {
+          success = true;
+        }
+      } catch (backendErr) {
+        // Backend Cloud Run belum di-deploy, lanjut ke fallback Supabase
       }
 
+      // 2. Fallback: Update langsung melalui client Supabase
+      if (!success && supabase) {
+        const { error: sbErr } = await supabase
+          .from('user_profiles')
+          .update({
+            tier: newTier.toLowerCase(),
+            subscription_expiry: expiry,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+
+        if (!sbErr) {
+          success = true;
+        } else {
+          console.warn('Gagal update langsung via Supabase:', sbErr);
+          // Jika RLS menolak, lempar pesan ramah
+          if (sbErr.code === '42501' || sbErr.message?.includes('policy')) {
+            throw new Error('Supabase RLS memerlukan izin Admin. Silakan jalankan policy admin di Supabase SQL Editor.');
+          }
+          throw new Error(sbErr.message || 'Gagal mengubah status tier.');
+        }
+      }
+
+      if (!success) {
+        throw new Error('Gagal memperbarui status tier.');
+      }
+
+      // Update state userList lokal secara instan
       setUserList((prev) =>
         prev.map((u) => {
           if (u.id === userId) {
-            let expiry = null;
-            if (durationDays) {
-              const d = new Date();
-              d.setDate(d.getDate() + durationDays);
-              expiry = d.toISOString();
-            }
             return { ...u, tier: newTier, subscription_expiry: expiry };
           }
           return u;
         })
       );
-      setActionMessage(`Tier pengguna berhasil diperbarui ke ${newTier.toUpperCase()}`);
+      setActionMessage(`Tier pengguna berhasil diperbarui ke ${newTier.toUpperCase()}!`);
       setTimeout(() => setActionMessage(null), 4000);
     } catch (err: any) {
       console.error('Error update tier:', err);
