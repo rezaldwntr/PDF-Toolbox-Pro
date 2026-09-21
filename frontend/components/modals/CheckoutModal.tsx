@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  X, QrCode, Timer, CheckCircle2, Shield, Loader2, 
-  Sparkles, AlertCircle, Download, Mail, 
-  Copy, Check, ArrowRight, ArrowLeft, Smartphone, Zap, CreditCard
+  X, Timer, CheckCircle2, Shield, Loader2, 
+  Sparkles, AlertCircle, Copy, Check, Zap, CreditCard
 } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth, TIER_RANK, TIER_CONFIGS } from '../../contexts/AuthContext';
@@ -20,7 +19,6 @@ const PLAN_DETAILS: Record<string, {
   rawPrice: number; 
   priceNote: string; 
   desc: string; 
-  qrisImage: string;
   badge: string;
   features: string[];
 }> = {
@@ -30,7 +28,6 @@ const PLAN_DETAILS: Record<string, {
     rawPrice: 5000,
     priceNote: 'sekali bayar · berlaku 24 jam',
     desc: 'Solusi cepat untuk kebutuhan mendesak',
-    qrisImage: '/qris/qris-flash.jpg',
     badge: 'TERPOPULER',
     features: [
       'Akses alat standar tanpa batas (24 jam)',
@@ -47,7 +44,6 @@ const PLAN_DETAILS: Record<string, {
     rawPrice: 29000,
     priceNote: '/bulan · batalkan kapan saja',
     desc: 'Untuk produktivitas harian tanpa batas',
-    qrisImage: '/qris/qris-monthly.jpg',
     badge: 'PRODUKTIF',
     features: [
       'Semua alat standar tanpa batas setiap hari',
@@ -64,7 +60,6 @@ const PLAN_DETAILS: Record<string, {
     rawPrice: 149000,
     priceNote: '/tahun · hemat 57% vs bulanan',
     desc: 'Nilai terbaik untuk pengguna daya tinggi',
-    qrisImage: '/qris/qris-annual.jpg',
     badge: 'HEMAT 57%',
     features: [
       'Semua keunggulan paket Monthly Pro',
@@ -77,42 +72,17 @@ const PLAN_DETAILS: Record<string, {
   },
 };
 
-const BANK_OPTIONS = [
-  'BCA Mobile / myBCA',
-  'Livin by Mandiri',
-  'BRImo (Bank BRI)',
-  'BNI Mobile Banking',
-  'GoPay / Gojek',
-  'OVO',
-  'DANA',
-  'ShopeePay',
-  'SeaBank',
-  'Bank Jago / Allo Bank',
-  'BSI Mobile',
-  'CIMB Niaga OCTO Mobile',
-  'Lainnya / E-Wallet Lain'
-];
-
 const ADMIN_EMAIL = 'rezaldewantara@gmail.com';
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const { showCheckoutModal, checkoutPlan, closeCheckout } = useQuota();
   const { user, isGuest, userTier, signInWithGoogle, refreshUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'midtrans' | 'scan' | 'confirm'>('midtrans');
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 menit
   const [copiedEmail, setCopiedEmail] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingSnap, setIsLoadingSnap] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Form input states
-  const [senderName, setSenderName] = useState('');
-  const [senderBank, setSenderBank] = useState('GoPay / Gojek');
-  const [accountEmail, setAccountEmail] = useState('');
-  const [refNumber, setRefNumber] = useState('');
-  const [notes, setNotes] = useState('');
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -122,20 +92,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const isDowngrade = !isGuest && userTier !== 'free' && currentRank > targetPlanRank;
   const isExtension = !isGuest && user?.tier === checkoutPlan && !!user?.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date();
 
-  // Sinkronisasi data user saat terbuka
-  useEffect(() => {
-    if (user) {
-      setAccountEmail(user.email || '');
-      setSenderName(prev => prev || user.fullName || '');
-    }
-  }, [user]);
-
   // Timer countdown 15 menit & reset state saat ditutup
   useEffect(() => {
     if (!showCheckoutModal) {
       setTimeLeft(15 * 60);
       setIsPaid(false);
-      setActiveTab('midtrans');
       setErrorMessage(null);
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       return;
@@ -155,6 +116,44 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
     return () => clearInterval(interval);
   }, [showCheckoutModal, closeCheckout]);
 
+  // Helper sukses konfirmasi pembayaran & update tier di Supabase
+  const handleConfirmPaymentSuccess = useCallback(async () => {
+    if (user?.id) {
+      const now = new Date();
+      let baseDate = now;
+      if (user?.subscriptionExpiry) {
+        const existingExpiry = new Date(user.subscriptionExpiry);
+        if (existingExpiry > now && user.tier === checkoutPlan) {
+          baseDate = existingExpiry; // Stacking perpanjangan
+        }
+      }
+
+      let expiry = new Date(baseDate.getTime());
+      if (checkoutPlan === 'flash') {
+        expiry.setHours(expiry.getHours() + 24);
+      } else if (checkoutPlan === 'monthly') {
+        expiry.setDate(expiry.getDate() + 30);
+      } else if (checkoutPlan === 'annual') {
+        expiry.setDate(expiry.getDate() + 365);
+      }
+
+      const { error: dbErr } = await supabase
+        .from('user_profiles')
+        .update({
+          tier: checkoutPlan,
+          subscription_expiry: expiry.toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (dbErr) {
+        console.warn('Update tier Supabase gagal:', dbErr);
+      }
+
+      await refreshUser();
+    }
+    setIsPaid(true);
+  }, [checkoutPlan, user, refreshUser]);
+
   // Polling status transaksi Midtrans
   const startPollingStatus = useCallback((activeOrderId: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -173,7 +172,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
         console.warn('Gagal memeriksa status pembayaran Midtrans:', err);
       }
     }, 4000);
-  }, [checkoutPlan, user]);
+  }, [handleConfirmPaymentSuccess]);
 
   useEffect(() => {
     return () => {
@@ -200,14 +199,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
           </div>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white">Paket Aktif Anda Lebih Tinggi</h3>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-left">
-            Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{accountEmail || user?.email}</span>) saat ini memiliki paket <span className="font-bold text-slate-900 dark:text-white">{currentConfig.label}</span> yang masih aktif{expiryFormatted ? ` hingga ${expiryFormatted}` : ''}.
+            Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{user?.email}</span>) saat ini memiliki paket <span className="font-bold text-slate-900 dark:text-white">{currentConfig.label}</span> yang masih aktif{expiryFormatted ? ` hingga ${expiryFormatted}` : ''}.
           </p>
           <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl text-left text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
               <Check size={14} /> Semua Fitur Sudah Termasuk
             </div>
             <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-              Semua fasilitas dari paket <strong>{plan.name}</strong> sudah otomatis aktif di akun Anda dengan batas ukuran berkas hingga <strong>{currentConfig.maxFileSizeMB} MB</strong> dan antrean prioritas.
+              Semua fasilitas dari paket <strong>{plan.name}</strong> sudah otomatis aktif di akun Anda dengan batas ukuran berkas hingga <strong>{currentConfig.maxFileSizeMB} MB</strong> dan antrean prioritas utama.
             </p>
             <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium pt-1">
               Pembelian paket ini dinonaktifkan agar akun Anda tidak mengalami penurunan spesifikasi (downgrade).
@@ -236,45 +235,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
     setTimeout(() => setCopiedEmail(false), 2000);
   };
 
-  // Helper sukses update Supabase
-  const handleConfirmPaymentSuccess = async () => {
-    if (user?.id) {
-      const now = new Date();
-      let baseDate = now;
-      if (user?.subscriptionExpiry) {
-        const existingExpiry = new Date(user.subscriptionExpiry);
-        if (existingExpiry > now && user.tier === checkoutPlan) {
-          baseDate = existingExpiry; // Stacking
-        }
-      }
-
-      let expiry = new Date(baseDate.getTime());
-      if (checkoutPlan === 'flash') {
-        expiry.setHours(expiry.getHours() + 24);
-      } else if (checkoutPlan === 'monthly') {
-        expiry.setDate(expiry.getDate() + 30);
-      } else if (checkoutPlan === 'annual') {
-        expiry.setDate(expiry.getDate() + 365);
-      }
-
-      const { error: dbErr } = await supabase
-        .from('user_profiles')
-        .update({
-          tier: checkoutPlan,
-          subscription_expiry: expiry.toISOString(),
-        })
-        .eq('id', user.id);
-
-      if (dbErr) {
-        console.warn('Update tier Supabase gagal:', dbErr);
-      }
-
-      await refreshUser();
-    }
-    setIsPaid(true);
-  };
-
-  // 1. Eksekusi Pembayaran Otomatis via Midtrans Snap
+  // Eksekusi Pembayaran Otomatis via Midtrans Snap
   const handlePayWithMidtrans = async () => {
     if (isGuest) {
       alert('Silakan Masuk dengan Google terlebih dahulu agar paket aktif tersimpan pada akun Anda.');
@@ -292,8 +253,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
         body: JSON.stringify({
           plan_id: checkoutPlan,
           user_id: user?.id || 'guest',
-          user_email: accountEmail || user?.email || 'user@pdftoolbox.app',
-          user_name: senderName || user?.fullName || 'Pengguna PDF Toolbox',
+          user_email: user?.email || 'user@pdftoolbox.app',
+          user_name: user?.fullName || 'Pengguna PDF Toolbox',
         }),
       });
 
@@ -332,90 +293,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
       }
     } catch (err: any) {
       console.error('Midtrans Snap error:', err);
-      setErrorMessage(err.message || 'Terjadi kendala saat memuat gerbang pembayaran otomatis. Anda dapat menggunakan opsi QRIS manual.');
+      setErrorMessage(err.message || 'Terjadi kendala saat memuat gerbang pembayaran otomatis.');
     } finally {
       setIsLoadingSnap(false);
     }
   };
-
-  // 2. Submit konfirmasi pembayaran manual ke email admin via FormSubmit
-  const handleConfirmSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isGuest) {
-      alert('Silakan Masuk dengan Google terlebih dahulu agar paket aktif tersimpan pada akun Anda.');
-      await signInWithGoogle();
-      return;
-    }
-
-    if (!accountEmail.trim()) {
-      setErrorMessage('Email akun tidak boleh kosong.');
-      return;
-    }
-    if (!senderName.trim()) {
-      setErrorMessage('Silakan isi nama pengirim / pemilik rekening transfer.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    const now = new Date();
-    const formattedDate = now.toLocaleString('id-ID', { 
-      timeZone: 'Asia/Jakarta', 
-      dateStyle: 'full', 
-      timeStyle: 'medium' 
-    }) + ' WIB';
-
-    try {
-      // Kirim notifikasi konfirmasi ke email admin (rezaldewantara@gmail.com) via FormSubmit
-      try {
-        await fetch(`https://formsubmit.co/ajax/${ADMIN_EMAIL}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({
-            _subject: `[Aktivasi QRIS Manual] ${plan.name} (${plan.price}) - ${senderName}`,
-            _template: 'table',
-            _captcha: 'false',
-            _replyto: accountEmail,
-            'Paket Langganan': plan.name,
-            'Nominal Pembayaran': plan.price,
-            'Email Akun PDF Toolbox': accountEmail,
-            'Nama Pemilik Rekening / Pengirim': senderName,
-            'Bank / E-Wallet Pengirim': senderBank,
-            'Nomor Referensi Transaksi': refNumber || '-',
-            'Catatan Pengguna': notes || '-',
-            'Waktu Transaksi': formattedDate,
-            'User ID': user?.id || 'unknown',
-          }),
-        });
-      } catch (emailErr) {
-        console.warn('Pengiriman FormSubmit email mengalami kendala jaringan:', emailErr);
-      }
-
-      await handleConfirmPaymentSuccess();
-    } catch (err: any) {
-      console.error('Konfirmasi pembayaran gagal:', err);
-      setErrorMessage(err.message || 'Terjadi kesalahan sistem saat mengirim verifikasi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Subject dan body untuk direct mailto fallback
-  const mailtoSubject = encodeURIComponent(`[Konfirmasi QRIS] ${plan.name} - ${accountEmail || senderName}`);
-  const mailtoBody = encodeURIComponent(
-    `Halo Tim Admin PDF Toolbox Pro,\n\nSaya telah menyelesaikan pembayaran via QRIS:\n` +
-    `- Paket: ${plan.name} (${plan.price})\n` +
-    `- Email Akun: ${accountEmail || user?.email}\n` +
-    `- Pengirim: ${senderName}\n` +
-    `- Metode / Bank: ${senderBank}\n` +
-    `- No. Referensi: ${refNumber || '-'}\n` +
-    `- Catatan: ${notes || '-'}\n\n` +
-    `Mohon konfirmasi aktivasi akun saya. Terima kasih!`
-  );
 
   // Layar Pembayaran Berhasil / Teraktivasi
   if (isPaid) {
@@ -425,9 +307,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-emerald-500/20">
             <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Pembayaran Dikonfirmasi!</h3>
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Pembayaran Berhasil!</h3>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Selamat! Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{accountEmail}</span>) kini telah resmi aktif dengan paket <span className="font-bold text-slate-900 dark:text-white">{plan.name}</span>.
+            Selamat! Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{user?.email}</span>) kini telah resmi aktif dengan paket <span className="font-bold text-slate-900 dark:text-white">{plan.name}</span>.
           </p>
 
           <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl text-left text-xs space-y-2 border border-slate-100 dark:border-slate-700">
@@ -481,7 +363,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                   {plan.price}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pembayaran Aman Didukung Midtrans (Berizin Bank Indonesia)</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pembayaran Resmi Didukung Midtrans (Berizin Bank Indonesia)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -497,46 +379,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               <X size={18} />
             </button>
           </div>
-        </div>
-
-        {/* Step Navigation Tabs */}
-        <div className="px-4 sm:px-5 pt-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('midtrans')}
-            className={`flex-1 pb-2.5 text-xs font-bold flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'midtrans'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-            }`}
-          >
-            <Zap size={14} className="text-amber-500" />
-            <span>Otomatis (Midtrans)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('scan')}
-            className={`flex-1 pb-2.5 text-xs font-bold flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'scan'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-            }`}
-          >
-            <QrCode size={14} />
-            <span>Manual QRIS</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('confirm')}
-            className={`flex-1 pb-2.5 text-xs font-bold flex items-center justify-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'confirm'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-            }`}
-          >
-            <Mail size={14} />
-            <span>Verifikasi Email</span>
-          </button>
         </div>
 
         {/* Modal Scrollable Body */}
@@ -583,283 +425,110 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             </div>
           )}
 
-          {/* TAB 1: PEMBAYARAN OTOMATIS MIDTRANS (UTAMA & REKOMENDASI) */}
-          {activeTab === 'midtrans' && (
-            <div className="space-y-4 animate-fade-in">
-              {/* Ringkasan Paket Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">Paket Dipilih</span>
-                  <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{plan.name}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xl font-extrabold text-slate-900 dark:text-white">{plan.price}</span>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">{plan.priceNote}</p>
-                </div>
+          {/* Ringkasan Paket Card */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">Paket Dipilih</span>
+              <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{plan.name}</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-extrabold text-slate-900 dark:text-white">{plan.price}</span>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">{plan.priceNote}</p>
+            </div>
+          </div>
+
+          {/* Saluran Pembayaran Midtrans yang Didukung */}
+          <div className="bg-slate-50 dark:bg-[#151820] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <Zap size={14} className="text-amber-500" />
+              <span>Metode Pembayaran Instan Midtrans:</span>
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <div className="text-base mb-0.5">📱</div>
+                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">QRIS Dinamis</div>
+                <div className="text-[9px] text-slate-400">Semua m-Banking</div>
               </div>
-
-              {/* Saluran Pembayaran yang Didukung */}
-              <div className="bg-slate-50 dark:bg-[#151820] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-3">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Zap size={14} className="text-amber-500" />
-                  <span>Metode Pembayaran Instan (Tanpa Cek Manual):</span>
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <div className="text-base mb-0.5">📱</div>
-                    <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">QRIS Dinamis</div>
-                    <div className="text-[9px] text-slate-400">Semua m-Banking</div>
-                  </div>
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <div className="text-base mb-0.5">💚</div>
-                    <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">GoPay</div>
-                    <div className="text-[9px] text-slate-400">Instan 1-Klik</div>
-                  </div>
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <div className="text-base mb-0.5">🧡</div>
-                    <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">ShopeePay</div>
-                    <div className="text-[9px] text-slate-400">Aplikasi Shopee</div>
-                  </div>
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <div className="text-base mb-0.5">🏦</div>
-                    <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Virtual Account</div>
-                    <div className="text-[9px] text-slate-400">BCA, Mandiri, BRI, BNI</div>
-                  </div>
-                </div>
-
-                <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                  <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
-                  <span>Akun langsung aktif otomatis dalam 1 detik setelah pembayaran berhasil.</span>
-                </div>
+              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <div className="text-base mb-0.5">💚</div>
+                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">GoPay</div>
+                <div className="text-[9px] text-slate-400">Instan 1-Klik</div>
               </div>
-
-              {/* Tombol Utama Pembayaran Midtrans */}
-              <button
-                type="button"
-                onClick={handlePayWithMidtrans}
-                disabled={isLoadingSnap}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-98 flex items-center justify-center gap-2.5 text-sm disabled:opacity-60 cursor-pointer"
-              >
-                {isLoadingSnap ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Menghubungi Midtrans...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap size={18} className="text-amber-300 fill-amber-300" />
-                    <span>Bayar Otomatis Sekarang ({plan.price}) →</span>
-                  </>
-                )}
-              </button>
-
-              {/* Link ke mode manual jika perlu */}
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('scan')}
-                  className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 underline transition-colors cursor-pointer"
-                >
-                  Atau ingin transfer QRIS manual & verifikasi email? Klik di sini
-                </button>
+              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <div className="text-base mb-0.5">🧡</div>
+                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">ShopeePay</div>
+                <div className="text-[9px] text-slate-400">Aplikasi Shopee</div>
+              </div>
+              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <div className="text-base mb-0.5">🏦</div>
+                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Virtual Account</div>
+                <div className="text-[9px] text-slate-400">BCA, Mandiri, BRI, BNI</div>
               </div>
             </div>
-          )}
 
-          {/* TAB 2: TAMPILAN QRIS MANUAL */}
-          {activeTab === 'scan' && (
-            <div className="space-y-4 animate-fade-in">
-              {/* QRIS Card */}
-              <div className="bg-slate-50 dark:bg-[#151820] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 text-center space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  <Smartphone size={13} className="text-emerald-500" />
-                  <span>PDF TOOLBOX PRO · NMID: ID1026594351755</span>
-                </div>
-
-                <div className="relative mx-auto w-56 sm:w-64 max-w-full bg-white p-3 rounded-2xl shadow-md border border-slate-200">
-                  <img
-                    src={plan.qrisImage}
-                    alt={`QRIS ${plan.name} - ${plan.price}`}
-                    className="w-full h-auto rounded-xl object-contain"
-                  />
-                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-700">
-                    <span>Nominal Pas:</span>
-                    <span className="text-emerald-600 font-extrabold text-sm">{plan.price}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                  <a
-                    href={plan.qrisImage}
-                    download={`QRIS-${checkoutPlan}-${plan.price}.jpg`}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-800/50 transition-colors shadow-2xs"
-                  >
-                    <Download size={14} />
-                    <span>Unduh Gambar QRIS</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('confirm')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <span>Saya Sudah Bayar →</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-blue-50/60 dark:bg-blue-950/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-900/30 space-y-2">
-                <p className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-amber-500" />
-                  <span>Cara Pembayaran Manual:</span>
-                </p>
-                <ol className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-decimal pl-4 leading-relaxed">
-                  <li>Buka m-Banking atau E-Wallet apa saja (BCA, Mandiri, BRI, GoPay, OVO, DANA, ShopeePay, dll).</li>
-                  <li>Pindai QRIS di atas atau unduh gambar lalu pilih dari galeri ponsel Anda.</li>
-                  <li>Pastikan nama penerima adalah <strong>PDF TOOLBOX PRO</strong> dengan nominal pas <strong>{plan.price}</strong>.</li>
-                  <li>Setelah transfer berhasil, klik tombol <strong>"Saya Sudah Bayar"</strong> untuk mengirim verifikasi email.</li>
-                </ol>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('confirm')}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-500/25 active:scale-98 flex items-center justify-center gap-2 text-sm cursor-pointer"
-              >
-                <span>Lanjut ke Verifikasi & Konfirmasi Email</span>
-                <ArrowRight size={16} />
-              </button>
+            <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+              <span>Akun langsung aktif otomatis dalam 1 detik setelah pembayaran berhasil.</span>
             </div>
-          )}
+          </div>
 
-          {/* TAB 3: FORM VERIFIKASI EMAIL MANUAL */}
-          {activeTab === 'confirm' && (
-            <form onSubmit={handleConfirmSubmit} className="space-y-4 animate-fade-in">
-              <div className="bg-amber-50/70 dark:bg-amber-950/30 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/40 text-xs space-y-1">
-                <p className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                  <Mail size={14} className="text-amber-600" />
-                  <span>Verifikasi Email Admin</span>
-                </p>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
-                  Konfirmasi pembayaran Anda akan dikirim ke email <strong>{ADMIN_EMAIL}</strong>. Sistem akan langsung meng-upgrade akun Anda begitu tombol konfirmasi ditekan.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex justify-between">
-                  <span>Email Akun PDF Toolbox Pro:</span>
-                  <span className="text-[11px] text-blue-600 dark:text-blue-400 font-normal">Akun yang di-upgrade</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={accountEmail}
-                  onChange={e => setAccountEmail(e.target.value)}
-                  placeholder="nama@email.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-hidden transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Nama Pemilik Rekening / Pengirim:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={senderName}
-                  onChange={e => setSenderName(e.target.value)}
-                  placeholder="Contoh: Budi Santoso / Siti Rahma"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-hidden transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Bank / E-Wallet yang Digunakan:
-                </label>
-                <select
-                  value={senderBank}
-                  onChange={e => setSenderBank(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-hidden transition-colors"
-                >
-                  {BANK_OPTIONS.map(bank => (
-                    <option key={bank} value={bank}>{bank}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    No. Ref / Kode Transaksi: <span className="text-[10px] text-slate-400">(opsional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={refNumber}
-                    onChange={e => setRefNumber(e.target.value)}
-                    placeholder="Contoh: 20260915..."
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-hidden transition-colors"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Catatan Tambahan: <span className="text-[10px] text-slate-400">(opsional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Pesan untuk admin"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-hidden transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-500/25 active:scale-98 flex items-center justify-center gap-2 text-sm disabled:opacity-60 cursor-pointer"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Memverifikasi & Mengaktifkan...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={16} />
-                      <span>Kirim Konfirmasi & Aktifkan Paket ({plan.price})</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('midtrans')}
-                    className="flex-1 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft size={13} />
-                    <span>Kembali ke Midtrans</span>
-                  </button>
-
-                  <a
-                    href={`mailto:${ADMIN_EMAIL}?subject=${mailtoSubject}&body=${mailtoBody}`}
-                    className="flex-1 py-2 px-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
-                  >
-                    <Mail size={13} />
-                    <span>Kirim via Email Client</span>
-                  </a>
-                </div>
-              </div>
-            </form>
-          )}
+          {/* Tombol Utama Pembayaran Midtrans */}
+          <button
+            type="button"
+            onClick={handlePayWithMidtrans}
+            disabled={isLoadingSnap}
+            className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-98 flex items-center justify-center gap-2.5 text-sm disabled:opacity-60 cursor-pointer"
+          >
+            {isLoadingSnap ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Menghubungi Gerbang Midtrans...</span>
+              </>
+            ) : (
+              <>
+                <Zap size={18} className="text-amber-300 fill-amber-300" />
+                <span>Bayar Sekarang ({plan.price}) →</span>
+              </>
+            )}
+          </button>
 
           {/* Trust Footer & Contact Admin */}
           <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 space-y-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
+            <p>
+              Dengan membayar, Anda menyetujui{' '}
+              {onSelectView ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeCheckout();
+                    onSelectView(View.TERMS);
+                  }}
+                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium cursor-pointer"
+                >
+                  Syarat & Ketentuan
+                </button>
+              ) : (
+                <span className="underline">Syarat & Ketentuan</span>
+              )}{' '}
+              serta{' '}
+              {onSelectView ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeCheckout();
+                    onSelectView(View.PRIVACY);
+                  }}
+                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium cursor-pointer"
+                >
+                  Kebijakan Privasi
+                </button>
+              ) : (
+                <span className="underline">Kebijakan Privasi</span>
+              )}
+              .
+            </p>
             <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400">
               <span>Bantuan aktivasi pembayaran:</span>
               <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{ADMIN_EMAIL}</span>
