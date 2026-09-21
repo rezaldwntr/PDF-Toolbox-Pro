@@ -199,11 +199,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
 
       // 1. Coba update via Cloud Run backend jika sudah ter-deploy
       try {
+        const sessionRes = supabase ? await supabase.auth.getSession() : null;
+        const accessToken = sessionRes?.data?.session?.access_token;
         const resp = await fetch(`${BACKEND_URL}/admin/users/update-tier`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Admin-Email': ADMIN_EMAIL,
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
           body: JSON.stringify({
             user_id: userId,
@@ -331,8 +334,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     setIsRefreshing(true);
     setError(null);
 
-    const headers = {
+    const sessionRes = supabase ? await supabase.auth.getSession() : null;
+    const accessToken = sessionRes?.data?.session?.access_token;
+    const headers: Record<string, string> = {
       'X-Admin-Email': ADMIN_EMAIL,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     };
 
     try {

@@ -255,3 +255,34 @@ def get_active_promo_price(plan_id: str, user_email: Optional[str], base_price: 
 
     return base_price
 
+
+async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Memvalidasi token otentikasi JWT Supabase langsung ke endpoint resmi Supabase Auth API (/auth/v1/user).
+    Mengembalikan data user dictionary jika valid, atau None jika token palsu/kedaluwarsa.
+    """
+    if not SUPABASE_URL or not token:
+        return None
+
+    clean_token = token.replace("Bearer ", "").strip()
+    if not clean_token:
+        return None
+
+    endpoint = f"{SUPABASE_URL.rstrip('/')}/auth/v1/user"
+    key = SUPABASE_SERVICE_ROLE_KEY or "anon"
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {clean_token}",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(endpoint, headers=headers)
+            if resp.status_code == 200:
+                return resp.json()
+            logger.warning(f"[Security] Token Supabase tidak valid: {resp.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"[Security] Gagal memverifikasi token Supabase: {e}")
+        return None
+

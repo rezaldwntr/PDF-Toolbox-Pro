@@ -11,6 +11,7 @@ from app.utils.supabase_utils import (
     fetch_payment_transactions,
     fetch_tool_usages,
     update_supabase_user_tier,
+    verify_supabase_token,
 )
 
 logger = logging.getLogger("admin")
@@ -19,16 +20,41 @@ router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 ADMIN_EMAILS = {"rezaldewantara@gmail.com"}
 
 
-def verify_admin_access(x_admin_email: Optional[str] = Header(None)):
-    """Memverifikasi bahwa request berasal dari email administrator resmi."""
-    if not x_admin_email or x_admin_email.strip().lower() not in ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Akses ditolak. Endpoint ini khusus administrator resmi.")
+async def verify_admin_access(
+    authorization: Optional[str] = Header(None),
+    x_admin_email: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """
+    Memverifikasi bahwa request memiliki kredensial administrator resmi.
+    Memeriksa keabsahan token JWT Supabase Auth dan memastikan email adalah admin.
+    """
+    admin_user = None
+
+    # 1. Verifikasi via Supabase Auth JWT Token (Standar Keamanan Kriptografis)
+    if authorization and authorization.strip().startswith("Bearer "):
+        token = authorization.strip().split("Bearer ")[1].strip()
+        admin_user = await verify_supabase_token(token)
+
+    # 2. Cek email dari token terverifikasi
+    if admin_user:
+        user_email = (admin_user.get("email") or "").lower().strip()
+        if user_email in ADMIN_EMAILS:
+            return admin_user
+
+    # Tolak keras jika tidak ada bukti otentikasi JWT yang valid
+    raise HTTPException(
+        status_code=403,
+        detail="Akses ditolak. Endpoint ini hanya dapat diakses oleh administrator resmi dengan token autentikasi yang sah."
+    )
 
 
 @router.get("/overview-stats")
-async def get_admin_overview_stats(x_admin_email: Optional[str] = Header(None)):
+async def get_admin_overview_stats(
+    authorization: Optional[str] = Header(None),
+    x_admin_email: Optional[str] = Header(None)
+):
     """Mengambil metrik agregat statistik untuk dasbor admin."""
-    verify_admin_access(x_admin_email)
+    await verify_admin_access(authorization, x_admin_email)
 
     # 1. Ambil data pengguna
     users = await fetch_user_profiles(limit=1000)
@@ -99,10 +125,11 @@ async def get_admin_users(
     limit: int = Query(50, le=200),
     search: Optional[str] = Query(None),
     tier: Optional[str] = Query("all"),
+    authorization: Optional[str] = Header(None),
     x_admin_email: Optional[str] = Header(None)
 ):
     """Mengambil daftar pengguna terdaftar lengkap dengan status langganan."""
-    verify_admin_access(x_admin_email)
+    await verify_admin_access(authorization, x_admin_email)
     offset = (page - 1) * limit
     users = await fetch_user_profiles(limit=limit, offset=offset, search=search, tier=tier)
     return {"page": page, "limit": limit, "count": len(users), "users": users}
@@ -112,10 +139,11 @@ async def get_admin_users(
 async def get_admin_transactions(
     page: int = Query(1, ge=1),
     limit: int = Query(50, le=200),
+    authorization: Optional[str] = Header(None),
     x_admin_email: Optional[str] = Header(None)
 ):
     """Mengambil daftar transaksi pembayaran Midtrans."""
-    verify_admin_access(x_admin_email)
+    await verify_admin_access(authorization, x_admin_email)
     offset = (page - 1) * limit
     transactions = await fetch_payment_transactions(limit=limit, offset=offset)
     return {"page": page, "limit": limit, "count": len(transactions), "transactions": transactions}
@@ -126,10 +154,11 @@ async def get_admin_tool_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(50, le=200),
     tool_name: Optional[str] = Query("all"),
+    authorization: Optional[str] = Header(None),
     x_admin_email: Optional[str] = Header(None)
 ):
     """Mengambil log riwayat eksekusi alat (Tamu vs Pengguna)."""
-    verify_admin_access(x_admin_email)
+    await verify_admin_access(authorization, x_admin_email)
     offset = (page - 1) * limit
     logs = await fetch_tool_usages(limit=limit, offset=offset, tool_name=tool_name)
     return {"page": page, "limit": limit, "count": len(logs), "logs": logs}
@@ -145,10 +174,11 @@ class UpdateUserTierRequest(BaseModel):
 @router.post("/users/update-tier")
 async def admin_update_user_tier(
     req: UpdateUserTierRequest,
+    authorization: Optional[str] = Header(None),
     x_admin_email: Optional[str] = Header(None)
 ):
     """Mengubah atau mereset tier langganan pengguna secara langsung oleh Admin."""
-    verify_admin_access(x_admin_email)
+    await verify_admin_access(authorization, x_admin_email)
     success = await update_supabase_user_tier(
         user_id=req.user_id,
         tier=req.tier.lower(),

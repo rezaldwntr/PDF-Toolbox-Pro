@@ -20,7 +20,7 @@ import fitz  # PyMuPDF
 from PIL import Image
 
 from app.core.config import MAX_FILE_SIZE
-from app.utils.file_utils import validate_file, cleanup_folder
+from app.utils.file_utils import validate_file, cleanup_folder, validate_pdf_bytes
 from app.utils.job_store import create_job, update_job
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
@@ -59,6 +59,11 @@ def merge_pdf(files: List[UploadFile] = File(...)):
 
             # 2. Baca biner langsung ke memori (Zero Disk I/O)
             content = file.file.read()
+            if not content.startswith(b"%PDF-"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Berkas '{filename}' bukan format dokumen PDF yang sah (header berkas tidak valid)."
+                )
             if len(content) > MAX_FILE_SIZE:
                 max_mb = MAX_FILE_SIZE // (1024 * 1024)
                 raise HTTPException(
@@ -139,6 +144,7 @@ def split_pdf(
 
     # 2. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(
@@ -393,6 +399,7 @@ def compress_pdf(
 
     # 2. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(
@@ -660,6 +667,7 @@ def watermark_pdf(
 
     # 2. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -952,6 +960,7 @@ def protect_pdf(
 
     # 3. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1048,6 +1057,7 @@ def unlock_pdf(
 
     # 2. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1163,6 +1173,7 @@ def crop_pdf(
 
     # 3. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1271,6 +1282,7 @@ def convert_pdfa(
 
     # 3. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1415,6 +1427,7 @@ def edit_pdf(
 
     # 2. Baca biner langsung ke memori (Zero Disk I/O)
     content = file.file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1558,6 +1571,7 @@ async def ocr_pdf(
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
 
     content = await file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
@@ -1748,6 +1762,7 @@ async def translate_pdf(
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' bukan format PDF yang valid.")
 
     content = await file.read()
+    validate_pdf_bytes(content, filename)
     if len(content) > MAX_FILE_SIZE:
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")

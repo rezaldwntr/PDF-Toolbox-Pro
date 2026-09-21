@@ -18,13 +18,19 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. COPY SEMUA KODE
-COPY . .
+# 5. BUAT USER NON-ROOT DEMI KEAMANAN CONTAINER
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 
-# 6. HEALTH CHECK (Port adaptif terhadap env var $PORT Cloud Run / 7860 fallback)
+# 6. COPY SEMUA KODE DENGAN KEPEMILIKAN NON-ROOT
+COPY --chown=appuser:appuser . .
+
+# 7. PINDAH KE USER NON-ROOT
+USER appuser
+
+# 8. HEALTH CHECK (Port adaptif terhadap env var $PORT Cloud Run / 7860 fallback)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request, os; port = os.environ.get('PORT', '7860'); urllib.request.urlopen(f'http://localhost:{port}/')" || exit 1
 
-# 7. JALANKAN SERVER (Direct python entrypoint via run.py)
+# 9. JALANKAN SERVER (Direct python entrypoint via run.py)
 CMD ["python", "run.py"]
 
