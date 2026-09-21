@@ -32,6 +32,7 @@ import {
   Check,
   Send,
   Percent,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -46,6 +47,42 @@ interface AdminDashboardProps {
 
 const ADMIN_EMAIL = 'rezaldewantara@gmail.com';
 const BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL || 'https://pdf-toolbox-pro-100471936008.asia-southeast2.run.app';
+
+class TabErrorBoundary extends React.Component<any, any> {
+  state = { hasError: false, error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('Error in tab:', error, errorInfo);
+  }
+
+  render() {
+    if ((this as any).state?.hasError) {
+      return (
+        <div className="p-8 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-center space-y-3">
+          <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto" />
+          <h4 className="font-bold text-slate-900 dark:text-white text-base">
+            Terjadi kendala saat menampilkan tab {(this as any).props?.tabName || ''}
+          </h4>
+          <p className="text-xs text-rose-600 dark:text-rose-400 font-mono">
+            {(this as any).state?.error?.message || 'Unknown render error'}
+          </p>
+          <button
+            onClick={() => (this as any).setState({ hasError: false, error: null })}
+            className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 transition inline-flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Coba Tampilkan Ulang</span>
+          </button>
+        </div>
+      );
+    }
+    return (this as any).props?.children;
+  }
+}
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence }) => {
   const { user } = useAuth();
@@ -75,7 +112,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   } | null>(null);
 
   // Promo State
-  const [promos, setPromos] = useState<PromoSetting[]>([]);
+  const [promos, setPromos] = useState<PromoSetting[]>(() => [
+    {
+      id: 'promo_flash',
+      plan_id: 'flash',
+      title: 'Promo Flash Sale',
+      discount_price: 3500,
+      original_price: 5000,
+      is_active: false,
+      target_emails: [],
+      banner_text: '⚡ Diskon Spesial Flash!',
+      valid_until: null,
+    },
+    {
+      id: 'promo_monthly',
+      plan_id: 'monthly',
+      title: 'Promo Monthly Pro',
+      discount_price: 19000,
+      original_price: 29000,
+      is_active: false,
+      target_emails: [],
+      banner_text: '🚀 Diskon Spesial Bulanan!',
+      valid_until: null,
+    },
+    {
+      id: 'promo_annual',
+      plan_id: 'annual',
+      title: 'Promo Annual VIP',
+      discount_price: 99000,
+      original_price: 149000,
+      is_active: false,
+      target_emails: [],
+      banner_text: '👑 Diskon Terbesar Tahunan!',
+      valid_until: null,
+    },
+  ]);
   const [isLoadingPromos, setIsLoadingPromos] = useState<boolean>(false);
   const [savingPromoPlan, setSavingPromoPlan] = useState<string | null>(null);
 
@@ -194,8 +265,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       const data = await fetchPromoSettings();
       const defaultPlans = ['flash', 'monthly', 'annual'];
       const merged = defaultPlans.map((plan) => {
-        const existing = data.find((p) => p.plan_id.toLowerCase() === plan);
-        if (existing) return existing;
+        const existing = (data || []).find((p) => (p?.plan_id || '').toLowerCase() === plan);
+        if (existing) {
+          return {
+            ...existing,
+            target_emails: Array.isArray(existing.target_emails)
+              ? existing.target_emails
+              : typeof existing.target_emails === 'string'
+                ? (existing.target_emails as string).replace(/[{}"']/g, '').split(',').map((s) => s.trim()).filter(Boolean)
+                : [],
+          };
+        }
         return {
           id: `promo_${plan}`,
           plan_id: plan,
@@ -662,6 +742,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
 
       {/* Konten Tab */}
       <div className="mt-6">
+        <TabErrorBoundary key={activeTab} tabName={activeTab}>
         {/* ==================================================================== */}
         {/* TAB 1: OVERVIEW & TOP TOOLS                                          */}
         {/* ==================================================================== */}
@@ -1268,23 +1349,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
 
             {/* Grid 3 Kartu Promo: Flash, Monthly, Annual */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {promos.map((promo) => {
-                const basePrice = DEFAULT_BASE_PRICES[promo.plan_id.toLowerCase()] || 29000;
-                const isFlash = promo.plan_id.toLowerCase() === 'flash';
-                const isMonthly = promo.plan_id.toLowerCase() === 'monthly';
-                const isAnnual = promo.plan_id.toLowerCase() === 'annual';
+              {(promos || []).map((promo) => {
+                const planId = (promo?.plan_id || 'monthly').toLowerCase();
+                const basePrice = DEFAULT_BASE_PRICES[planId] || 29000;
+                const isFlash = planId === 'flash';
+                const isMonthly = planId === 'monthly';
+                const isAnnual = planId === 'annual';
 
-                const icon = isFlash ? <Zap className="w-5 h-5 text-amber-500" /> : isMonthly ? <Sparkles className="w-5 h-5 text-blue-500" /> : <Crown className="w-5 h-5 text-purple-500" />;
+                const icon = isFlash ? (
+                  <Zap className="w-5 h-5 text-amber-500" />
+                ) : isMonthly ? (
+                  <Sparkles className="w-5 h-5 text-blue-500" />
+                ) : (
+                  <Crown className="w-5 h-5 text-purple-500" />
+                );
 
-                const discountPercent = promo.original_price > 0 && promo.discount_price < promo.original_price
-                  ? Math.round(((promo.original_price - promo.discount_price) / promo.original_price) * 100)
+                const originalPrice = Number(promo?.original_price) || basePrice;
+                const discountPrice = Number(promo?.discount_price) || 0;
+                const discountPercent = originalPrice > 0 && discountPrice < originalPrice
+                  ? Math.round(((originalPrice - discountPrice) / originalPrice) * 100)
                   : 0;
 
-                const isTargeted = promo.target_emails && promo.target_emails.length > 0;
+                const targetEmails = Array.isArray(promo?.target_emails)
+                  ? promo.target_emails
+                  : typeof promo?.target_emails === 'string'
+                    ? (promo.target_emails as string).replace(/[{}"']/g, '').split(',').map((s: string) => s.trim()).filter(Boolean)
+                    : [];
+
+                const isTargeted = targetEmails.length > 0;
 
                 return (
                   <div
-                    key={promo.plan_id}
+                    key={promo.plan_id || promo.id}
                     className={`bg-white dark:bg-slate-900 rounded-2xl border ${
                       promo.is_active ? 'border-indigo-500/40 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800 shadow-sm opacity-90'
                     } p-6 flex flex-col justify-between transition-all`}
@@ -1296,7 +1392,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                           <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">{icon}</div>
                           <div>
                             <h4 className="font-bold text-sm text-slate-900 dark:text-white capitalize">
-                              Paket {promo.plan_id}
+                              Paket {promo.plan_id || 'Promo'}
                             </h4>
                             <span className="text-[11px] text-slate-400">Harga Normal: {formatIDR(basePrice)}</span>
                           </div>
@@ -1334,7 +1430,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                           </label>
                           <input
                             type="text"
-                            value={promo.title}
+                            value={promo.title || ''}
                             onChange={(e) => {
                               const val = e.target.value;
                               setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, title: val } : p)));
@@ -1362,7 +1458,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                               type="number"
                               min={0}
                               step={500}
-                              value={promo.discount_price}
+                              value={promo.discount_price ?? 0}
                               onChange={(e) => {
                                 const val = Number(e.target.value);
                                 setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, discount_price: val } : p)));
@@ -1398,15 +1494,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                               isTargeted ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             }`}>
-                              {isTargeted ? `🎯 ${promo.target_emails.length} Email Khusus` : '🌐 Global (Semua User)'}
+                              {isTargeted ? `🎯 ${targetEmails.length} Email Khusus` : '🌐 Global (Semua User)'}
                             </span>
                           </div>
                           <textarea
                             rows={3}
-                            value={(promo.target_emails || []).join(', ')}
+                            value={targetEmails.join(', ')}
                             onChange={(e) => {
                               const raw = e.target.value;
-                              const parsed = raw.split(',').map((x) => x.trim()).filter(Boolean);
+                              const parsed = raw.split(',').map((x: string) => x.trim()).filter(Boolean);
                               setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: parsed } : p)));
                             }}
                             placeholder="Biarkan KOSONG untuk semua orang, atau isi email dipisah koma (misal: mau.ibra5@gmail.com, user2@gmail.com)"
@@ -1436,7 +1532,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                         ) : (
                           <>
                             <Check className="w-3.5 h-3.5" />
-                            <span>Simpan Pengaturan {promo.plan_id.toUpperCase()}</span>
+                            <span>Simpan Pengaturan {(promo.plan_id || 'PROMO').toUpperCase()}</span>
                           </>
                         )}
                       </button>
@@ -1475,6 +1571,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
             </div>
           </div>
         )}
+        </TabErrorBoundary>
 
         {/* Modal Peringatan Keamanan Pencabutan Hak Pelanggan Berbayar */}
         {confirmDowngradeData && (

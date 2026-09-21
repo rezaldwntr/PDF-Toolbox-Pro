@@ -28,7 +28,11 @@ export const fetchPromoSettings = async (): Promise<PromoSetting[]> => {
       discount_price: Number(item.discount_price),
       original_price: Number(item.original_price),
       is_active: Boolean(item.is_active),
-      target_emails: Array.isArray(item.target_emails) ? item.target_emails : [],
+      target_emails: Array.isArray(item.target_emails)
+        ? item.target_emails
+        : typeof item.target_emails === 'string'
+          ? item.target_emails.replace(/[{}"']/g, '').split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [],
       banner_text: item.banner_text || '',
       valid_until: item.valid_until,
     }));
