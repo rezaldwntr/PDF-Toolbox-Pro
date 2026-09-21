@@ -42,6 +42,7 @@ import { View, PromoSetting } from '../../types';
 import type { PresenceState } from '../../lib/presence';
 import { fetchPromoSettings, updatePromoSetting, DEFAULT_BASE_PRICES } from '../../lib/promo';
 import { TargetUserSelectorModal } from '../modals/TargetUserSelectorModal';
+import { SendPromoModal } from '../modals/SendPromoModal';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -153,6 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   const [isLoadingPromos, setIsLoadingPromos] = useState<boolean>(false);
   const [savingPromoPlan, setSavingPromoPlan] = useState<string | null>(null);
   const [targetModalPromo, setTargetModalPromo] = useState<PromoSetting | null>(null);
+  const [isSendPromoModalOpen, setIsSendPromoModalOpen] = useState<boolean>(false);
 
   const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
 
@@ -492,12 +494,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       alert('Belum ada pengguna yang menerima email promo.');
       return;
     }
-    const bcc = emails.join(',');
-    const subject = encodeURIComponent('Penawaran Eksklusif & Diskon Spesial PDF Toolbox Pro 🚀');
-    const body = encodeURIComponent(
-      `Halo Pengguna Setia,\n\nTerima kasih telah mempercayakan dokumen Anda pada PDF Toolbox Pro!\n\nKami memberikan penawaran harga promo khusus untuk upgrade paket tanpa batas hari ini. Kunjungi dasbor atau halaman upgrade untuk mengklaim diskon spesial Anda.\n\nKunjungi sekarang: https://pdftoolboxpro.com\n\nSalam hangat,\nTim PDF Toolbox Pro`
-    );
-    window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
+    setIsSendPromoModalOpen(true);
   };
 
   // Filtered Logs
@@ -1756,6 +1753,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
             }}
           />
         )}
+
+        {/* Modal Kirim Promo Email */}
+        <SendPromoModal
+          isOpen={isSendPromoModalOpen}
+          onClose={() => setIsSendPromoModalOpen(false)}
+          defaultRecipients={optInUsers.map((u) => u.email).filter(Boolean)}
+        />
       </div>
     </div>
   );
