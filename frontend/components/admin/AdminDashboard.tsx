@@ -52,8 +52,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   const [userSearch, setUserSearch] = useState<string>('');
   const [userTierFilter, setUserTierFilter] = useState<string>('all');
   const [logToolFilter, setLogToolFilter] = useState<string>('all');
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
+
+  const handleUpdateUserTier = async (userId: string, newTier: string) => {
+    if (!isAdmin) return;
+    setUpdatingUserId(userId);
+    setActionMessage(null);
+
+    const durationDays = newTier === 'annual' ? 365 : newTier === 'monthly' ? 30 : newTier === 'flash' ? 1 : null;
+    try {
+      const resp = await fetch(`${BACKEND_URL}/admin/users/update-tier`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Email': ADMIN_EMAIL,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          tier: newTier,
+          duration_days: durationDays,
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || 'Gagal mengubah status tier.');
+      }
+
+      setUserList((prev) =>
+        prev.map((u) => {
+          if (u.id === userId) {
+            let expiry = null;
+            if (durationDays) {
+              const d = new Date();
+              d.setDate(d.getDate() + durationDays);
+              expiry = d.toISOString();
+            }
+            return { ...u, tier: newTier, subscription_expiry: expiry };
+          }
+          return u;
+        })
+      );
+      setActionMessage(`Tier pengguna berhasil diperbarui ke ${newTier.toUpperCase()}`);
+      setTimeout(() => setActionMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Error update tier:', err);
+      alert(err.message || 'Terjadi kesalahan saat mengubah tier.');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
 
   const fetchDashboardData = useCallback(async () => {
     if (!isAdmin) return;
@@ -541,6 +592,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
               </div>
             </div>
 
+            {actionMessage && (
+              <div className="mx-4 mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>{actionMessage}</span>
+              </div>
+            )}
+
             {/* Tabel Pengguna */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
@@ -551,6 +609,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                     <th className="px-5 py-3.5">Status Masa Aktif</th>
                     <th className="px-5 py-3.5">Kuota Hari Ini</th>
                     <th className="px-5 py-3.5">Terdaftar Sejak</th>
+                    <th className="px-5 py-3.5 text-right">Kelola Tier</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -617,12 +676,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                           <td className="px-5 py-3.5 text-slate-500">
                             {formatDateTime(u.created_at)}
                           </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <select
+                                value={tier}
+                                disabled={updatingUserId === u.id}
+                                onChange={(e) => handleUpdateUserTier(u.id, e.target.value)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer disabled:opacity-50"
+                              >
+                                <option value="free">Free</option>
+                                <option value="flash">⚡ Flash (24 Jam)</option>
+                                <option value="monthly">🚀 Monthly (30 Hari)</option>
+                                <option value="annual">👑 Annual (1 Thn)</option>
+                              </select>
+                              {tier !== 'free' && (
+                                <button
+                                  onClick={() => handleUpdateUserTier(u.id, 'free')}
+                                  disabled={updatingUserId === u.id}
+                                  title="Cabut akses Pro dan kembalikan ke Free"
+                                  className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-[11px] font-semibold border border-rose-200 dark:border-rose-800/60 transition disabled:opacity-50"
+                                >
+                                  {updatingUserId === u.id ? '...' : 'Reset'}
+                                </button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
+                      <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
                         Tidak ada data pengguna yang cocok dengan kriteria pencarian.
                       </td>
                     </tr>

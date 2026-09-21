@@ -2,7 +2,7 @@
 from __future__ import annotations
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import httpx
 
 from app.core.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -172,3 +172,46 @@ async def fetch_tool_usages(limit: int = 100, offset: int = 0, tool_name: Option
     except Exception as e:
         logger.error(f"Error fetch tool usages: {e}")
         return []
+
+
+async def update_supabase_user_tier(
+    user_id: str,
+    tier: str,
+    duration_days: Optional[int] = None,
+    duration_hours: Optional[int] = None,
+) -> bool:
+    """Mengupdate status tier dan masa aktif langganan pengguna di Supabase."""
+    if not SUPABASE_URL:
+        return False
+
+    now = datetime.now(timezone.utc)
+    if tier.lower() == "free":
+        expiry = None
+    elif duration_hours:
+        expiry = now + timedelta(hours=duration_hours)
+    elif duration_days:
+        expiry = now + timedelta(days=duration_days)
+    else:
+        expiry = None
+
+    payload: Dict[str, Any] = {
+        "tier": tier.lower(),
+        "subscription_expiry": expiry.isoformat() if expiry else None,
+        "updated_at": now.isoformat(),
+    }
+
+    endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/user_profiles?id=eq.{user_id}"
+    headers = get_supabase_headers()
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.patch(endpoint, json=payload, headers=headers)
+            if resp.status_code in (200, 204):
+                logger.info(f"Berhasil mengupdate user {user_id} ke tier {tier} (expiry: {expiry})")
+                return True
+            else:
+                logger.warning(f"Gagal update tier di Supabase ({resp.status_code}): {resp.text}")
+                return False
+    except Exception as e:
+        logger.error(f"Error saat update user tier di Supabase: {e}")
+        return False

@@ -4,11 +4,13 @@ import logging
 from typing import Optional, Dict, Any, List
 from collections import Counter
 from fastapi import APIRouter, HTTPException, Header, Query
+from pydantic import BaseModel
 
 from app.utils.supabase_utils import (
     fetch_user_profiles,
     fetch_payment_transactions,
     fetch_tool_usages,
+    update_supabase_user_tier,
 )
 
 logger = logging.getLogger("admin")
@@ -131,3 +133,28 @@ async def get_admin_tool_logs(
     offset = (page - 1) * limit
     logs = await fetch_tool_usages(limit=limit, offset=offset, tool_name=tool_name)
     return {"page": page, "limit": limit, "count": len(logs), "logs": logs}
+
+
+class UpdateUserTierRequest(BaseModel):
+    user_id: str
+    tier: str
+    duration_days: Optional[int] = None
+    duration_hours: Optional[int] = None
+
+
+@router.post("/users/update-tier")
+async def admin_update_user_tier(
+    req: UpdateUserTierRequest,
+    x_admin_email: Optional[str] = Header(None)
+):
+    """Mengubah atau mereset tier langganan pengguna secara langsung oleh Admin."""
+    verify_admin_access(x_admin_email)
+    success = await update_supabase_user_tier(
+        user_id=req.user_id,
+        tier=req.tier.lower(),
+        duration_days=req.duration_days,
+        duration_hours=req.duration_hours,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Gagal memperbarui status tier pengguna di Supabase")
+    return {"status": "ok", "message": f"Tier pengguna berhasil diubah ke {req.tier.upper()}"}

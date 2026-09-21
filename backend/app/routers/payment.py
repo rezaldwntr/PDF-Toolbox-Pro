@@ -18,7 +18,7 @@ from app.core.config import (
     SUPABASE_SERVICE_ROLE_KEY,
     SUBSCRIPTION_PLANS,
 )
-from app.utils.supabase_utils import record_payment_transaction
+from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier
 
 logger = logging.getLogger("payment")
 router = APIRouter(prefix="/payment", tags=["Payment & Subscription"])
@@ -29,50 +29,6 @@ class CreateSnapTokenRequest(BaseModel):
     user_id: str
     user_email: str
     user_name: Optional[str] = None
-
-
-async def update_supabase_user_tier(
-    user_id: str, 
-    tier: str, 
-    duration_hours: Optional[int] = None, 
-    duration_days: Optional[int] = None
-) -> bool:
-    """Mengupdate status tier dan masa aktif langganan pengguna di Supabase."""
-    now = datetime.now(timezone.utc)
-    if duration_hours:
-        expiry = now + timedelta(hours=duration_hours)
-    elif duration_days:
-        expiry = now + timedelta(days=duration_days)
-    else:
-        expiry = None
-
-    payload: Dict[str, Any] = {
-        "tier": tier,
-        "subscription_expiry": expiry.isoformat() if expiry else None,
-        "updated_at": now.isoformat(),
-    }
-
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY or "anon",
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY or 'anon'}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-    }
-
-    endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/user_profiles?id=eq.{user_id}"
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.patch(endpoint, json=payload, headers=headers)
-            if resp.status_code in (200, 204):
-                logger.info(f"Berhasil mengupgrade user {user_id} ke tier {tier} hingga {expiry}")
-                return True
-            else:
-                logger.warning(f"Gagal update tier di Supabase ({resp.status_code}): {resp.text}")
-                return False
-    except Exception as e:
-        logger.error(f"Error saat menghubungi Supabase REST API: {e}")
-        return False
 
 
 @router.post("/create-snap-token")
