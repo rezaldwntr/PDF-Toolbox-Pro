@@ -22,6 +22,10 @@ import {
   Layers,
   Sparkles,
   HelpCircle,
+  Gift,
+  Lock,
+  Unlock,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -55,8 +59,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   const [logToolFilter, setLogToolFilter] = useState<string>('all');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [confirmDowngradeData, setConfirmDowngradeData] = useState<{
+    user: any;
+    targetTier: string;
+    tx: any;
+  } | null>(null);
 
   const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
+
+  const getUserPaymentInfo = useCallback((userEmail?: string, userId?: string) => {
+    return transactions.find(
+      (t) =>
+        (t.user_id === userId || (t.user_email && userEmail && t.user_email.toLowerCase() === userEmail.toLowerCase())) &&
+        ['settlement', 'capture'].includes((t.status || '').toLowerCase())
+    );
+  }, [transactions]);
+
+  const onAttemptChangeTier = (u: any, newTier: string) => {
+    const isDowngradeToFree = newTier === 'free';
+    const paidTx = getUserPaymentInfo(u.email, u.id);
+    const isPro = ['flash', 'monthly', 'annual'].includes((u.tier || '').toLowerCase());
+    const isStillActive = u.subscription_expiry && new Date(u.subscription_expiry) > new Date();
+
+    // Jika pengguna membayar resmi via Midtrans dan langganannya masih aktif, cegah downgrade instan & minta konfirmasi keras!
+    if (isPro && isStillActive && paidTx && isDowngradeToFree) {
+      setConfirmDowngradeData({ user: u, targetTier: newTier, tx: paidTx });
+      return;
+    }
+
+    handleUpdateUserTier(u.id, newTier);
+  };
 
   const handleUpdateUserTier = async (userId: string, newTier: string) => {
     if (!isAdmin) return;
@@ -654,6 +686,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                       const tier = (u.tier || 'free').toLowerCase();
                       const isPro = ['flash', 'monthly', 'annual'].includes(tier);
                       const isExpired = isPro && u.subscription_expiry && new Date(u.subscription_expiry) < new Date();
+                      const paidTx = getUserPaymentInfo(u.email, u.id);
+                      const hasActivePaidPlan = isPro && !isExpired && Boolean(paidTx);
 
                       return (
                         <tr key={u.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
@@ -677,19 +711,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                             </div>
                           </td>
                           <td className="px-5 py-3.5">
-                            <span
-                              className={`px-2.5 py-1 rounded-full font-semibold uppercase text-[10px] tracking-wide ${
-                                tier === 'annual'
-                                  ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                                  : tier === 'monthly'
-                                  ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                                  : tier === 'flash'
-                                  ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                              }`}
-                            >
-                              {tier}
-                            </span>
+                            <div className="flex flex-col gap-1 items-start">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full font-semibold uppercase text-[10px] tracking-wide ${
+                                  tier === 'annual'
+                                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                                    : tier === 'monthly'
+                                    ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                    : tier === 'flash'
+                                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                {tier}
+                              </span>
+                              {isPro && (
+                                paidTx ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 font-semibold"
+                                    title={`Terverifikasi Membayar Resmi! Order ID: ${paidTx.id} - ${paidTx.payment_type?.toUpperCase() || 'GATEWAY'}`}
+                                  >
+                                    <CreditCard size={11} className="text-emerald-600" />
+                                    <span>Midtrans: {formatIDR(paidTx.gross_amount)}</span>
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 font-semibold"
+                                    title="Tier ini diberikan secara manual oleh admin atau alur formulir lama tanpa transaksi Midtrans"
+                                  >
+                                    <Gift size={11} className="text-amber-600" />
+                                    <span>Gift / Manual</span>
+                                  </span>
+                                )
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-3.5">
                             {isPro ? (
@@ -714,10 +769,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {hasActivePaidPlan && (
+                                <span
+                                  className="text-emerald-600 dark:text-emerald-400 p-1 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800/60"
+                                  title="Akun Berbayar Resmi Midtrans (Terproteksi dari pencabutan tidak sengaja)"
+                                >
+                                  <Lock size={13} />
+                                </span>
+                              )}
                               <select
                                 value={tier}
                                 disabled={updatingUserId === u.id}
-                                onChange={(e) => handleUpdateUserTier(u.id, e.target.value)}
+                                onChange={(e) => onAttemptChangeTier(u, e.target.value)}
                                 className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer disabled:opacity-50"
                               >
                                 <option value="free">Free</option>
@@ -727,10 +790,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                               </select>
                               {tier !== 'free' && (
                                 <button
-                                  onClick={() => handleUpdateUserTier(u.id, 'free')}
+                                  onClick={() => onAttemptChangeTier(u, 'free')}
                                   disabled={updatingUserId === u.id}
-                                  title="Cabut akses Pro dan kembalikan ke Free"
-                                  className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-[11px] font-semibold border border-rose-200 dark:border-rose-800/60 transition disabled:opacity-50"
+                                  title={hasActivePaidPlan ? "Akun ini membayar resmi via Midtrans. Memerlukan konfirmasi keamanan untuk mencabut haknya." : "Cabut akses Pro dan kembalikan ke Free"}
+                                  className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-[11px] font-semibold border border-rose-200 dark:border-rose-800/60 transition disabled:opacity-50 flex items-center gap-1"
                                 >
                                   {updatingUserId === u.id ? '...' : 'Reset'}
                                 </button>
@@ -971,6 +1034,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Peringatan Keamanan Pencabutan Hak Pelanggan Berbayar */}
+        {confirmDowngradeData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-[#1E222B] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 dark:border-rose-900/50 relative">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Perlindungan Hak Pelanggan Berbayar
+                  </h3>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                    Peringatan: Pengguna ini terverifikasi membayar resmi via Midtrans!
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs mb-5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Nama Pengguna:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{confirmDowngradeData.user.full_name || 'Tanpa Nama'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Email Akun:</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200">{confirmDowngradeData.user.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Order ID Midtrans:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{confirmDowngradeData.tx.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Nominal Pembayaran Riil:</span>
+                  <span className="font-bold text-emerald-600">{formatIDR(confirmDowngradeData.tx.gross_amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Metode Pembayaran:</span>
+                  <span className="uppercase font-semibold text-slate-700 dark:text-slate-300">{confirmDowngradeData.tx.payment_type || 'MIDTRANS GATEWAY'}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500">Hak Layanan Aktif Hingga:</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatDateTime(confirmDowngradeData.user.subscription_expiry)}</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200 text-xs mb-5 leading-relaxed">
+                <strong>Penting:</strong> Pengguna ini telah mengeluarkan uang nyata untuk membeli paket ini. Jika Anda mencabutnya sekarang, pengguna akan kehilangan kuota dan hak akses Pro yang telah ia bayar sebelum masa berlakunya habis.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setConfirmDowngradeData(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold transition"
+                >
+                  Batalkan (Pertahankan Hak Pengguna)
+                </button>
+                <button
+                  onClick={() => {
+                    const target = confirmDowngradeData;
+                    setConfirmDowngradeData(null);
+                    handleUpdateUserTier(target.user.id, target.targetTier);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition shadow-sm"
+                >
+                  Tetap Cabut / Reset ke Free
+                </button>
+              </div>
             </div>
           </div>
         )}
