@@ -1,7 +1,9 @@
 # app/utils/file_utils.py
+from __future__ import annotations
 import os
 import shutil
 import logging
+from typing import Optional
 from fastapi import UploadFile, HTTPException
 from app.core.config import MAX_FILE_SIZE, MAX_FILE_SIZE_BY_TIER
 
@@ -16,14 +18,14 @@ def cleanup_folder(path: str):
         logging.error(f"Error cleaning up: {e}")
 
 
-def get_tier_limit(tier: str | None) -> int:
+def get_tier_limit(tier: Optional[str] = None) -> int:
     """Mengembalikan batas ukuran file (bytes) sesuai tier pengguna."""
     if not tier:
         return MAX_FILE_SIZE
     return MAX_FILE_SIZE_BY_TIER.get(tier, MAX_FILE_SIZE)
 
 
-def validate_file(file: UploadFile, tier: str | None = None):
+def validate_file(file: UploadFile, tier: Optional[str] = None):
     """
     Validasi format dan ukuran file PDF.
 
