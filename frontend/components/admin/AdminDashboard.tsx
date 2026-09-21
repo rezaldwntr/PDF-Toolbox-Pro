@@ -26,11 +26,18 @@ import {
   Lock,
   Unlock,
   AlertTriangle,
+  Mail,
+  Tag,
+  Copy,
+  Check,
+  Send,
+  Percent,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { View } from '../../types';
+import { View, PromoSetting } from '../../types';
 import type { PresenceState } from '../../lib/presence';
+import { fetchPromoSettings, updatePromoSetting, DEFAULT_BASE_PRICES } from '../../lib/promo';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -42,7 +49,7 @@ const BACKEND_URL = (import.meta as any).env?.VITE_BACKEND_URL || 'https://pdf-t
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'logs' | 'realtime'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'logs' | 'realtime' | 'promos'>('overview');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,14 +63,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   // Filter state
   const [userSearch, setUserSearch] = useState<string>('');
   const [userTierFilter, setUserTierFilter] = useState<string>('all');
+  const [userMarketingFilter, setUserMarketingFilter] = useState<'all' | 'opted_in' | 'opted_out'>('all');
   const [logToolFilter, setLogToolFilter] = useState<string>('all');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [copiedEmailsMsg, setCopiedEmailsMsg] = useState<boolean>(false);
   const [confirmDowngradeData, setConfirmDowngradeData] = useState<{
     user: any;
     targetTier: string;
     tx: any;
   } | null>(null);
+
+  // Promo State
+  const [promos, setPromos] = useState<PromoSetting[]>([]);
+  const [isLoadingPromos, setIsLoadingPromos] = useState<boolean>(false);
+  const [savingPromoPlan, setSavingPromoPlan] = useState<string | null>(null);
 
   const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
 
@@ -174,6 +188,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     }
   };
 
+  const loadPromos = useCallback(async () => {
+    setIsLoadingPromos(true);
+    try {
+      const data = await fetchPromoSettings();
+      const defaultPlans = ['flash', 'monthly', 'annual'];
+      const merged = defaultPlans.map((plan) => {
+        const existing = data.find((p) => p.plan_id.toLowerCase() === plan);
+        if (existing) return existing;
+        return {
+          id: `promo_${plan}`,
+          plan_id: plan,
+          title: `Promo ${plan.toUpperCase()}`,
+          discount_price: DEFAULT_BASE_PRICES[plan] ? Math.round(DEFAULT_BASE_PRICES[plan] * 0.7) : 10000,
+          original_price: DEFAULT_BASE_PRICES[plan] || 29000,
+          is_active: false,
+          target_emails: [],
+          banner_text: `Diskon Spesial ${plan.toUpperCase()}!`,
+          valid_until: null,
+        };
+      });
+      setPromos(merged);
+    } catch (err) {
+      console.warn('Gagal memuat daftar promo:', err);
+    } finally {
+      setIsLoadingPromos(false);
+    }
+  }, []);
+
+  const handleSavePromo = async (promoToSave: PromoSetting) => {
+    setSavingPromoPlan(promoToSave.plan_id);
+    try {
+      const ok = await updatePromoSetting(promoToSave);
+      if (ok) {
+        setActionMessage(`Pengaturan Promo ${promoToSave.plan_id.toUpperCase()} berhasil disimpan!`);
+        setTimeout(() => setActionMessage(null), 4000);
+        await loadPromos();
+      } else {
+        alert('Gagal menyimpan promo ke Supabase. Pastikan tabel promo_settings sudah dibuat di SQL Editor.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat menyimpan promo.');
+    } finally {
+      setSavingPromoPlan(null);
+    }
+  };
+
+  const handleTogglePromoActive = async (promo: PromoSetting) => {
+    const updated = { ...promo, is_active: !promo.is_active };
+    setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? updated : p)));
+    await handleSavePromo(updated);
+  };
+
   const fetchDashboardData = useCallback(async () => {
     if (!isAdmin) return;
     setIsRefreshing(true);
@@ -191,18 +257,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
         fetch(`${BACKEND_URL}/admin/tool-logs?limit=100`, { headers }).then((r) => (r.ok ? r.json() : null)),
       ]);
 
+      let finalUsers = usersRes?.users;
+      let finalTxs = txRes?.transactions;
+      let finalLogs = logsRes?.logs;
+
+      // Fallback Supabase langsung jika backend Cloud Run belum update
+      if (!finalUsers && supabase) {
+        const { data: sbUsers } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (sbUsers) finalUsers = sbUsers;
+      }
+
+      if (!finalTxs && supabase) {
+        const { data: sbTxs } = await supabase
+          .from('payment_transactions')
+          .select('*')
+          .order('transaction_time', { ascending: false })
+          .limit(100);
+        if (sbTxs) finalTxs = sbTxs;
+      }
+
+      if (!finalLogs && supabase) {
+        const { data: sbLogs } = await supabase
+          .from('tool_usages')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (sbLogs) finalLogs = sbLogs;
+      }
+
       if (statsRes) setStats(statsRes);
-      if (usersRes?.users) setUserList(usersRes.users);
-      if (txRes?.transactions) setTransactions(txRes.transactions);
-      if (logsRes?.logs) setToolLogs(logsRes.logs);
+      if (finalUsers) setUserList(finalUsers);
+      if (finalTxs) setTransactions(finalTxs);
+      if (finalLogs) setToolLogs(finalLogs);
+
+      await loadPromos();
     } catch (err: any) {
       console.error('Error fetching admin data:', err);
-      setError('Gagal memuat data dari server backend Cloud Run.');
+      if (supabase) {
+        const { data: sbUsers } = await supabase.from('user_profiles').select('*').limit(100);
+        if (sbUsers) setUserList(sbUsers);
+      }
+      await loadPromos();
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, loadPromos]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -270,6 +374,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     );
   }
 
+  // Opt-in Marketing Users
+  const optInUsers = userList.filter((u) => u.email && (u.accepts_marketing_emails !== false));
+
   // Filtered Users
   const filteredUsers = userList.filter((u) => {
     const matchesSearch =
@@ -277,8 +384,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase())) ||
       (u.full_name && u.full_name.toLowerCase().includes(userSearch.toLowerCase()));
     const matchesTier = userTierFilter === 'all' || (u.tier || 'free').toLowerCase() === userTierFilter.toLowerCase();
-    return matchesSearch && matchesTier;
+    const matchesMarketing =
+      userMarketingFilter === 'all' ||
+      (userMarketingFilter === 'opted_in' && u.accepts_marketing_emails !== false) ||
+      (userMarketingFilter === 'opted_out' && u.accepts_marketing_emails === false);
+    return matchesSearch && matchesTier && matchesMarketing;
   });
+
+  const handleCopyMarketingEmails = () => {
+    const emails = optInUsers.map((u) => u.email).filter(Boolean);
+    if (emails.length === 0) {
+      alert('Belum ada pengguna yang menerima email promo.');
+      return;
+    }
+    navigator.clipboard.writeText(emails.join(', '));
+    setCopiedEmailsMsg(true);
+    setTimeout(() => setCopiedEmailsMsg(false), 3000);
+  };
+
+  const handleOpenEmailComposer = () => {
+    const emails = optInUsers.map((u) => u.email).filter(Boolean);
+    if (emails.length === 0) {
+      alert('Belum ada pengguna yang menerima email promo.');
+      return;
+    }
+    const bcc = emails.join(',');
+    const subject = encodeURIComponent('Penawaran Eksklusif & Diskon Spesial PDF Toolbox Pro 🚀');
+    const body = encodeURIComponent(
+      `Halo Pengguna Setia,\n\nTerima kasih telah mempercayakan dokumen Anda pada PDF Toolbox Pro!\n\nKami memberikan penawaran harga promo khusus untuk upgrade paket tanpa batas hari ini. Kunjungi dasbor atau halaman upgrade untuk mengklaim diskon spesial Anda.\n\nKunjungi sekarang: https://pdftoolboxpro.com\n\nSalam hangat,\nTim PDF Toolbox Pro`
+    );
+    window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
+  };
 
   // Filtered Logs
   const filteredLogs = toolLogs.filter((l) => {
@@ -510,6 +646,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
           <Activity className="w-4 h-4" />
           Sesi Realtime ({presence.onlineCount})
         </button>
+
+        <button
+          onClick={() => setActiveTab('promos')}
+          className={`px-4 py-2.5 font-medium text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
+            activeTab === 'promos'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Tag className="w-4 h-4" />
+          Kelola Promo & Diskon ({promos.filter((p) => p.is_active).length} Aktif)
+        </button>
       </div>
 
       {/* Konten Tab */}
@@ -644,19 +792,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-xs text-slate-500">Tier:</span>
-                <select
-                  value={userTierFilter}
-                  onChange={(e) => setUserTierFilter(e.target.value)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
-                >
-                  <option value="all">Semua Tier</option>
-                  <option value="free">Gratis (Free)</option>
-                  <option value="flash">Flash Pass</option>
-                  <option value="monthly">Monthly Pro</option>
-                  <option value="annual">Annual Pass</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-500">Tier:</span>
+                  <select
+                    value={userTierFilter}
+                    onChange={(e) => setUserTierFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
+                  >
+                    <option value="all">Semua Tier</option>
+                    <option value="free">Gratis (Free)</option>
+                    <option value="flash">Flash Pass</option>
+                    <option value="monthly">Monthly Pro</option>
+                    <option value="annual">Annual Pass</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-500">Promo:</span>
+                  <select
+                    value={userMarketingFilter}
+                    onChange={(e: any) => setUserMarketingFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
+                  >
+                    <option value="all">Semua ({userList.length})</option>
+                    <option value="opted_in">✉️ Menerima Promo ({optInUsers.length})</option>
+                    <option value="opted_out">🚫 Menolak Promo ({userList.length - optInUsers.length})</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                  <button
+                    onClick={handleCopyMarketingEmails}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition shadow-xs"
+                    title="Salin email semua pengguna yang bersedia menerima penawaran via clipboard"
+                  >
+                    {copiedEmailsMsg ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedEmailsMsg ? 'Tersalin!' : `Salin Email (${optInUsers.length})`}</span>
+                  </button>
+                  <button
+                    onClick={handleOpenEmailComposer}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-xs shadow-indigo-500/20"
+                    title="Buka aplikasi email untuk mengirim penawaran promo kepada seluruh user opt-in"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Kirim Promo</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -704,8 +886,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                                 <div className="font-semibold text-slate-900 dark:text-white">
                                   {u.full_name || 'Tanpa Nama'}
                                 </div>
-                                <div className="text-[11px] text-slate-500 font-mono">
-                                  {u.email}
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[11px] text-slate-500 font-mono">
+                                    {u.email}
+                                  </span>
+                                  {u.accepts_marketing_emails === false ? (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700"
+                                      title="User menolak menerima penawaran email"
+                                    >
+                                      🚫 No Promo
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60"
+                                      title="User bersedia menerima penawaran promo via email"
+                                    >
+                                      ✉️ Promo OK
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1034,6 +1233,245 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* TAB 6: KELOLA PROMO & HARGA                                          */}
+        {/* ==================================================================== */}
+        {activeTab === 'promos' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Tab Promo */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-indigo-600" />
+                  Manajemen Harga Promo & Penawaran Khusus
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Atur potongan harga diskon untuk semua pengguna (Global) atau berikan harga promo khusus ke email pelanggan tertentu.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={loadPromos}
+                  disabled={isLoadingPromos}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 text-xs font-semibold transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPromos ? 'animate-spin' : ''}`} />
+                  <span>Muat Ulang Promo</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Grid 3 Kartu Promo: Flash, Monthly, Annual */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {promos.map((promo) => {
+                const basePrice = DEFAULT_BASE_PRICES[promo.plan_id.toLowerCase()] || 29000;
+                const isFlash = promo.plan_id.toLowerCase() === 'flash';
+                const isMonthly = promo.plan_id.toLowerCase() === 'monthly';
+                const isAnnual = promo.plan_id.toLowerCase() === 'annual';
+
+                const icon = isFlash ? <Zap className="w-5 h-5 text-amber-500" /> : isMonthly ? <Sparkles className="w-5 h-5 text-blue-500" /> : <Crown className="w-5 h-5 text-purple-500" />;
+
+                const discountPercent = promo.original_price > 0 && promo.discount_price < promo.original_price
+                  ? Math.round(((promo.original_price - promo.discount_price) / promo.original_price) * 100)
+                  : 0;
+
+                const isTargeted = promo.target_emails && promo.target_emails.length > 0;
+
+                return (
+                  <div
+                    key={promo.plan_id}
+                    className={`bg-white dark:bg-slate-900 rounded-2xl border ${
+                      promo.is_active ? 'border-indigo-500/40 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800 shadow-sm opacity-90'
+                    } p-6 flex flex-col justify-between transition-all`}
+                  >
+                    <div>
+                      {/* Top Plan Info & Active Toggle */}
+                      <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800">{icon}</div>
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white capitalize">
+                              Paket {promo.plan_id}
+                            </h4>
+                            <span className="text-[11px] text-slate-400">Harga Normal: {formatIDR(basePrice)}</span>
+                          </div>
+                        </div>
+
+                        {/* Switch Active */}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[11px] font-bold ${promo.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {promo.is_active ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={promo.is_active}
+                            onClick={() => handleTogglePromoActive(promo)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                              promo.is_active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                promo.is_active ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Promo Form Fields */}
+                      <div className="space-y-4 py-4">
+                        {/* Judul Promo */}
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Judul / Label Promo
+                          </label>
+                          <input
+                            type="text"
+                            value={promo.title}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, title: val } : p)));
+                            }}
+                            placeholder="Contoh: Promo Kilat Spesial"
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        {/* Harga Promo */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              Harga Diskon (Rp)
+                            </label>
+                            {discountPercent > 0 && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                Hemat {discountPercent}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={500}
+                              value={promo.discount_price}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, discount_price: val } : p)));
+                              }}
+                              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Banner Promo Text */}
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                            Teks Banner (Ditampilkan di Checkout & Modal)
+                          </label>
+                          <input
+                            type="text"
+                            value={promo.banner_text || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, banner_text: val } : p)));
+                            }}
+                            placeholder="Contoh: ⚡ Diskon Spesial 40% Terbatas!"
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        {/* Target Pengguna (Emails) */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              Target Akun Penerima
+                            </label>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isTargeted ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}>
+                              {isTargeted ? `🎯 ${promo.target_emails.length} Email Khusus` : '🌐 Global (Semua User)'}
+                            </span>
+                          </div>
+                          <textarea
+                            rows={3}
+                            value={(promo.target_emails || []).join(', ')}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const parsed = raw.split(',').map((x) => x.trim()).filter(Boolean);
+                              setPromos((prev) => prev.map((p) => (p.plan_id === promo.plan_id ? { ...p, target_emails: parsed } : p)));
+                            }}
+                            placeholder="Biarkan KOSONG untuk semua orang, atau isi email dipisah koma (misal: mau.ibra5@gmail.com, user2@gmail.com)"
+                            className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed resize-none"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {isTargeted
+                              ? 'Promo HANYA terlihat dan berlaku saat akun terdaftar di atas login.'
+                              : 'Promo ini berlaku untuk SEMUA pengunjung dan pengguna.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tombol Simpan Promo */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={() => handleSavePromo(promo)}
+                        disabled={savingPromoPlan === promo.plan_id}
+                        className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {savingPromoPlan === promo.plan_id ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Simpan Pengaturan {promo.plan_id.toUpperCase()}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Panduan & Info Cara Kerja Promo */}
+            <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/40 dark:to-indigo-950/20 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+              <h5 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                Cara Kerja Promo & Penawaran Diskon:
+              </h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-slate-600 dark:text-slate-300 pt-1">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="font-bold text-indigo-600 mb-1">1. Promo Global vs Tertarget</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Jika kolom <em>Target Akun</em> dikosongkan, promo langsung aktif untuk semua pengunjung. Jika diisi email tertentu, harga diskon hanya muncul untuk pemilik email tersebut.
+                  </p>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="font-bold text-indigo-600 mb-1">2. Sinkronisasi Midtrans Otomatis</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Harga promo otomatis diterapkan pada pembuatan tagihan Midtrans Snap saat checkout, sehingga pengguna membayar sesuai nominal diskon yang Anda tetapkan.
+                  </p>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="font-bold text-indigo-600 mb-1">3. Integrasi Penawaran Email</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Gunakan tombol <em>"Salin Email Promo"</em> atau <em>"Kirim Promo"</em> di tab Daftar Pengguna untuk mengabarkan kode atau diskon kepada pengguna yang bersedia menerima email penawaran.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

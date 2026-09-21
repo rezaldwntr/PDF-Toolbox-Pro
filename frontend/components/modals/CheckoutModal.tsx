@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, Timer, CheckCircle2, Shield, Loader2, 
-  Sparkles, AlertCircle, Copy, Check, Zap, CreditCard
+  Sparkles, AlertCircle, Copy, Check, Zap, CreditCard, Tag
 } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth, TIER_RANK, TIER_CONFIGS } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { BACKEND_URL } from '../../config';
-import { View, UserTier } from '../../types';
+import { View, UserTier, PromoSetting } from '../../types';
+import { fetchPromoSettings, calculateEffectivePrice } from '../../lib/promo';
 
 interface CheckoutModalProps {
   onSelectView?: (view: View) => void;
@@ -78,6 +79,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const { showCheckoutModal, checkoutPlan, closeCheckout } = useQuota();
   const { user, isGuest, userTier, signInWithGoogle, refreshUser } = useAuth();
 
+  const [promos, setPromos] = useState<PromoSetting[]>([]);
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 menit
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [isLoadingSnap, setIsLoadingSnap] = useState(false);
@@ -85,6 +87,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<any>(null);
+
+  // Fetch promo settings when checkout modal opens
+  useEffect(() => {
+    if (showCheckoutModal) {
+      fetchPromoSettings().then(setPromos);
+    }
+  }, [showCheckoutModal]);
 
   // Proteksi Hierarki Tier: Cek apakah paket yang dipilih lebih rendah dari paket aktif
   const currentRank = TIER_RANK[userTier] || 0;
@@ -183,6 +192,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   if (!showCheckoutModal || !checkoutPlan) return null;
   const plan = PLAN_DETAILS[checkoutPlan];
   if (!plan) return null;
+
+  const effPrice = checkoutPlan
+    ? calculateEffectivePrice(checkoutPlan, user?.email, promos)
+    : null;
+
+  const displayPriceStr = effPrice?.isPromo
+    ? `Rp${effPrice.price.toLocaleString('id-ID')}`
+    : plan.price;
 
   // Layar Proteksi: Jika user mencoba membeli paket yang lebih rendah dari paket aktifnya
   if (isDowngrade) {
@@ -319,7 +336,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 dark:text-slate-400">Nominal:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{plan.price}</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{displayPriceStr}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 dark:text-slate-400">Status:</span>
@@ -359,9 +376,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white leading-none">{plan.name}</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                  {plan.price}
-                </span>
+                {effPrice?.isPromo ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="line-through text-[11px] text-slate-400 font-normal">
+                      Rp{effPrice.originalPrice.toLocaleString('id-ID')}
+                    </span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40">
+                      Promo {displayPriceStr} (-{effPrice.discountPercent}%)
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
+                    {plan.price}
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pembayaran Resmi Didukung Midtrans (Berizin Bank Indonesia)</p>
             </div>
@@ -431,9 +459,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">Paket Dipilih</span>
               <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{plan.name}</h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
+              {effPrice?.isPromo && effPrice.bannerText && (
+                <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                  {effPrice.bannerText}
+                </span>
+              )}
             </div>
             <div className="text-right">
-              <span className="text-xl font-extrabold text-slate-900 dark:text-white">{plan.price}</span>
+              {effPrice?.isPromo ? (
+                <div>
+                  <span className="line-through text-xs text-slate-400 block">
+                    Rp{effPrice.originalPrice.toLocaleString('id-ID')}
+                  </span>
+                  <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{displayPriceStr}</span>
+                </div>
+              ) : (
+                <span className="text-xl font-extrabold text-slate-900 dark:text-white">{plan.price}</span>
+              )}
               <p className="text-[10px] text-slate-500 dark:text-slate-400">{plan.priceNote}</p>
             </div>
           </div>
@@ -489,7 +531,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             ) : (
               <>
                 <Zap size={18} className="text-amber-300 fill-amber-300" />
-                <span>Bayar Sekarang ({plan.price}) →</span>
+                <span>Bayar Sekarang ({displayPriceStr}) →</span>
               </>
             )}
           </button>

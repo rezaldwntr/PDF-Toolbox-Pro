@@ -1,8 +1,9 @@
-import React from "react";
-import { View, UserTier } from "../../types";
+import React, { useState, useEffect } from "react";
+import { View, UserTier, PromoSetting } from "../../types";
 import { useQuota } from "../../contexts/QuotaContext";
 import { useAuth, TIER_RANK } from "../../contexts/AuthContext";
 import { Check, ArrowLeft, Zap, Star, Crown, Gift } from "lucide-react";
+import { fetchPromoSettings, calculateEffectivePrice } from "../../lib/promo";
 
 interface PricingPageProps {
   onSelectView: (view: View) => void;
@@ -104,8 +105,13 @@ const COMPARE_ROWS = [
 
 const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
   const { openCheckout, setShowPricingModal } = useQuota();
-  const { isGuest, signInWithGoogle, userTier } = useAuth();
+  const { user, isGuest, signInWithGoogle, userTier } = useAuth();
+  const [promos, setPromos] = useState<PromoSetting[]>([]);
   const currentRank = TIER_RANK[userTier] || 0;
+
+  useEffect(() => {
+    fetchPromoSettings().then(setPromos);
+  }, []);
 
   const handleCTA = async (planId: string) => {
     if (planId === "free") {
@@ -145,6 +151,10 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
           const isLower = currentRank > planRank && !isGuest && userTier !== "free";
           const isUpgrade = planRank > currentRank && currentRank > 1;
 
+          const eff = plan.id === "free"
+            ? { price: 0, originalPrice: 0, isPromo: false, discountPercent: 0, bannerText: "" }
+            : calculateEffectivePrice(plan.id, user?.email, promos);
+
           return (
             <div
               key={plan.id}
@@ -181,12 +191,38 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
               <h3 className={`font-bold text-base mb-1 ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
                 {plan.name}
               </h3>
-              <p className={`text-3xl font-extrabold mb-0.5 ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                {plan.price}
-              </p>
-              <p className={`text-xs mb-5 ${plan.highlight && !isLower ? "text-blue-200" : "text-slate-500 dark:text-slate-400"}`}>
+
+              {/* Dynamic Promo Pricing */}
+              <div className="mb-0.5">
+                {eff.isPromo ? (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={`line-through text-sm font-semibold ${plan.highlight && !isLower ? "text-blue-200" : "text-slate-400"}`}>
+                        Rp{eff.originalPrice.toLocaleString("id-ID")}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white uppercase tracking-wider">
+                        Promo -{eff.discountPercent}%
+                      </span>
+                    </div>
+                    <p className={`text-3xl font-extrabold ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                      Rp{eff.price.toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                ) : (
+                  <p className={`text-3xl font-extrabold ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                    {plan.price}
+                  </p>
+                )}
+              </div>
+
+              <p className={`text-xs mb-3 ${plan.highlight && !isLower ? "text-blue-200" : "text-slate-500 dark:text-slate-400"}`}>
                 {plan.priceNote}
               </p>
+              {eff.isPromo && eff.bannerText && (
+                <div className="mb-4 px-2.5 py-1.5 rounded-xl bg-amber-400/20 text-amber-200 text-xs font-bold text-center">
+                  {eff.bannerText}
+                </div>
+              )}
 
               {/* Features */}
               <ul className="space-y-2.5 flex-1 mb-6">

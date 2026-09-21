@@ -49,6 +49,20 @@ export interface UserProfile {
   quotaUsedToday: number;
   quotaResetDate: string; // ISO date string
   subscriptionExpiry: string | null; // ISO timestamp atau null
+  acceptsMarketingEmails?: boolean;
+  lastNotifiedTier?: string | null;
+}
+
+export interface PromoSetting {
+  id: string;
+  plan_id: 'flash' | 'monthly' | 'annual';
+  title: string;
+  discount_price: number;
+  original_price: number;
+  is_active: boolean;
+  target_emails: string[];
+  banner_text?: string;
+  valid_until?: string | null;
 }
 
 /** Konfigurasi per tier */

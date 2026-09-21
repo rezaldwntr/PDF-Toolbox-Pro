@@ -46,6 +46,8 @@ const mapSupabaseUser = async (authUser: any): Promise<UserProfile> => {
     quotaUsedToday: 0,
     quotaResetDate: new Date().toISOString().split('T')[0],
     subscriptionExpiry: null,
+    acceptsMarketingEmails: true,
+    lastNotifiedTier: 'free',
   };
 
   try {
@@ -63,6 +65,8 @@ const mapSupabaseUser = async (authUser: any): Promise<UserProfile> => {
           email: defaultProfile.email,
           full_name: defaultProfile.fullName,
           avatar_url: defaultProfile.avatarUrl,
+          accepts_marketing_emails: true,
+          last_notified_tier: 'free',
         });
       } catch {
         // Table mungkin belum dibuat, tetap gunakan defaultProfile agar user tetap berhasil masuk
@@ -92,6 +96,8 @@ const mapSupabaseUser = async (authUser: any): Promise<UserProfile> => {
       quotaUsedToday: data.quota_used_today || 0,
       quotaResetDate: data.quota_reset_date || defaultProfile.quotaResetDate,
       subscriptionExpiry: data.subscription_expiry,
+      acceptsMarketingEmails: data.accepts_marketing_emails ?? true,
+      lastNotifiedTier: data.last_notified_tier || 'free',
     };
   } catch {
     return defaultProfile;

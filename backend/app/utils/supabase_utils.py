@@ -215,3 +215,43 @@ async def update_supabase_user_tier(
     except Exception as e:
         logger.error(f"Error saat update user tier di Supabase: {e}")
         return False
+
+
+def get_active_promo_price(plan_id: str, user_email: Optional[str], base_price: int) -> int:
+    """Mengambil harga promo yang berlaku dari Supabase promo_settings."""
+    if not SUPABASE_URL:
+        return base_price
+
+    endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/promo_settings?plan_id=eq.{plan_id.lower()}&is_active=eq.true&select=*"
+    headers = get_supabase_headers()
+
+    try:
+        with httpx.Client(timeout=4.0) as client:
+            resp = client.get(endpoint, headers=headers)
+            if resp.status_code == 200:
+                promos = resp.json()
+                now_utc = datetime.now(timezone.utc)
+                for p in promos:
+                    v_until = p.get("valid_until")
+                    if v_until:
+                        try:
+                            exp_dt = datetime.fromisoformat(v_until.replace("Z", "+00:00"))
+                            if exp_dt < now_utc:
+                                continue
+                        except Exception:
+                            pass
+
+                    target_emails = p.get("target_emails") or []
+                    if not target_emails or len(target_emails) == 0:
+                        disc = p.get("discount_price")
+                        if disc and int(disc) > 0:
+                            return int(disc)
+                    elif user_email and any(t.strip().lower() == user_email.strip().lower() for t in target_emails):
+                        disc = p.get("discount_price")
+                        if disc and int(disc) > 0:
+                            return int(disc)
+    except Exception as e:
+        logger.warning(f"Error fetching active promo: {e}")
+
+    return base_price
+

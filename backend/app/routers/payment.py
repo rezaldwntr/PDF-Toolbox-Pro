@@ -18,7 +18,7 @@ from app.core.config import (
     SUPABASE_SERVICE_ROLE_KEY,
     SUBSCRIPTION_PLANS,
 )
-from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier
+from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier, get_active_promo_price
 
 logger = logging.getLogger("payment")
 router = APIRouter(prefix="/payment", tags=["Payment & Subscription"])
@@ -36,10 +36,14 @@ def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundT
     """
     Membuat transaksi Snap Midtrans dan mengembalikan token pembayaran.
     Mendukung QRIS, GoPay, ShopeePay, dan Virtual Account bank.
+    Mengecek apakah ada harga promo aktif untuk plan/user ini.
     """
     plan = SUBSCRIPTION_PLANS.get(req.plan_id.lower())
     if not plan:
         raise HTTPException(status_code=400, detail=f"Paket tidak valid: {req.plan_id}")
+
+    base_price = int(plan["price"])
+    effective_price = get_active_promo_price(req.plan_id, req.user_email, base_price)
 
     # Format Order ID unik: PDFTB-[PLAN]-[USER_ID_PREFIX]-[TIMESTAMP]
     order_id = f"PDFTB-{req.plan_id.upper()}-{req.user_id[:8]}-{int(time.time())}"
@@ -53,14 +57,14 @@ def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundT
     param = {
         "transaction_details": {
             "order_id": order_id,
-            "gross_amount": plan["price"],
+            "gross_amount": effective_price,
         },
         "item_details": [
             {
                 "id": plan["id"],
-                "price": plan["price"],
+                "price": effective_price,
                 "quantity": 1,
-                "name": plan["name"],
+                "name": f"{plan['name']}{' (Promo)' if effective_price < base_price else ''}",
                 "brand": "PDF Toolbox Pro",
                 "category": "Subscription",
             }
@@ -94,7 +98,7 @@ def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundT
             user_email=req.user_email,
             user_name=req.user_name,
             plan_id=req.plan_id,
-            amount=float(plan["price"]),
+            amount=float(effective_price),
             status="pending",
             raw_response=transaction,
         )

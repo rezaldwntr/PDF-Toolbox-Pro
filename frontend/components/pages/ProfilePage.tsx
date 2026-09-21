@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View } from '../../types';
 import { useAuth, TIER_CONFIGS } from '../../contexts/AuthContext';
 import { useQuota } from '../../contexts/QuotaContext';
@@ -14,8 +14,12 @@ import {
   ArrowRight, 
   CheckCircle2, 
   HelpCircle,
-  FileText
+  FileText,
+  Mail,
+  Bell,
 } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
+import { supabase } from '../../lib/supabase';
 
 interface ProfilePageProps {
   onSelectView?: (view: View) => void;
@@ -52,6 +56,42 @@ const TIER_BADGES: Record<string, { label: string; badgeCls: string; icon: React
 const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
   const { user, isGuest, isPro, userTier, signOut, signInWithGoogle } = useAuth();
   const { quota, maxQuota, quotaUsed, maxFileSizeMB, setShowPricingModal, openCheckout } = useQuota();
+  const { addToast } = useToast();
+
+  const [acceptsMarketing, setAcceptsMarketing] = React.useState<boolean>(user?.acceptsMarketingEmails ?? true);
+  const [isUpdatingMarketing, setIsUpdatingMarketing] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (user?.acceptsMarketingEmails !== undefined) {
+      setAcceptsMarketing(user.acceptsMarketingEmails);
+    }
+  }, [user?.acceptsMarketingEmails]);
+
+  const handleToggleMarketing = async (newVal: boolean) => {
+    if (!user || isGuest) return;
+    setAcceptsMarketing(newVal);
+    setIsUpdatingMarketing(true);
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ accepts_marketing_emails: newVal })
+        .eq('id', user.id);
+
+      if (error) {
+        console.warn('Gagal update preferensi marketing:', error);
+      }
+      addToast(
+        newVal 
+          ? 'Anda akan menerima penawaran promo & diskon eksklusif via email.' 
+          : 'Preferensi disimpan: Anda tidak akan menerima email promo.',
+        'info'
+      );
+    } catch (err) {
+      console.error('Error toggling marketing:', err);
+    } finally {
+      setIsUpdatingMarketing(false);
+    }
+  };
 
   const tierMeta = TIER_BADGES[userTier] || TIER_BADGES.free;
   const currentConfig = TIER_CONFIGS[userTier] || TIER_CONFIGS.free;
@@ -276,6 +316,52 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                 className="w-full sm:w-auto px-4 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs transition-colors text-center backdrop-blur-sm"
               >
                 Lihat Semua Paket
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3.5 PREFERENSI PENAWARAN EMAIL */}
+      {!isGuest && (
+        <div className="bg-white dark:bg-[#1E222B] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Preferensi Penawaran & Promo Khusus</span>
+                  {acceptsMarketing && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      Aktif
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
+                  Dapatkan kode voucher diskon rahasia, promo harga khusus langganan, dan pengumuman fitur baru langsung ke <strong className="text-slate-700 dark:text-slate-300">{user?.email}</strong>. Anda bebas menonaktifkannya kapan saja.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={acceptsMarketing}
+                disabled={isUpdatingMarketing}
+                onClick={() => handleToggleMarketing(!acceptsMarketing)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  acceptsMarketing ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                } ${isUpdatingMarketing ? 'opacity-50 cursor-wait' : ''}`}
+                title="Aktifkan / Nonaktifkan Penawaran Email"
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    acceptsMarketing ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
           </div>

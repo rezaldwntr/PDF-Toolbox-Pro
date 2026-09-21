@@ -41,6 +41,7 @@ import TermsOfService from './components/pages/TermsOfService';
 import PaywallModal from './components/modals/PaywallModal';
 import PricingModal from './components/modals/PricingModal';
 import CheckoutModal from './components/modals/CheckoutModal';
+import UpgradeCelebrationModal from './components/modals/UpgradeCelebrationModal';
 
 // Providers & Telemetry
 import { ToastProvider } from './contexts/ToastContext';
@@ -74,9 +75,20 @@ const VIEW_TO_TOOL_NAME: Partial<Record<View, string>> = {
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>(View.HOME_TAB);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { user, userTier } = useAuth();
   const { setActiveTool } = useQuota();
   const presence = useOnlinePresence(user, userTier);
+
+  // Trigger celebration modal when user tier was upgraded
+  useEffect(() => {
+    if (user && user.tier && user.tier !== 'free') {
+      const seenTier = localStorage.getItem(`seen_tier_upgrade_${user.id}`);
+      if (seenTier !== user.tier && user.lastNotifiedTier !== user.tier) {
+        setShowUpgradeModal(true);
+      }
+    }
+  }, [user?.id, user?.tier, user?.lastNotifiedTier]);
 
   // Hash route support (#admin)
   useEffect(() => {
@@ -210,6 +222,12 @@ function AppContent() {
       <PaywallModal />
       <PricingModal onSelectView={setCurrentView} />
       <CheckoutModal onSelectView={setCurrentView} />
+      {showUpgradeModal && user && (
+        <UpgradeCelebrationModal
+          user={user}
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
 
       {/* Vercel Telemetry */}
       <Analytics />
