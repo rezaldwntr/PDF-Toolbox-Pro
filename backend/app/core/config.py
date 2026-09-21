@@ -44,8 +44,8 @@ GCS_ENABLED = os.getenv("GCS_ENABLED", "true").lower() in ("true", "1", "yes")
 # KONFIGURASI MIDTRANS PAYMENT GATEWAY
 # ===========================================================================
 MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY", "SB-Mid-server-YOUR-SANDBOX-KEY")
-MIDTRANS_CLIENT_KEY = os.getenv("MIDTRANS_CLIENT_KEY", "SB-Mid-client-YOUR-SANDBOX-KEY")
-MIDTRANS_IS_PRODUCTION = os.getenv("MIDTRANS_IS_PRODUCTION", "false").lower() in ("true", "1", "yes")
+MIDTRANS_CLIENT_KEY = os.getenv("MIDTRANS_CLIENT_KEY", "Mid-client-NgwF8qYDa8uBWWPh")
+MIDTRANS_IS_PRODUCTION = os.getenv("MIDTRANS_IS_PRODUCTION", "true").lower() in ("true", "1", "yes")
 
 # ===========================================================================
 # KONFIGURASI SUPABASE
@@ -73,7 +73,7 @@ SUBSCRIPTION_PLANS = {
     },
     "annual": {
         "id": "annual",
-        "name": "Annual Value Pass",
+        "name": "Annual Pass",
         "price": 149000,
         "duration_days": 365,
         "tier": "annual",
