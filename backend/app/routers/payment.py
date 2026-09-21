@@ -18,6 +18,7 @@ from app.core.config import (
     SUPABASE_SERVICE_ROLE_KEY,
     SUBSCRIPTION_PLANS,
 )
+from app.utils.supabase_utils import record_payment_transaction
 
 logger = logging.getLogger("payment")
 router = APIRouter(prefix="/payment", tags=["Payment & Subscription"])
@@ -75,7 +76,7 @@ async def update_supabase_user_tier(
 
 
 @router.post("/create-snap-token")
-def create_snap_token(req: CreateSnapTokenRequest):
+def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundTasks):
     """
     Membuat transaksi Snap Midtrans dan mengembalikan token pembayaran.
     Mendukung QRIS, GoPay, ShopeePay, dan Virtual Account bank.
@@ -128,6 +129,20 @@ def create_snap_token(req: CreateSnapTokenRequest):
 
     try:
         transaction = snap.create_transaction(param)
+        
+        # Catat order baru ke tabel payment_transactions
+        background_tasks.add_task(
+            record_payment_transaction,
+            order_id=order_id,
+            user_id=req.user_id,
+            user_email=req.user_email,
+            user_name=req.user_name,
+            plan_id=req.plan_id,
+            amount=float(plan["price"]),
+            status="pending",
+            raw_response=transaction,
+        )
+
         return {
             "token": transaction.get("token"),
             "redirect_url": transaction.get("redirect_url"),
@@ -207,6 +222,21 @@ async def midtrans_webhook(request: Request, background_tasks: BackgroundTasks):
                 duration_days=plan.get("duration_days"),
             )
 
+    # Sinkronkan status transaksi di tabel payment_transactions
+    background_tasks.add_task(
+        record_payment_transaction,
+        order_id=order_id,
+        user_id=body.get("custom_field1"),
+        user_email="",
+        user_name=None,
+        plan_id=plan_id or "flash",
+        amount=float(gross_amount or 0),
+        status=transaction_status,
+        payment_type=body.get("payment_type"),
+        settlement_time=body.get("settlement_time"),
+        raw_response=body,
+    )
+
     return {"status": "ok", "message": "Notifikasi webhook berhasil diproses"}
 
 
@@ -239,6 +269,20 @@ async def check_payment_status(order_id: str):
                 duration_hours=plan.get("duration_hours"),
                 duration_days=plan.get("duration_days"),
             )
+
+        # Sinkronkan status ke tabel payment_transactions
+        await record_payment_transaction(
+            order_id=order_id,
+            user_id=user_id,
+            user_email="",
+            user_name=None,
+            plan_id=plan_id or "flash",
+            amount=float(status_resp.get("gross_amount") or 0),
+            status=tx_status or "pending",
+            payment_type=status_resp.get("payment_type"),
+            settlement_time=status_resp.get("settlement_time"),
+            raw_response=status_resp,
+        )
 
         return {
             "order_id": order_id,

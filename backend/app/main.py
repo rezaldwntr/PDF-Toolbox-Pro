@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import convert, tools, payment, jobs, storage
+from app.routers import convert, tools, payment, jobs, storage, telemetry, admin
 
 app = FastAPI(
     title="Aplikasi Konverter PDF",
@@ -24,6 +24,8 @@ app.include_router(tools.router)
 app.include_router(payment.router)
 app.include_router(jobs.router)
 app.include_router(storage.router)
+app.include_router(telemetry.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():

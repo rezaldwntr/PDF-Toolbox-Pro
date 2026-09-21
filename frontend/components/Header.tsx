@@ -36,6 +36,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
   const [showEnvModal, setShowEnvModal] = React.useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = React.useState<boolean>(false);
 
+  const isAdmin = user?.email?.toLowerCase().trim() === 'rezaldewantara@gmail.com';
   const tierBadge = user ? TIER_BADGE[user.tier] ?? TIER_BADGE.free : null;
 
   return (
@@ -95,6 +96,19 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             >
               Harga
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => onSelectView(View.ADMIN_DASHBOARD)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                  currentView === View.ADMIN_DASHBOARD
+                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 font-bold border border-indigo-200 dark:border-indigo-800'
+                    : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/30'
+                }`}
+              >
+                <ShieldCheck size={16} />
+                <span>Admin</span>
+              </button>
+            )}
           </nav>
 
           {/* Right Actions */}
@@ -214,6 +228,15 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
                       <User size={15} className="text-slate-500" />
                       Profil Saya
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setShowUserMenu(false); onSelectView(View.ADMIN_DASHBOARD); }}
+                        className="w-full px-4 py-2.5 text-sm text-left text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 flex items-center gap-2.5 transition-colors font-semibold"
+                      >
+                        <ShieldCheck size={15} />
+                        Dasbor Admin
+                      </button>
+                    )}
                     <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1">
                       <button
                         onClick={() => { setShowUserMenu(false); signOut(); }}

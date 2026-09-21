@@ -30,6 +30,8 @@ export enum View {
   TERMS,
   ABOUT,
   CONTACT,
+
+  ADMIN_DASHBOARD,
 }
 
 export type EnvironmentMode = 'preview' | 'production';

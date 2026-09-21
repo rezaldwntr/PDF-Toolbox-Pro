@@ -2,12 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { EnvironmentMode, UserTier, PaywallVariant } from '../types';
 import { useAuth, TIER_CONFIGS } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { recordToolUsage } from '../lib/telemetry';
 
 interface QuotaContextType {
   quota: number | null;                    // null = unlimited (pro tier)
   maxQuota: number | null;                 // null = unlimited
   quotaUsed: number;
-  consumeQuota: () => boolean;
+  consumeQuota: (toolName?: string, fileSizeBytes?: number) => boolean;
+  logToolUsage: (params: { toolName?: string; fileSizeBytes?: number; isSuccess?: boolean; errorMessage?: string }) => void;
+  activeTool: string;
+  setActiveTool: (tool: string) => void;
   // Paywall
   showPaywallModal: boolean;
   paywallVariant: PaywallVariant;
@@ -107,6 +111,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [branchName] = useState<string>(initial.branch);
   const [guestQuota, setGuestQuota] = useState<number>(GUEST_MAX_QUOTA);
   const [userQuotaUsed, setUserQuotaUsed] = useState<number>(0);
+  const [activeTool, setActiveTool] = useState<string>('General PDF Tool');
 
   // Paywall state
   const [showPaywallModal, setShowPaywallModal] = useState(false);
@@ -216,7 +221,18 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  const consumeQuota = (): boolean => {
+  const consumeQuota = (toolName?: string, fileSizeBytes?: number): boolean => {
+    const effectiveTool = toolName || activeTool || 'General PDF Tool';
+
+    // Rekam telemetri penggunaan alat secara asinkron (fire-and-forget)
+    recordToolUsage({
+      toolName: effectiveTool,
+      fileSizeBytes: fileSizeBytes || 0,
+      isSuccess: true,
+      userId: user?.id,
+      userEmail: user?.email,
+    });
+
     // Mode Preview: bebas tanpa batas
     if (isPreview) return true;
 
@@ -254,6 +270,17 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
+  const logToolUsage = (params: { toolName?: string; fileSizeBytes?: number; isSuccess?: boolean; errorMessage?: string }) => {
+    recordToolUsage({
+      toolName: params.toolName || activeTool || 'General PDF Tool',
+      fileSizeBytes: params.fileSizeBytes || 0,
+      isSuccess: params.isSuccess ?? true,
+      errorMessage: params.errorMessage,
+      userId: user?.id,
+      userEmail: user?.email,
+    });
+  };
+
   // Hitung nilai quota yang ditampilkan di UI
   let displayQuota: number | null = null;
   let displayMaxQuota: number | null = null;
@@ -285,6 +312,9 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       maxQuota: displayMaxQuota,
       quotaUsed: isGuest ? (GUEST_MAX_QUOTA - guestQuota) : userQuotaUsed,
       consumeQuota,
+      logToolUsage,
+      activeTool,
+      setActiveTool,
       showPaywallModal,
       paywallVariant,
       openPaywall,

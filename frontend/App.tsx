@@ -26,6 +26,9 @@ import EditPdf from './components/tools/EditPdf';
 import OcrPdf from './components/tools/OcrPdf';
 import TranslatePdf from './components/tools/TranslatePdf';
 
+// Admin Dashboard
+import { AdminDashboard } from './components/admin/AdminDashboard';
+
 // Informational Pages
 import AboutUs from './components/pages/AboutUs';
 import Blog from './components/pages/Blog';
@@ -41,14 +44,70 @@ import CheckoutModal from './components/modals/CheckoutModal';
 
 // Providers & Telemetry
 import { ToastProvider } from './contexts/ToastContext';
-import { QuotaProvider } from './contexts/QuotaContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { QuotaProvider, useQuota } from './contexts/QuotaContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { useOnlinePresence } from './lib/presence';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
-function App() {
+const VIEW_TO_TOOL_NAME: Partial<Record<View, string>> = {
+  [View.MERGE]: 'Merge PDF',
+  [View.SPLIT]: 'Split PDF',
+  [View.COMPRESS]: 'Compress PDF',
+  [View.PDF_TO_WORD]: 'PDF to Word',
+  [View.PDF_TO_EXCEL]: 'PDF to Excel',
+  [View.PDF_TO_PPT]: 'PDF to PPT',
+  [View.PDF_TO_IMAGE]: 'PDF to Image',
+  [View.ADD_TEXT]: 'Add Text',
+  [View.ADD_SIGNATURE]: 'Sign PDF',
+  [View.ORGANIZE]: 'Organize PDF',
+  [View.WATERMARK]: 'Watermark PDF',
+  [View.PROTECT_PDF]: 'Protect PDF',
+  [View.UNLOCK_PDF]: 'Unlock PDF',
+  [View.CROP_PDF]: 'Crop PDF',
+  [View.PDF_A]: 'PDF/A Converter',
+  [View.EDIT_PDF]: 'Edit PDF',
+  [View.OCR_PDF]: 'OCR PDF',
+  [View.TRANSLATE_PDF]: 'Translate PDF',
+};
+
+function AppContent() {
   const [currentView, setCurrentView] = useState<View>(View.HOME_TAB);
+  const { user, userTier } = useAuth();
+  const { setActiveTool } = useQuota();
+  const presence = useOnlinePresence(user, userTier);
+
+  // Hash route support (#admin)
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#admin') {
+        setCurrentView(View.ADMIN_DASHBOARD);
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // Sync hash with currentView
+  useEffect(() => {
+    if (currentView === View.ADMIN_DASHBOARD) {
+      if (window.location.hash !== '#admin') {
+        window.location.hash = 'admin';
+      }
+    } else if (window.location.hash === '#admin') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [currentView]);
+
+  // Sync activeTool in QuotaContext
+  useEffect(() => {
+    const toolName = VIEW_TO_TOOL_NAME[currentView];
+    if (toolName) {
+      setActiveTool(toolName);
+    }
+  }, [currentView, setActiveTool]);
 
   // Scroll to top whenever view changes
   useEffect(() => {
@@ -72,6 +131,10 @@ function App() {
         return <ProfilePage onSelectView={setCurrentView} />;
       case View.PRICING:
         return <PricingPage onSelectView={setCurrentView} />;
+
+      // Admin Dashboard
+      case View.ADMIN_DASHBOARD:
+        return <AdminDashboard onBack={handleBackToHome} presence={presence} />;
 
       // Spokes (Tools)
       case View.MERGE:
@@ -131,31 +194,37 @@ function App() {
   };
 
   return (
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+      {/* Top Sticky Header with Brand, Navigation & Auth */}
+      <Header currentView={currentView} onSelectView={setCurrentView} />
+
+      {/* Main Hub & Spoke Content */}
+      <main className="flex-1 w-full">
+        {renderContent()}
+      </main>
+
+      {/* Footer with Security & Trust Badges */}
+      <Footer onSelectView={setCurrentView} />
+
+      {/* Global Modals (rendered at root level for z-index isolation) */}
+      <PaywallModal />
+      <PricingModal onSelectView={setCurrentView} />
+      <CheckoutModal onSelectView={setCurrentView} />
+
+      {/* Vercel Telemetry */}
+      <Analytics />
+      <SpeedInsights />
+    </div>
+  );
+}
+
+function App() {
+  return (
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
           <QuotaProvider>
-            <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
-              {/* Top Sticky Header with Brand, Navigation & Auth */}
-              <Header currentView={currentView} onSelectView={setCurrentView} />
-
-              {/* Main Hub & Spoke Content */}
-              <main className="flex-1 w-full">
-                {renderContent()}
-              </main>
-
-              {/* Footer with Security & Trust Badges */}
-              <Footer onSelectView={setCurrentView} />
-
-              {/* Global Modals (rendered at root level for z-index isolation) */}
-              <PaywallModal />
-              <PricingModal onSelectView={setCurrentView} />
-              <CheckoutModal onSelectView={setCurrentView} />
-
-              {/* Vercel Telemetry */}
-              <Analytics />
-              <SpeedInsights />
-            </div>
+            <AppContent />
           </QuotaProvider>
         </AuthProvider>
       </ToastProvider>
