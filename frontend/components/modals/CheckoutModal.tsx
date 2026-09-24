@@ -319,7 +319,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   // Layar Pembayaran Berhasil / Teraktivasi
   if (isPaid) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
+      <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
         <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-emerald-500/20">
             <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
@@ -364,7 +364,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
+    <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden max-h-[94vh] flex flex-col">
         
         {/* Header Modal */}

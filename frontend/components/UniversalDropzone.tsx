@@ -69,7 +69,7 @@ const UniversalDropzone: React.FC<UniversalDropzoneProps> = ({ onSelectView }) =
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`
-            relative cursor-pointer flex flex-col items-center justify-center text-center
+            google-anno-skip relative cursor-pointer flex flex-col items-center justify-center text-center
             p-6 md:p-8 rounded-2xl transition-all duration-200 select-none
             h-[200px] md:h-[280px] w-full
             ${errorMessage 

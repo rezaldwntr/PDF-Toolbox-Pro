@@ -22,7 +22,16 @@ import {
   Unlock, 
   Languages, 
   Search,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  HelpCircle,
+  ArrowRight,
+  Zap,
+  Award,
+  Globe,
+  BookOpen
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -347,6 +356,167 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
             </div>
           ))
         )}
+      </section>
+
+      {/* EDITORIAL SECTION 1: MENGAPA MEMILIH PDF TOOLBOX PRO */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800">
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-bold mb-3 border border-blue-200 dark:border-blue-800/60">
+            <Award size={14} />
+            <span>Standar Rekayasa Dokumen Generasi Baru</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Mengapa Jutaan Pengguna Memilih PDF Toolbox Pro?
+          </h2>
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mt-3 leading-relaxed">
+            Kami membangun platform ini untuk menghadirkan performa manipulasi dokumen sekelas software enterprise global, namun dengan arsitektur privasi yang menjunjung tinggi kerahasiaan data Anda dan harga yang ramah di kantong masyarakat Indonesia.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-5">
+              <Zap size={24} className="fill-blue-500" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Akselerasi CPU Multi-Core</h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Arsitektur hybrid cerdas kami membagi beban kerja secara efisien. Tugas ringan seperti penyusunan halaman diproses 0ms di browser Anda, sedangkan konversi dokumen berat dieksekusi secara paralel menggunakan thread server berkecepatan tinggi.
+            </p>
+          </div>
+
+          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-5">
+              <ShieldCheck size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Zero Data Retention (Privasi 100%)</h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Privasi Anda adalah hak mutlak. Semua berkas yang diproses di server dikirimkan via koneksi terenkripsi perbankan TLS 256-bit dan dimusnahkan secara permanen oleh sistem otomatis dalam waktu 60 menit. Kami tidak pernah melihat, menyalin, atau melatih AI dari dokumen Anda.
+            </p>
+          </div>
+
+          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-5">
+              <CheckCircle2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Adil, Transparan & Fleksibel</h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Nikmati kuota gratis setiap hari tanpa kewajiban kartu kredit. Jika butuh memproses berkas mendesak dalam jumlah besar, tersedia Flash Pass 24 Jam seharga Rp5.000 via QRIS tanpa jeratan biaya langganan bulanan yang membingungkan.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* EDITORIAL SECTION 2: PANDUAN STANDAR DOKUMEN DIGITAL */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#12161F]/40 rounded-3xl my-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold mb-3">
+              <BookOpen size={14} />
+              <span>Pusat Pengetahuan & Panduan</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Panduan Memahami Standar Dokumen Digital & PDF
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+              Pelajari wawasan esensial seputar optimasi, pengarsipan jangka panjang, dan keamanan dokumen digital modern.
+            </p>
+          </div>
+
+          <div className="space-y-6 text-sm text-slate-700 dark:text-slate-300">
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">1</span>
+                <span>Kapan Anda Harus Menggunakan Format PDF/A?</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
+                PDF/A (ISO 19005) adalah varian format PDF yang distandarisasi khusus untuk pengarsipan jangka panjang dokumen elektronik. Berbeda dengan PDF standar, PDF/A mewajibkan seluruh font disematkan (*embedded font*), menonaktifkan kode skrip eksternal, dan melarang enkripsi kata sandi. Format ini sangat wajib digunakan untuk dokumen hukum, rekam medis, skripsi perguruan tinggi, serta laporan keuangan perpajakan agar dapat dibuka dengan tampilan persis sama hingga puluhan tahun mendatang.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">2</span>
+                <span>Bagaimana Algoritma Kompresi Bekerja Tanpa Merusak Ketajaman Teks?</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
+                PDF tersusun atas dua komponen utama: data vektor (teks, bentuk garis, kurva font) dan data raster (gambar atau foto). Mesin kompresi PDF Toolbox Pro tidak pernah mengorbankan ketajaman teks vektor. Pengurangan ukuran dicapai dengan menghapus metadata tidak penting, membersihkan objek biner yatim (*dead objects*), dan mengompresi gambar raster dengan rasio DPI optimal yang tetap tajam saat dicetak maupun dibaca di layar retina.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">3</span>
+                <span>Keabsahan Hukum Tanda Tangan Digital Menurut Regulasi</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
+                Di era digital, membubuhkan tanda tangan secara elektronik pada kontrak kerja, surat perjanjian, atau invoice memiliki kekuatan pembuktian hukum yang sah sesuai Undang-Undang Informasi dan Transaksi Elektronik (UU ITE). Menggunakan alat tanda tangan digital memangkas kebiasaan mencetak kertas (*paperless*), menghemat biaya tinta, dan mempercepat alur persetujuan bisnis hingga 90%.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* EDITORIAL SECTION 3: TABEL PERBANDINGAN TIER */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Perbandingan Transparan Fitur & Kapasitas Akun
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2">
+            Pilih opsi yang paling sesuai dengan intensitas kebutuhan dokumen harian Anda.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse bg-white dark:bg-[#161A22] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-[#1E222B] border-b border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-bold">
+                <th className="p-4 sm:p-5">Fitur & Parameter</th>
+                <th className="p-4 sm:p-5">Tamu (Tanpa Akun)</th>
+                <th className="p-4 sm:p-5 text-blue-600 dark:text-blue-400">Akun Gratis (Google)</th>
+                <th className="p-4 sm:p-5 text-amber-600 dark:text-amber-400">24-Hour Flash Pass</th>
+                <th className="p-4 sm:p-5 text-purple-600 dark:text-purple-400">Monthly / Annual Pro</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
+              <tr>
+                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Batas Kuota Operasi Harian</td>
+                <td className="p-4">3 tugas / hari</td>
+                <td className="p-4 font-bold text-blue-600 dark:text-blue-400">10 tugas / hari</td>
+                <td className="p-4 font-bold text-amber-600 dark:text-amber-400">Tanpa Batas (24 Jam)</td>
+                <td className="p-4 font-bold text-purple-600 dark:text-purple-400">Tanpa Batas</td>
+              </tr>
+              <tr>
+                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Maksimal Ukuran File</td>
+                <td className="p-4">20 MB</td>
+                <td className="p-4">50 MB</td>
+                <td className="p-4">100 MB</td>
+                <td className="p-4 font-bold text-purple-600 dark:text-purple-400">250 MB – 500 MB</td>
+              </tr>
+              <tr>
+                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Batch Processing (Banyak File)</td>
+                <td className="p-4">Hingga 3 file</td>
+                <td className="p-4">Hingga 10 file</td>
+                <td className="p-4">Hingga 20 file</td>
+                <td className="p-4">Hingga 50 file serentak</td>
+              </tr>
+              <tr>
+                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Prioritas Antrean Server</td>
+                <td className="p-4">Standar</td>
+                <td className="p-4">Standar</td>
+                <td className="p-4">Jalur Cepat (High)</td>
+                <td className="p-4">Jalur VIP Prioritas Utama</td>
+              </tr>
+              <tr>
+                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Keamanan & Penghapusan Otomatis</td>
+                <td className="p-4">60 Menit</td>
+                <td className="p-4">60 Menit</td>
+                <td className="p-4">Tersedia hingga 24 Jam</td>
+                <td className="p-4">Tersedia hingga 24 Jam</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

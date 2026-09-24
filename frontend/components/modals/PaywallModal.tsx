@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { X, Zap, FileWarning, Lock } from 'lucide-react';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,7 +59,7 @@ const PaywallModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="google-anno-skip fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-[#1E222B] rounded-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
         <button
           onClick={closePaywall}

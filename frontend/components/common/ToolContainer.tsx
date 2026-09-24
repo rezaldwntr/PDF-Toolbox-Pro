@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Lock, Clock, ShieldCheck } from 'lucide-react';
+import ToolGuideSection from './ToolGuideSection';
 
 interface ToolContainerProps {
   title: string;
@@ -8,6 +9,7 @@ interface ToolContainerProps {
   children: React.ReactNode;
   maxWidth?: string;
   currentStep?: 1 | 2 | 3;
+  showGuide?: boolean;
 }
 
 const ToolContainer: React.FC<ToolContainerProps> = ({ 
@@ -16,8 +18,13 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
   onBack, 
   children, 
   maxWidth = 'max-w-4xl',
-  currentStep = 1
+  currentStep = 1,
+  showGuide
 }) => {
+  const shouldShowGuide = showGuide !== undefined 
+    ? showGuide 
+    : !['Tentang PDF Toolbox Pro', 'Kebijakan Privasi & Keamanan Data', 'Syarat & Ketentuan Layanan', 'Hubungi Kami', 'Pertanyaan yang Sering Diajukan (FAQ)', 'Blog & Wawasan', 'Pesan Berhasil Terkirim!'].includes(title);
+
   return (
     <div className="animate-fade-in py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
       {/* Top Bar: Back navigation & 3-step indicator */}
@@ -90,6 +97,13 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
             <span>Bebas risiko & tanpa biaya tersembunyi</span>
           </div>
         </div>
+
+        {/* Rich Publisher Content & Guides (AdSense Quality & Policy Compliance) */}
+        {shouldShowGuide && (
+          <div className={`w-full ${maxWidth}`}>
+            <ToolGuideSection toolTitle={title} />
+          </div>
+        )}
       </div>
     </div>
   );

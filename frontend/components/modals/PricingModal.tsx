@@ -106,7 +106,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
+    <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-[#1A1E27] rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 text-center border-b border-slate-100 dark:border-slate-800">

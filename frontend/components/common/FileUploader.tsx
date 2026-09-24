@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { UploadIcon } from "../icons";
 import { useQuota } from "../../contexts/QuotaContext";
 
@@ -63,7 +63,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
-        relative group cursor-pointer flex flex-col items-center justify-center
+        google-anno-skip relative group cursor-pointer flex flex-col items-center justify-center
         p-10 md:p-14 rounded-[2rem] border-2 border-dashed transition-all duration-300 ease-out
         min-h-[320px] w-full overflow-hidden
         ${
