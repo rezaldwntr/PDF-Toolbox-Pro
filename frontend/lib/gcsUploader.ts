@@ -1,5 +1,5 @@
-// frontend/lib/gcsUploader.ts
 import { BACKEND_URL } from '../config';
+import { supabase } from '../lib/supabase';
 import { pollJobUntilDone, handleJobOrDirectResponse, JobResult, JobProgressCallback } from './jobPoller';
 
 export interface SmartUploadOptions {
@@ -43,11 +43,15 @@ export async function smartUploadAndProcess(options: SmartUploadOptions): Promis
     try {
       if (onProgress) onProgress(2, 'Menghubungkan ke Google Cloud Storage...');
 
+      const sessionRes = supabase ? await supabase.auth.getSession().catch(() => null) : null;
+      const accessToken = sessionRes?.data?.session?.access_token;
+
       const presignRes = await fetch(`${BACKEND_URL}/storage/presigned-upload`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Tier': userTier,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           filename: file.name,
@@ -77,7 +81,10 @@ export async function smartUploadAndProcess(options: SmartUploadOptions): Promis
           // Panggil process-job
           const processRes = await fetch(`${BACKEND_URL}/storage/process-job`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
             body: JSON.stringify({
               blob_name: presignData.blob_name,
               action,

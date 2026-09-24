@@ -35,13 +35,15 @@ from openpyxl.styles import Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.core.config import MAX_FILE_SIZE_BY_TIER, GCS_BUCKET_NAME
-from app.utils.file_utils import get_tier_limit, cleanup_folder
+from app.utils.file_utils import get_tier_limit, cleanup_folder, validate_pdf_bytes
+from app.utils.supabase_utils import verify_supabase_token
 from app.utils.job_store import create_job, update_job
 from app.utils.gcs_utils import (
     is_gcs_available,
     generate_upload_signed_url,
     download_blob_to_bytes,
     delete_blob,
+    configure_bucket_security,
 )
 from app.routers.tools import _translate_text_chunk, _get_target_pages
 
@@ -74,15 +76,35 @@ def get_storage_status():
 
 
 @router.post("/presigned-upload")
-def request_presigned_upload(
+async def request_presigned_upload(
     req: PresignedRequest,
+    authorization: Optional[str] = Header(None),
     x_user_tier: Optional[str] = Header(None)
 ):
     """
     Menghasilkan Signed URL aman agar klien dapat mengunggah berkas besar langsung ke GCS.
+    Terproteksi validasi token kriptografis Supabase JWT untuk mencegah pemalsuan kuota tier.
     """
-    effective_tier = (x_user_tier or req.tier or "free").lower().strip()
+    # 1. Otentikasi Tier: Pengguna yang mengklaim tier Pro wajib menyertakan token Supabase valid
+    effective_tier = "free"
+    claimed_tier = (x_user_tier or req.tier or "free").lower().strip()
+
+    if claimed_tier in ("flash", "monthly", "annual"):
+        if authorization and authorization.strip().startswith("Bearer "):
+            token = authorization.strip().split("Bearer ")[1].strip()
+            verified_user = await verify_supabase_token(token)
+            if verified_user:
+                effective_tier = claimed_tier
+            else:
+                effective_tier = "free"
+        else:
+            effective_tier = "free"
+    else:
+        effective_tier = "free"
+
     tier_limit = get_tier_limit(effective_tier)
+    if req.file_size <= 0:
+        raise HTTPException(status_code=400, detail="Ukuran berkas tidak valid.")
 
     if req.file_size > tier_limit:
         limit_mb = tier_limit // (1024 * 1024)
@@ -91,12 +113,15 @@ def request_presigned_upload(
             detail=f"Ukuran berkas ({req.file_size / (1024 * 1024):.1f} MB) melebihi batas paket Anda ({limit_mb} MB)."
         )
 
-    # Bersihkan nama berkas
+    # 2. Bersihkan dan sanitasi nama berkas (Path Traversal Protection)
     clean_name = re.sub(r'[^\w\-_\. ]', '_', req.filename).strip() or "dokumen.pdf"
+    if not clean_name.lower().endswith(".pdf"):
+        clean_name += ".pdf"
+
     unique_prefix = uuid.uuid4().hex[:12]
     blob_path = f"uploads/{unique_prefix}/{clean_name}"
 
-    content_type = req.content_type or "application/pdf"
+    content_type = "application/pdf"
 
     # Jika GCS tidak tersedia di lokal/staging, beri tahu frontend untuk fallback ke multipart
     if not is_gcs_available():
@@ -131,10 +156,18 @@ def request_presigned_upload(
 async def process_gcs_job(req: ProcessJobRequest):
     """
     Menerima notifikasi setelah upload ke GCS selesai dan memulai pemrosesan asinkronus.
+    Memverifikasi integritas Magic Bytes b"%PDF-" dan sanitasi path blob.
     """
-    blob_name = req.blob_name
+    blob_name = req.blob_name.strip()
     action = req.action.lower().strip()
     opts = req.options or {}
+
+    # Validasi Ketat Path Blob (Mencegah Directory Traversal & Akses Objek di Luar uploads/)
+    if not re.match(r"^uploads/[a-f0-9]{12}/[\w\-_\. ]+\.pdf$", blob_name, re.IGNORECASE):
+        raise HTTPException(
+            status_code=400,
+            detail="Pola path blob berkas tidak sah. Akses ditolak demi keamanan dokumen."
+        )
 
     raw_filename = os.path.basename(blob_name)
     base_name = os.path.splitext(raw_filename)[0]
@@ -147,6 +180,10 @@ async def process_gcs_job(req: ProcessJobRequest):
             pdf_bytes = await asyncio.to_thread(download_blob_to_bytes, blob_name)
             if not pdf_bytes:
                 raise ValueError("Berkas tidak ditemukan atau belum selesai diunggah ke penyimpanan awan.")
+
+            # Validasi Magic Bytes PDF resmi
+            if not validate_pdf_bytes(pdf_bytes):
+                raise ValueError("Berkas yang diunggah tidak valid atau rusak (Header binary PDF tidak dikenali).")
 
             update_job(job_id, progress=15, message="Memverifikasi integritas dokumen...")
 
@@ -170,11 +207,27 @@ async def process_gcs_job(req: ProcessJobRequest):
             logging.error(f"[GCS Job {job_id}] Kesalahan pemrosesan: {e}")
             update_job(job_id, status="error", error=f"Gagal memproses dokumen: {str(e)}", message="Terjadi kesalahan.")
         finally:
-            # Hapus blob sementara di GCS
+            # Hapus blob sementara di GCS untuk kepatuhan privasi zero-retention
             await asyncio.to_thread(delete_blob, blob_name)
 
     asyncio.create_task(_run_gcs_task())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": f"Tugas {action} dimulai..."}, status_code=202)
+
+
+@router.post("/configure-security")
+async def trigger_gcs_security_config(
+    authorization: Optional[str] = Header(None),
+    x_admin_email: Optional[str] = Header(None)
+):
+    """Mengonfigurasi Lifecycle 24-jam dan CORS terproteksi pada bucket GCS (Khusus Admin)."""
+    from app.routers.admin import verify_admin_access
+    await verify_admin_access(authorization, x_admin_email)
+    success = configure_bucket_security()
+    return {
+        "status": "ok" if success else "warning",
+        "message": "Lifecycle policy 24 jam & CORS berhasil diterapkan pada bucket." if success else "Izin service account terbatas. Silakan jalankan script infra/apply-gcs-security.ps1."
+    }
+
 
 
 # ===========================================================================

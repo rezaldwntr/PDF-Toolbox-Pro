@@ -1,0 +1,28 @@
+[
+  {
+    "origin": [
+      "https://pdftoolbox.app",
+      "https://www.pdftoolbox.app",
+      "https://pdf-toolbox-pro-git-preview-rezaldwntrs-projects.vercel.app",
+      "https://pdf-toolbox-pro-rezaldwntrs-projects.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    "method": [
+      "GET",
+      "PUT",
+      "HEAD",
+      "OPTIONS"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Range",
+      "ETag",
+      "x-goog-resumable",
+      "origin",
+      "accept"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

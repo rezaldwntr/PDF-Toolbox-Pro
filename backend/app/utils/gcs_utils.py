@@ -62,10 +62,18 @@ def generate_upload_signed_url(
     """
     Menghasilkan v4 Signed URL metode PUT agar browser pengguna dapat mengunggah
     file langsung ke Google Cloud Storage tanpa membebani server backend.
+    Dibatasi waktu kedaluwarsa maksimal 15 menit dan tipe konten aman.
     """
     client = get_gcs_client()
     if not client:
         return None
+
+    # Batasi waktu kedaluwarsa maksimal 15 menit untuk meminimalkan jendela eksploitasi
+    effective_expiry = min(max(1, expiration_minutes), 15)
+
+    # Validasi tipe konten PDF resmi
+    allowed_content_types = {"application/pdf", "application/octet-stream"}
+    safe_content_type = content_type if content_type in allowed_content_types else "application/pdf"
 
     try:
         bucket = client.bucket(GCS_BUCKET_NAME)
@@ -73,9 +81,9 @@ def generate_upload_signed_url(
 
         url = blob.generate_signed_url(
             version="v4",
-            expiration=datetime.timedelta(minutes=expiration_minutes),
+            expiration=datetime.timedelta(minutes=effective_expiry),
             method="PUT",
-            content_type=content_type,
+            content_type=safe_content_type,
         )
 
         return {
@@ -83,8 +91,8 @@ def generate_upload_signed_url(
             "blob_name": blob_name,
             "bucket": GCS_BUCKET_NAME,
             "method": "PUT",
-            "expires_in": expiration_minutes * 60,
-            "content_type": content_type,
+            "expires_in": effective_expiry * 60,
+            "content_type": safe_content_type,
         }
     except Exception as e:
         logging.error(f"[GCS] Gagal membuat signed URL untuk {blob_name}: {e}")
@@ -143,3 +151,63 @@ def delete_blob(blob_name: str) -> bool:
     except Exception as e:
         logging.warning(f"[GCS] Gagal menghapus blob {blob_name}: {e}")
         return False
+
+
+def configure_bucket_security(bucket_name: Optional[str] = None) -> bool:
+    """
+    Mengonfigurasi Lifecycle Policy 24 jam (auto-delete file uploads setelah 1 hari)
+    dan CORS terproteksi langsung pada bucket GCS melalui Google Cloud Storage API.
+    """
+    client = get_gcs_client()
+    if not client:
+        return False
+
+    b_name = bucket_name or GCS_BUCKET_NAME
+    try:
+        bucket = client.get_bucket(b_name)
+
+        # 1. Terapkan Lifecycle Policy: Hapus seluruh objek sementara di uploads/ setelah 1 hari (24 jam)
+        rules = list(bucket.lifecycle_rules or [])
+        has_auto_delete = any(
+            r.get("action", {}).get("type") == "Delete" and r.get("condition", {}).get("age") == 1
+            for r in rules
+        )
+        if not has_auto_delete:
+            rules.append({
+                "action": {"type": "Delete"},
+                "condition": {"age": 1, "matchesPrefix": ["uploads/"]}
+            })
+            bucket.lifecycle_rules = rules
+
+        # 2. Terapkan CORS Restriksi Ketat (Hanya izinkan domain resmi pdftoolbox.app & preview Vercel)
+        allowed_origins = [
+            "https://pdftoolbox.app",
+            "https://www.pdftoolbox.app",
+            "https://pdf-toolbox-pro-git-preview-rezaldwntrs-projects.vercel.app",
+            "https://pdf-toolbox-pro-rezaldwntrs-projects.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000",
+        ]
+        bucket.cors = [
+            {
+                "origin": allowed_origins,
+                "method": ["GET", "PUT", "HEAD", "OPTIONS"],
+                "responseHeader": [
+                    "Content-Type",
+                    "Content-Length",
+                    "Content-Range",
+                    "ETag",
+                    "x-goog-resumable",
+                    "origin",
+                    "accept",
+                ],
+                "maxAgeSeconds": 3600,
+            }
+        ]
+        bucket.patch()
+        logging.info(f"[GCS Security] Berhasil memperbarui Lifecycle 24-jam & CORS untuk bucket {b_name}.")
+        return True
+    except Exception as e:
+        logging.warning(f"[GCS Security] Tidak dapat memperbarui bucket configuration secara otomatis ({e}). Silakan gunakan infra/apply-gcs-security.ps1.")
+        return False
+
