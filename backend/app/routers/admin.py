@@ -11,6 +11,7 @@ from app.utils.supabase_utils import (
     fetch_payment_transactions,
     fetch_tool_usages,
     update_supabase_user_tier,
+    cleanup_expired_user_subscriptions,
     verify_supabase_token,
 )
 
@@ -53,8 +54,14 @@ async def get_admin_overview_stats(
     authorization: Optional[str] = Header(None),
     x_admin_email: Optional[str] = Header(None)
 ):
-    """Mengambil metrik agregat statistik untuk dasbor admin."""
+    """Mengambil metrik agregat statistik untuk dasbor admin dengan pembersihan otomatis akun kedaluwarsa."""
     await verify_admin_access(authorization, x_admin_email)
+
+    # Jalankan cleanup akun kedaluwarsa secara otomatis
+    try:
+        await cleanup_expired_user_subscriptions()
+    except Exception as e:
+        logger.warning(f"Cleanup subscription otomatis dilewati: {e}")
 
     # 1. Ambil data pengguna
     users = await fetch_user_profiles(limit=1000)
@@ -188,3 +195,19 @@ async def admin_update_user_tier(
     if not success:
         raise HTTPException(status_code=500, detail="Gagal memperbarui status tier pengguna di Supabase")
     return {"status": "ok", "message": f"Tier pengguna berhasil diubah ke {req.tier.upper()}"}
+
+
+@router.post("/users/cleanup-expired")
+async def admin_cleanup_expired_users(
+    authorization: Optional[str] = Header(None),
+    x_admin_email: Optional[str] = Header(None)
+):
+    """Mendowngrade seluruh akun langganan yang telah melewati masa aktif ke tier 'free'."""
+    await verify_admin_access(authorization, x_admin_email)
+    downgraded_count = await cleanup_expired_user_subscriptions()
+    return {
+        "status": "ok",
+        "downgraded_count": downgraded_count,
+        "message": f"Berhasil menormalkan {downgraded_count} akun kedaluwarsa ke tier 'free'."
+    }
+

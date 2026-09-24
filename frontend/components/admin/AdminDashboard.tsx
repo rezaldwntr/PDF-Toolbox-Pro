@@ -381,6 +381,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
         if (sbLogs) finalLogs = sbLogs;
       }
 
+      if (finalUsers) {
+        const now = new Date();
+        const expiredUserIds: string[] = [];
+        finalUsers = finalUsers.map((u: any) => {
+          const t = (u.tier || 'free').toLowerCase();
+          const isProRaw = ['flash', 'monthly', 'annual'].includes(t);
+          const isExpired = isProRaw && u.subscription_expiry && new Date(u.subscription_expiry) < now;
+          if (isExpired) {
+            expiredUserIds.push(u.id);
+            return { ...u, tier: 'free', is_expired: true, previous_tier: t };
+          }
+          return u;
+        });
+
+        // Background sync ke Supabase untuk membersihkan record kedaluwarsa di database
+        if (supabase && expiredUserIds.length > 0) {
+          supabase
+            .from('user_profiles')
+            .update({ tier: 'free', updated_at: new Date().toISOString() })
+            .in('id', expiredUserIds)
+            .then(({ error }: any) => {
+              if (error) console.warn('Auto downgrade background error:', error);
+            });
+        }
+      }
+
       if (statsRes) setStats(statsRes);
       if (finalUsers) setUserList(finalUsers);
       if (finalTxs) setTransactions(finalTxs);
@@ -391,7 +417,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       console.error('Error fetching admin data:', err);
       if (supabase) {
         const { data: sbUsers } = await supabase.from('user_profiles').select('*').limit(100);
-        if (sbUsers) setUserList(sbUsers);
+        if (sbUsers) {
+          const now = new Date();
+          const normalized = sbUsers.map((u: any) => {
+            const t = (u.tier || 'free').toLowerCase();
+            const isProRaw = ['flash', 'monthly', 'annual'].includes(t);
+            const isExpired = isProRaw && u.subscription_expiry && new Date(u.subscription_expiry) < now;
+            return isExpired ? { ...u, tier: 'free', is_expired: true, previous_tier: t } : u;
+          });
+          setUserList(normalized);
+        }
       }
       await loadPromos();
     } finally {
@@ -466,6 +501,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     );
   }
 
+  const getUserEffectiveTier = (u: any) => {
+    const rawTier = (u.tier || 'free').toLowerCase();
+    const isProRaw = ['flash', 'monthly', 'annual'].includes(rawTier);
+    const isExpired = Boolean(u.is_expired) || (isProRaw && Boolean(u.subscription_expiry) && new Date(u.subscription_expiry) < new Date());
+    return isExpired ? 'free' : rawTier;
+  };
+
   // Opt-in Marketing Users
   const optInUsers = userList.filter((u) => u.email && (u.accepts_marketing_emails !== false));
 
@@ -475,13 +517,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       !userSearch ||
       (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase())) ||
       (u.full_name && u.full_name.toLowerCase().includes(userSearch.toLowerCase()));
-    const matchesTier = userTierFilter === 'all' || (u.tier || 'free').toLowerCase() === userTierFilter.toLowerCase();
+    const effectiveTier = getUserEffectiveTier(u);
+    const matchesTier = userTierFilter === 'all' || effectiveTier === userTierFilter.toLowerCase();
     const matchesMarketing =
       userMarketingFilter === 'all' ||
       (userMarketingFilter === 'opted_in' && u.accepts_marketing_emails !== false) ||
       (userMarketingFilter === 'opted_out' && u.accepts_marketing_emails === false);
     return matchesSearch && matchesTier && matchesMarketing;
   });
+
+  // Fallback statistik tier berdasarkan status aktif riil
+  const computedProTotal = userList.filter((u) => {
+    const et = getUserEffectiveTier(u);
+    return ['flash', 'monthly', 'annual'].includes(et);
+  }).length;
+
+  const computedTiers = userList.reduce((acc: Record<string, number>, u) => {
+    const et = getUserEffectiveTier(u);
+    acc[et] = (acc[et] || 0) + 1;
+    return acc;
+  }, {});
 
   const handleCopyMarketingEmails = () => {
     const emails = optInUsers.map((u) => u.email).filter(Boolean);
@@ -583,21 +638,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
               {stats?.users?.total ?? userList.length}
             </span>
             <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              ({stats?.users?.pro_total ?? 0} Pro)
+              ({stats?.users?.pro_total ?? computedProTotal} Pro)
             </span>
           </div>
           <div className="mt-3 flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 dark:text-slate-400">
             <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-medium">
-              Free: {stats?.users?.tiers?.free ?? 0}
+              Free: {stats?.users?.tiers?.free ?? computedTiers['free'] ?? 0}
             </span>
             <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-medium">
-              Flash: {stats?.users?.tiers?.flash ?? 0}
+              Flash: {stats?.users?.tiers?.flash ?? computedTiers['flash'] ?? 0}
             </span>
             <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 font-medium">
-              Monthly: {stats?.users?.tiers?.monthly ?? 0}
+              Monthly: {stats?.users?.tiers?.monthly ?? computedTiers['monthly'] ?? 0}
             </span>
             <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 font-medium">
-              Annual: {stats?.users?.tiers?.annual ?? 0}
+              Annual: {stats?.users?.tiers?.annual ?? computedTiers['annual'] ?? 0}
             </span>
           </div>
         </div>
@@ -953,9 +1008,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredUsers.length > 0 ? (
                     filteredUsers.map((u) => {
-                      const tier = (u.tier || 'free').toLowerCase();
-                      const isPro = ['flash', 'monthly', 'annual'].includes(tier);
-                      const isExpired = isPro && u.subscription_expiry && new Date(u.subscription_expiry) < new Date();
+                      const rawTier = (u.tier || 'free').toLowerCase();
+                      const isProRaw = ['flash', 'monthly', 'annual'].includes(rawTier);
+                      const isExpired = Boolean(u.is_expired) || (isProRaw && Boolean(u.subscription_expiry) && new Date(u.subscription_expiry) < new Date());
+                      const effectiveTier = isExpired ? 'free' : rawTier;
+                      const isPro = ['flash', 'monthly', 'annual'].includes(effectiveTier);
                       const paidTx = getUserPaymentInfo(u.email, u.id);
                       const hasActivePaidPlan = isPro && !isExpired && Boolean(paidTx);
 
@@ -999,20 +1056,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex flex-col gap-1 items-start">
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full font-semibold uppercase text-[10px] tracking-wide ${
-                                  tier === 'annual'
-                                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                                    : tier === 'monthly'
-                                    ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                                    : tier === 'flash'
-                                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                }`}
-                              >
-                                {tier}
-                              </span>
-                              {isPro && (
+                              {isExpired ? (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="px-2.5 py-0.5 rounded-full font-semibold uppercase text-[10px] tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700">
+                                    FREE
+                                  </span>
+                                  <span
+                                    className="px-2 py-0.5 rounded-md font-semibold text-[9px] uppercase tracking-wide bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60"
+                                    title={`Langganan ${rawTier.toUpperCase()} telah kedaluwarsa`}
+                                  >
+                                    Ex-{rawTier}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full font-semibold uppercase text-[10px] tracking-wide ${
+                                    effectiveTier === 'annual'
+                                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                                      : effectiveTier === 'monthly'
+                                      ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                      : effectiveTier === 'flash'
+                                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {effectiveTier}
+                                </span>
+                              )}
+                              {isProRaw && !isExpired && (
                                 paidTx ? (
                                   <span
                                     className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 font-semibold"
@@ -1034,16 +1105,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                             </div>
                           </td>
                           <td className="px-5 py-3.5">
-                            {isPro ? (
-                              isExpired ? (
-                                <span className="text-red-500 font-medium flex items-center gap-1">
-                                  <XCircle className="w-3.5 h-3.5" /> Kedaluwarsa ({formatDateTime(u.subscription_expiry)})
-                                </span>
-                              ) : (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Aktif hingga {formatDateTime(u.subscription_expiry)}
-                                </span>
-                              )
+                            {isExpired ? (
+                              <span className="text-red-500 font-medium flex items-center gap-1">
+                                <XCircle className="w-3.5 h-3.5" /> Kedaluwarsa ({formatDateTime(u.subscription_expiry)})
+                              </span>
+                            ) : isPro ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Aktif hingga {formatDateTime(u.subscription_expiry)}
+                              </span>
                             ) : (
                               <span className="text-slate-400">Paket Standar Gratis</span>
                             )}
@@ -1065,7 +1134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                                 </span>
                               )}
                               <select
-                                value={tier}
+                                value={effectiveTier}
                                 disabled={updatingUserId === u.id}
                                 onChange={(e) => onAttemptChangeTier(u, e.target.value)}
                                 className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer disabled:opacity-50"
@@ -1075,7 +1144,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                                 <option value="monthly">🚀 Monthly (30 Hari)</option>
                                 <option value="annual">👑 Annual (1 Thn)</option>
                               </select>
-                              {tier !== 'free' && (
+                              {effectiveTier !== 'free' && (
                                 <button
                                   onClick={() => onAttemptChangeTier(u, 'free')}
                                   disabled={updatingUserId === u.id}

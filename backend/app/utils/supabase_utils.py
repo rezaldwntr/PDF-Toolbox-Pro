@@ -112,10 +112,56 @@ async def record_tool_usage(
         return False
 
 
+async def cleanup_expired_user_subscriptions() -> int:
+    """
+    Memeriksa dan mendowngrade seluruh akun yang masa aktif langganannya telah habis (expired).
+    Mengubah tier menjadi 'free' di database Supabase secara aman menggunakan service role key.
+    Mengembalikan jumlah baris yang berhasil diperbarui.
+    """
+    if not SUPABASE_URL:
+        return 0
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    endpoint = (
+        f"{SUPABASE_URL.rstrip('/')}/rest/v1/user_profiles"
+        f"?tier=in.(flash,monthly,annual)&subscription_expiry=lt.{now_iso}"
+    )
+    headers = get_supabase_headers()
+    payload = {
+        "tier": "free",
+        "updated_at": now_iso,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.patch(endpoint, json=payload, headers=headers)
+            if resp.status_code in (200, 204):
+                try:
+                    updated = resp.json()
+                    count = len(updated) if isinstance(updated, list) else 0
+                    if count > 0:
+                        logger.info(f"[Cleanup] Berhasil mendowngrade {count} akun langganan kedaluwarsa ke tier 'free'.")
+                    return count
+                except Exception:
+                    return 1
+            else:
+                logger.warning(f"[Cleanup] Gagal memperbarui akun kedaluwarsa di Supabase ({resp.status_code}): {resp.text}")
+                return 0
+    except Exception as e:
+        logger.error(f"[Cleanup] Error saat membersihkan akun kedaluwarsa: {e}")
+        return 0
+
+
 async def fetch_user_profiles(limit: int = 100, offset: int = 0, search: Optional[str] = None, tier: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Mengambil daftar pengguna terdaftar dari Supabase dengan filter opsional."""
+    """Mengambil daftar pengguna terdaftar dari Supabase dengan filter opsional dan pembersihan akun kedaluwarsa otomatis."""
     if not SUPABASE_URL:
         return []
+
+    # Jalankan cleanup akun kedaluwarsa secara otomatis
+    try:
+        await cleanup_expired_user_subscriptions()
+    except Exception as e:
+        logger.warning(f"Cleanup subscription otomatis dilewati: {e}")
 
     endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/user_profiles?select=*&order=created_at.desc&limit={limit}&offset={offset}"
     if tier and tier.lower() != "all":
@@ -128,7 +174,21 @@ async def fetch_user_profiles(limit: int = 100, offset: int = 0, search: Optiona
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(endpoint, headers=headers)
             if resp.status_code == 200:
-                return resp.json()
+                users = resp.json()
+                # Normalisasi defensif: Jika ada akun kedaluwarsa yang belum tersinkron, set tier='free'
+                now_utc = datetime.now(timezone.utc)
+                for u in users:
+                    exp_str = u.get("subscription_expiry")
+                    current_tier = (u.get("tier") or "free").lower()
+                    if current_tier in ("flash", "monthly", "annual") and exp_str:
+                        try:
+                            exp_dt = datetime.fromisoformat(exp_str.replace("Z", "+00:00"))
+                            if exp_dt < now_utc:
+                                u["tier"] = "free"
+                                u["is_expired"] = True
+                        except Exception:
+                            pass
+                return users
             return []
     except Exception as e:
         logger.error(f"Error fetch user profiles: {e}")
