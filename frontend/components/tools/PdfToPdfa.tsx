@@ -18,10 +18,10 @@ import {
   FileCode,
   Award,
   BookOpen,
-  X
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { formatFileSize } from '../../lib/formatters';
+import { triggerFileDownload } from '../../lib/download';
+import { getPdfPageCount } from '../../lib/pdfWorker';
 
 type PdfaPart = 1 | 2 | 3;
 type ConformanceLevel = 'b' | 'a';
@@ -106,13 +106,11 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setPdfVersion('1.7');
     }
 
-    // Baca jumlah halaman dengan pdfjsLib
+    // Baca jumlah halaman dengan getPdfPageCount
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        const loadedDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-        setPageCount(loadedDoc.numPages);
-      }
+      const pages = await getPdfPageCount(buffer);
+      setPageCount(pages);
     } catch (e) {
       console.warn('Gagal membaca info halaman:', e);
     }
@@ -170,13 +168,8 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // 3. Unduh berkas hasil konversi
   const handleDownload = () => {
     if (!resultUrl || !file) return;
-    const link = document.createElement('a');
-    link.href = resultUrl;
     const base = file.name.replace(/\.pdf$/i, '');
-    link.download = `pdfa-${selectedPart}${conformance}-${base}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerFileDownload(resultUrl, `pdfa-${selectedPart}${conformance}-${base}.pdf`);
   };
 
   // 4. Reset state
@@ -188,12 +181,6 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultUrl(null);
     setResultSize(null);
     setPageCount(0);
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (

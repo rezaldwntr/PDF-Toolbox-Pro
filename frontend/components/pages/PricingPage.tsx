@@ -9,98 +9,19 @@ interface PricingPageProps {
   onSelectView: (view: View) => void;
 }
 
-const PLANS = [
-  {
-    id: "free",
-    name: "Gratis (Free Tier)",
-    price: "Rp0",
-    priceNote: "Selamanya",
-    icon: <Gift className="w-6 h-6" />,
-    iconBg: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
-    highlight: false,
-    features: [
-      "Akses standar: Tamu 3 / Login 10 tugas/hari",
-      "Alat berat/OCR: Uji coba 1 file (maks 5 hal)",
-      "Berkas standar s.d. 30 MB (Alat berat 10 MB)",
-      "Pemrosesan 1 file per tugas",
-      "Penghapusan berkas instan (Privasi 100%)",
-      "Iklan AdSense aktif",
-    ],
-    cta: "Masuk Gratis",
-    note: "Tidak perlu kartu kredit",
-  },
-  {
-    id: "flash",
-    name: "24-Hour Flash Pass",
-    price: "Rp5.000",
-    priceNote: "Khusus QRIS / E-Wallet",
-    icon: <Zap className="w-6 h-6" />,
-    iconBg: "bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400",
-    highlight: true,
-    badge: "TERPOPULER",
-    features: [
-      "Akses alat standar tanpa batas (24 jam)",
-      "Alat berat & OCR: Kuota 25 tugas (150 hal)",
-      "Berkas standar s.d. 100 MB (Alat berat 35 MB)",
-      "Batch hingga 10 file sekaligus",
-      "Tautan unduh aktif 6 jam · Bebas iklan",
-      "Antrean eksekusi Jalur Cepat",
-    ],
-    cta: "Beli Flash Pass",
-    note: "Bayar instan via QRIS semua bank",
-  },
-  {
-    id: "monthly",
-    name: "Monthly Pro",
-    price: "Rp29.000",
-    priceNote: "/bulan",
-    icon: <Star className="w-6 h-6" />,
-    iconBg: "bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400",
-    highlight: false,
-    features: [
-      "Semua alat standar tanpa batas setiap hari",
-      "Alat berat & OCR tanpa batas (FUP 100/hari)",
-      "Berkas standar s.d. 200 MB (Alat berat 50 MB)",
-      "Batch hingga 30 file sekaligus",
-      "Tautan unduh aktif 24 jam · Bebas iklan",
-      "Antrean eksekusi Jalur Prioritas",
-    ],
-    cta: "Berlangganan Bulanan",
-    note: "Batalkan kapan saja",
-  },
-  {
-    id: "annual",
-    name: "Annual Pass",
-    price: "Rp149.000",
-    priceNote: "/tahun",
-    icon: <Crown className="w-6 h-6" />,
-    iconBg: "bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400",
-    highlight: false,
-    badge: "HEMAT 57%",
-    features: [
-      "Semua keunggulan paket Monthly Pro",
-      "Alat berat & OCR tanpa batas (FUP 250/hari)",
-      "Berkas standar s.d. 300 MB (Alat berat 50 MB)",
-      "Batch hingga 50 file sekaligus",
-      "Tautan unduh aktif 48 jam · Bebas iklan",
-      "Antrean eksekusi Jalur Prioritas Utama",
-    ],
-    cta: "Beli Annual Pass",
-    note: "Setara ~Rp12.400/bulan",
-  },
-];
+import { PLANS, COMPARE_ROWS } from "../../lib/plans";
+import { formatRupiah } from "../../lib/formatters";
 
-const COMPARE_ROWS = [
-  { label: "Harga", free: "Rp0", flash: "Rp5.000 (QRIS/E-Wallet)", monthly: "Rp29.000 / bln", annual: "Rp149.000 / thn" },
-  { label: "Akses Alat Standar (Kompres, Gabung, Pisah, Watermark, dll.)", free: "Tamu 3 · Login 10/hari", flash: "Tanpa Batas (24 jam)", monthly: "Tanpa Batas", annual: "Tanpa Batas" },
-  { label: "Akses Alat Berat (Word, Excel, PPT, OCR, Translate)", free: "Percobaan 1 file (maks 5 hal)", flash: "Kuota 25 tugas (150 hal OCR)", monthly: "Tanpa Batas (FUP: 100/hari)", annual: "Tanpa Batas (FUP: 250/hari)" },
-  { label: "Batas Ukuran File (Alat Standar)", free: "Hingga 30 MB", flash: "Hingga 100 MB", monthly: "Hingga 200 MB", annual: "Hingga 300 MB" },
-  { label: "Batas Ukuran File (Alat Berat / OCR)", free: "Maksimal 10 MB", flash: "Maksimal 35 MB", monthly: "Maksimal 50 MB", annual: "Maksimal 50 MB (Batas aman RAM)" },
-  { label: "Pemrosesan Batch", free: "1 file per proses", flash: "Hingga 10 file", monthly: "Hingga 30 file", annual: "Hingga 50 file" },
-  { label: "Penyimpanan Cloud / Tautan Unduh", free: "Langsung dihapus (0 jam)", flash: "6 jam", monthly: "24 jam", annual: "48 jam" },
-  { label: "Antrean Eksekusi", free: "Jalur Reguler", flash: "Jalur Cepat", monthly: "Jalur Prioritas", annual: "Jalur Prioritas Utama" },
-  { label: "Iklan", free: "Ya (AdSense aktif)", flash: "Bebas Iklan (24 jam)", monthly: "Bebas Iklan", annual: "Bebas Iklan" },
-];
+const renderPlanIcon = (iconName: string) => {
+  switch (iconName) {
+    case "Zap": return <Zap className="w-6 h-6" />;
+    case "Star": return <Star className="w-6 h-6" />;
+    case "Crown": return <Crown className="w-6 h-6" />;
+    case "Gift":
+    default:
+      return <Gift className="w-6 h-6" />;
+  }
+};
 
 
 const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
@@ -186,7 +107,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
                 plan.highlight && !isLower ? "bg-white/20 text-white" : plan.iconBg
               }`}>
-                {plan.icon}
+                {renderPlanIcon(plan.iconName)}
               </div>
               <h3 className={`font-bold text-base mb-1 ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
                 {plan.name}
@@ -198,14 +119,14 @@ const PricingPage: React.FC<PricingPageProps> = ({ onSelectView }) => {
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span className={`line-through text-sm font-semibold ${plan.highlight && !isLower ? "text-blue-200" : "text-slate-400"}`}>
-                        Rp{eff.originalPrice.toLocaleString("id-ID")}
+                        {formatRupiah(eff.originalPrice)}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white uppercase tracking-wider">
                         Promo -{eff.discountPercent}%
                       </span>
                     </div>
                     <p className={`text-3xl font-extrabold ${plan.highlight && !isLower ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                      Rp{eff.price.toLocaleString("id-ID")}
+                      {formatRupiah(eff.price)}
                     </p>
                   </div>
                 ) : (

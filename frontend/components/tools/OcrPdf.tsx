@@ -21,10 +21,10 @@ import {
   Layers,
   FileCode,
   Languages,
-  X
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { formatFileSize } from '../../lib/formatters';
+import { triggerFileDownload } from '../../lib/download';
+import { getPdfPageCount } from '../../lib/pdfWorker';
 
 interface LanguageOption {
   code: string;
@@ -94,10 +94,8 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        const loadedDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-        setTotalPages(loadedDoc.numPages);
-      }
+      const pages = await getPdfPageCount(buffer);
+      setTotalPages(pages);
     } catch (e) {
       console.warn('Gagal membaca info halaman:', e);
     }
@@ -208,13 +206,9 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // 5. Unduh berkas hasil OCR
   const handleDownload = () => {
     if (!resultUrl || !file) return;
-    const link = document.createElement('a');
-    link.href = resultUrl;
     const base = file.name.replace(/\.pdf$/i, '');
-    link.download = outputFormat === 'txt' ? `ocr-${base}.txt` : `searchable-${base}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = outputFormat === 'txt' ? `ocr-${base}.txt` : `searchable-${base}.pdf`;
+    triggerFileDownload(resultUrl, filename);
   };
 
   // 6. Reset state
@@ -227,12 +221,6 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultSize(null);
     setExtractedSample('');
     setTotalPages(0);
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (

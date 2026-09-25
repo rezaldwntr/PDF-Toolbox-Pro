@@ -14,64 +14,8 @@ interface CheckoutModalProps {
   onSelectView?: (view: View) => void;
 }
 
-const PLAN_DETAILS: Record<string, { 
-  name: string; 
-  price: string; 
-  rawPrice: number; 
-  priceNote: string; 
-  desc: string; 
-  badge: string;
-  features: string[];
-}> = {
-  flash: {
-    name: '24-Hour Flash Pass',
-    price: 'Rp5.000',
-    rawPrice: 5000,
-    priceNote: 'sekali bayar · berlaku 24 jam',
-    desc: 'Solusi cepat untuk kebutuhan mendesak',
-    badge: 'TERPOPULER',
-    features: [
-      'Akses alat standar tanpa batas (24 jam)',
-      'Alat berat & OCR: Kuota 25 tugas (150 hal)',
-      'Batas file s.d. 100 MB (Alat berat 35 MB)',
-      'Batch hingga 10 file sekaligus',
-      'Tautan unduh aktif 6 jam · Bebas iklan',
-      'Antrean eksekusi Jalur Cepat'
-    ],
-  },
-  monthly: {
-    name: 'Monthly Pro',
-    price: 'Rp29.000',
-    rawPrice: 29000,
-    priceNote: '/bulan · batalkan kapan saja',
-    desc: 'Untuk produktivitas harian tanpa batas',
-    badge: 'PRODUKTIF',
-    features: [
-      'Semua alat standar tanpa batas setiap hari',
-      'Alat berat & OCR tanpa batas (FUP 100/hari)',
-      'Batas file s.d. 200 MB (Alat berat 50 MB)',
-      'Batch hingga 30 file sekaligus',
-      'Tautan unduh aktif 24 jam · Bebas iklan',
-      'Antrean eksekusi Jalur Prioritas'
-    ],
-  },
-  annual: {
-    name: 'Annual Pass',
-    price: 'Rp149.000',
-    rawPrice: 149000,
-    priceNote: '/tahun · hemat 57% vs bulanan',
-    desc: 'Nilai terbaik untuk pengguna daya tinggi',
-    badge: 'HEMAT 57%',
-    features: [
-      'Semua keunggulan paket Monthly Pro',
-      'Alat berat & OCR tanpa batas (FUP 250/hari)',
-      'Batas file s.d. 300 MB (Alat berat 50 MB)',
-      'Batch hingga 50 file sekaligus',
-      'Tautan unduh aktif 48 jam · Bebas iklan',
-      'Antrean eksekusi Jalur Prioritas Utama'
-    ],
-  },
-};
+import { PLANS_BY_ID } from '../../lib/plans';
+import { formatRupiah, formatDateIndonesia } from '../../lib/formatters';
 
 const ADMIN_EMAIL = 'rezaldewantara@gmail.com';
 
@@ -190,7 +134,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   }, []);
 
   if (!showCheckoutModal || !checkoutPlan) return null;
-  const plan = PLAN_DETAILS[checkoutPlan];
+  const plan = PLANS_BY_ID[checkoutPlan];
   if (!plan) return null;
 
   const effPrice = checkoutPlan
@@ -198,14 +142,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
     : null;
 
   const displayPriceStr = effPrice?.isPromo
-    ? `Rp${effPrice.price.toLocaleString('id-ID')}`
+    ? formatRupiah(effPrice.price)
     : plan.price;
 
   // Layar Proteksi: Jika user mencoba membeli paket yang lebih rendah dari paket aktifnya
   if (isDowngrade) {
     const currentConfig = TIER_CONFIGS[userTier];
     const expiryFormatted = user?.subscriptionExpiry
-      ? new Date(user.subscriptionExpiry).toLocaleDateString('id-ID', { dateStyle: 'long' })
+      ? formatDateIndonesia(user.subscriptionExpiry, { dateStyle: 'long' })
       : null;
 
     return (
@@ -379,7 +323,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                 {effPrice?.isPromo ? (
                   <div className="flex items-center gap-1.5">
                     <span className="line-through text-[11px] text-slate-400 font-normal">
-                      Rp{effPrice.originalPrice.toLocaleString('id-ID')}
+                      {formatRupiah(effPrice.originalPrice)}
                     </span>
                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40">
                       Promo {displayPriceStr} (-{effPrice.discountPercent}%)
@@ -469,7 +413,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               {effPrice?.isPromo ? (
                 <div>
                   <span className="line-through text-xs text-slate-400 block">
-                    Rp{effPrice.originalPrice.toLocaleString('id-ID')}
+                    {formatRupiah(effPrice.originalPrice)}
                   </span>
                   <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{displayPriceStr}</span>
                 </div>

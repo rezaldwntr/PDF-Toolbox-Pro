@@ -21,10 +21,10 @@ import {
   Type,
   Check,
   X,
-  AlertCircle
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { formatFileSize } from '../../lib/formatters';
+import { triggerFileDownload } from '../../lib/download';
+import { loadPdfDocument } from '../../lib/pdfWorker';
 
 type EditMode = 'find_replace' | 'block_edits';
 type PageSelection = 'all' | 'current' | 'custom';
@@ -107,11 +107,9 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        const loadedDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-        setPdfDoc(loadedDoc);
-        setTotalPages(loadedDoc.numPages);
-      }
+      const loadedDoc = await loadPdfDocument(buffer);
+      setPdfDoc(loadedDoc);
+      setTotalPages(loadedDoc.numPages);
     } catch (err: any) {
       console.error('Gagal memuat pratinjau PDF:', err);
       addToast('Gagal membaca struktur berkas PDF.', 'error');
@@ -303,13 +301,8 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // 5. Unduh berkas hasil suntingan
   const handleDownload = () => {
     if (!resultUrl || !file) return;
-    const link = document.createElement('a');
-    link.href = resultUrl;
     const base = file.name.replace(/\.pdf$/i, '');
-    link.download = `edited-${base}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerFileDownload(resultUrl, `edited-${base}.pdf`);
   };
 
   // 6. Reset state
@@ -327,12 +320,6 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSelectedBlock(null);
     setSearchText('');
     setReplaceText('');
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (

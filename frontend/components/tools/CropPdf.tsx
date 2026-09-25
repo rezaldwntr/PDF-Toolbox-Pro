@@ -23,8 +23,9 @@ import {
   RectangleHorizontal,
   X
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { formatFileSize } from '../../lib/formatters';
+import { triggerFileDownload } from '../../lib/download';
+import { loadPdfDocument } from '../../lib/pdfWorker';
 
 interface CropBox {
   x: number;
@@ -87,11 +88,9 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        const loadedDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-        setPdfDoc(loadedDoc);
-        setTotalPages(loadedDoc.numPages);
-      }
+      const loadedDoc = await loadPdfDocument(buffer);
+      setPdfDoc(loadedDoc);
+      setTotalPages(loadedDoc.numPages);
     } catch (err: any) {
       console.error('Gagal memuat pratinjau PDF:', err);
       addToast('Gagal membaca struktur berkas PDF.', 'error');
@@ -387,13 +386,8 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // 6. Unduh berkas hasil crop
   const handleDownload = () => {
     if (!resultUrl || !file) return;
-    const link = document.createElement('a');
-    link.href = resultUrl;
     const base = file.name.replace(/\.pdf$/i, '');
-    link.download = `cropped-${base}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerFileDownload(resultUrl, `cropped-${base}.pdf`);
   };
 
   // 7. Reset semua state untuk file baru
@@ -409,12 +403,6 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultSize(null);
     setCropBox({ x: 0, y: 0, width: 0, height: 0 });
     setCanvasDimensions({ width: 0, height: 0 });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (

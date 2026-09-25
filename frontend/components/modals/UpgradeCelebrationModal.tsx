@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Zap, Crown, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { UserProfile, UserTier } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { formatDateTimeIndonesia } from '../../lib/formatters';
 
 interface UpgradeCelebrationModalProps {
   user: UserProfile;
@@ -61,17 +62,7 @@ export const UpgradeCelebrationModal: React.FC<UpgradeCelebrationModalProps> = (
 
   const formatExpiry = (isoString?: string | null) => {
     if (!isoString) return 'Sesuai masa aktif paket';
-    try {
-      return new Date(isoString).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }) + ' WIB';
-    } catch {
-      return isoString;
-    }
+    return formatDateTimeIndonesia(isoString) + ' WIB';
   };
 
   const handleAcknowledge = async () => {

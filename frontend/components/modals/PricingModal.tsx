@@ -9,78 +9,19 @@ interface PricingModalProps {
   onSelectView?: (view: View) => void;
 }
 
-const PLANS = [
-  {
-    id: 'free',
-    name: 'Gratis (Free Tier)',
-    price: 'Rp0',
-    priceNote: 'Selamanya',
-    icon: '🎁',
-    highlight: false,
-    features: [
-      'Akses standar: Tamu 3 / Login 10/hari',
-      'Alat berat/OCR: Uji coba 1 file (maks 5 hal)',
-      'Berkas standar s.d. 30 MB (Alat berat 10 MB)',
-      'Pemrosesan 1 file per tugas',
-      'Hapus instan (Privasi 100%)',
-    ],
-    cta: 'Masuk Gratis',
-    ctaVariant: 'secondary' as const,
-  },
-  {
-    id: 'flash',
-    name: '24-Hour Flash Pass',
-    price: 'Rp5.000',
-    priceNote: 'Khusus QRIS / E-Wallet',
-    icon: '⚡',
-    highlight: true,
-    badge: 'TERPOPULER',
-    features: [
-      'Alat standar tanpa batas (24 jam)',
-      'Alat berat & OCR: Kuota 25 tugas (150 hal)',
-      'Berkas standar s.d. 100 MB (Alat berat 35 MB)',
-      'Batch hingga 10 file sekaligus',
-      'Tautan unduh 6 jam · Bebas iklan',
-    ],
-    cta: 'Beli Flash Pass',
-    ctaVariant: 'primary' as const,
-  },
-  {
-    id: 'monthly',
-    name: 'Monthly Pro',
-    price: 'Rp29.000',
-    priceNote: 'Per bulan',
-    icon: '🚀',
-    highlight: false,
-    features: [
-      'Semua alat standar tanpa batas',
-      'Alat berat & OCR tanpa batas (FUP 100/hari)',
-      'Berkas standar s.d. 200 MB (Alat berat 50 MB)',
-      'Batch hingga 30 file sekaligus',
-      'Tautan unduh 24 jam · Jalur prioritas',
-    ],
-    cta: 'Berlangganan Bulanan',
-    ctaVariant: 'secondary' as const,
-  },
-  {
-    id: 'annual',
-    name: 'Annual Pass',
-    price: 'Rp149.000',
-    priceNote: 'Per tahun · Hemat 57%',
-    icon: '👑',
-    highlight: false,
-    badge: 'HEMAT 57%',
-    features: [
-      'Semua keunggulan Monthly Pro',
-      'Alat berat & OCR tanpa batas (FUP 250/hari)',
-      'Berkas standar s.d. 300 MB (Alat berat 50 MB)',
-      'Batch hingga 50 file sekaligus',
-      'Tautan unduh 48 jam · Prioritas utama',
-    ],
-    cta: 'Beli Annual Pass',
-    ctaVariant: 'secondary' as const,
-  },
-];
+import { PLANS } from '../../lib/plans';
+import { formatRupiah } from '../../lib/formatters';
+
+const renderModalIcon = (iconName: string) => {
+  switch (iconName) {
+    case 'Zap': return <span className="text-2xl mb-2 inline-block">⚡</span>;
+    case 'Star': return <span className="text-2xl mb-2 inline-block">🚀</span>;
+    case 'Crown': return <span className="text-2xl mb-2 inline-block">👑</span>;
+    case 'Gift':
+    default:
+      return <span className="text-2xl mb-2 inline-block">🎁</span>;
+  }
+};
 
 const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
   const { showPricingModal, setShowPricingModal, openCheckout } = useQuota();
@@ -155,7 +96,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
                   </div>
                 )}
 
-                <div className="text-2xl mb-2">{plan.icon}</div>
+                {renderModalIcon(plan.iconName)}
                 <h3 className={`font-bold text-sm mb-1 ${plan.highlight && !isLower ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{plan.name}</h3>
                 
                 {/* Dynamic Promo Pricing */}
@@ -164,14 +105,14 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className={`line-through text-xs font-semibold ${plan.highlight && !isLower ? 'text-blue-200' : 'text-slate-400'}`}>
-                          Rp{eff.originalPrice.toLocaleString('id-ID')}
+                          {formatRupiah(eff.originalPrice)}
                         </span>
                         <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-rose-500 text-white uppercase tracking-wider">
                           Promo -{eff.discountPercent}%
                         </span>
                       </div>
                       <p className={`text-2xl font-extrabold ${plan.highlight && !isLower ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                        Rp{eff.price.toLocaleString('id-ID')}
+                        {formatRupiah(eff.price)}
                       </p>
                     </div>
                   ) : (

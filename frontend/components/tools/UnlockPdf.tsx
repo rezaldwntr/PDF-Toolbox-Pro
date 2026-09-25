@@ -19,10 +19,10 @@ import {
   ShieldAlert,
   HelpCircle,
   FileCheck,
-  X
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { formatFileSize } from '../../lib/formatters';
+import { triggerFileDownload } from '../../lib/download';
+import { ensurePdfjsReady } from '../../lib/pdfWorker';
 
 const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -61,36 +61,32 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsEncrypted(null);
     setPageCount(0);
 
-    // Deteksi client-side dengan pdfjsLib
+    // Deteksi client-side dengan pdfjsLib terpusat
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        let passwordNeeded = false;
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-        
-        loadingTask.onPassword = (_callback: any, _reason: any) => {
-          passwordNeeded = true;
-          setIsEncrypted(true);
-        };
-
-        try {
-          const loadedDoc = await loadingTask.promise;
-          setPageCount(loadedDoc.numPages);
-          if (!passwordNeeded) {
-            setIsEncrypted(false);
-          }
-        } catch (innerErr: any) {
-          if (innerErr?.name === 'PasswordException' || passwordNeeded) {
-            setIsEncrypted(true);
-            setTimeout(() => passwordInputRef.current?.focus(), 200);
-          } else {
-            // Asumsikan dokumen mungkin terenkripsi atau butuh pengujian server
-            setIsEncrypted(true);
-          }
-        }
-      } else {
-        // Fallback jika pdfjsLib belum siap
+      const pdfjs = await ensurePdfjsReady();
+      let passwordNeeded = false;
+      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) });
+      
+      loadingTask.onPassword = (_callback: any, _reason: any) => {
+        passwordNeeded = true;
         setIsEncrypted(true);
+      };
+
+      try {
+        const loadedDoc = await loadingTask.promise;
+        setPageCount(loadedDoc.numPages);
+        if (!passwordNeeded) {
+          setIsEncrypted(false);
+        }
+      } catch (innerErr: any) {
+        if (innerErr?.name === 'PasswordException' || passwordNeeded) {
+          setIsEncrypted(true);
+          setTimeout(() => passwordInputRef.current?.focus(), 200);
+        } else {
+          // Asumsikan dokumen mungkin terenkripsi atau butuh pengujian server
+          setIsEncrypted(true);
+        }
       }
     } catch (e) {
       console.warn('Deteksi enkripsi:', e);
@@ -168,16 +164,11 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // 3. Unduh berkas hasil pembukaan kunci
   const handleDownload = () => {
     if (!resultUrl || !file) return;
-    const link = document.createElement('a');
-    link.href = resultUrl;
     let base = file.name.replace(/\.pdf$/i, '');
     if (base.toLowerCase().startsWith('protected-')) {
       base = base.substring('protected-'.length);
     }
-    link.download = `unlocked-${base}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerFileDownload(resultUrl, `unlocked-${base}.pdf`);
   };
 
   // 4. Reset untuk membuka kunci berkas lain
@@ -192,12 +183,6 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setErrorMessage(null);
     setIsEncrypted(null);
     setPageCount(0);
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (

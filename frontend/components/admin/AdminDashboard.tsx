@@ -43,6 +43,7 @@ import type { PresenceState } from '../../lib/presence';
 import { fetchPromoSettings, updatePromoSetting, DEFAULT_BASE_PRICES } from '../../lib/promo';
 import { TargetUserSelectorModal } from '../modals/TargetUserSelectorModal';
 import { SendPromoModal } from '../modals/SendPromoModal';
+import { formatRupiah, formatFileSize, formatDateTimeIndonesia } from '../../lib/formatters';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -443,37 +444,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     }
   }, [isAdmin, fetchDashboardData]);
 
-  // Format Helper
-  const formatIDR = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(val || 0);
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (!bytes || bytes <= 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  const formatDateTime = (isoString?: string) => {
-    if (!isoString) return '-';
-    try {
-      return new Date(isoString).toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoString;
-    }
-  };
+  // Format Helper terpusat dari lib/formatters
+  const formatIDR = (val: number) => formatRupiah(val);
+  const formatBytes = (bytes: number) => formatFileSize(bytes);
+  const formatDateTime = (isoString?: string) => formatDateTimeIndonesia(isoString);
 
   // Guard: Jika bukan admin, blokir akses
   if (!isAdmin) {
