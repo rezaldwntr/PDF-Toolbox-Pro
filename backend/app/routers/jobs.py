@@ -9,8 +9,8 @@ Endpoints:
 
 import logging
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
 from app.utils.job_store import get_job, delete_job
+from app.utils.file_utils import create_file_response
 
 router = APIRouter(prefix="/jobs", tags=["Async Jobs"])
 
@@ -77,7 +77,7 @@ def download_job_result(job_id: str):
     if not result_bytes:
         raise HTTPException(status_code=500, detail="Hasil tugas kosong atau rusak.")
 
-    media_type = job.get("media_type", "application/octet-stream")
+    media_type = job.get("media_type")
     filename   = job.get("filename", "result")
     sample     = job.get("sample")
 
@@ -85,18 +85,18 @@ def download_job_result(job_id: str):
     delete_job(job_id)
     logging.info(f"[Jobs] Downloaded and deleted job {job_id} ({filename})")
 
-    resp_headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
+    extra_headers = {
         "Access-Control-Expose-Headers": "Content-Disposition, X-Extracted-Text-Sample",
     }
     if sample:
         # Batasi ukuran header jika teks panjang (header HTTP standar max 8KB)
         clean_sample = sample[:1000].replace("\r", " ").replace("\n", " ")
-        resp_headers["X-Extracted-Text-Sample"] = clean_sample
+        extra_headers["X-Extracted-Text-Sample"] = clean_sample
 
-    return Response(
+    return create_file_response(
         content=result_bytes,
-        media_type=media_type,
-        headers=resp_headers,
+        filename=filename,
+        mime_type=media_type,
+        extra_headers=extra_headers,
     )
 

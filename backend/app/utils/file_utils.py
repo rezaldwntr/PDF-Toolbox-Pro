@@ -104,3 +104,82 @@ def validate_file(file: UploadFile, tier: Optional[str] = None):
             )
         raise HTTPException(status_code=400, detail=detail)
 
+
+import re
+from fastapi.responses import Response
+
+# Kamus MIME type standar untuk seluruh format berkas di aplikasi
+MIME_TYPES: dict[str, str] = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "zip": "application/zip",
+    "txt": "text/plain; charset=utf-8",
+    "json": "application/json",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+}
+
+
+def get_mime_type(ext_or_filename: str) -> str:
+    """Mengembalikan MIME type standar berdasarkan ekstensi atau nama berkas."""
+    if not ext_or_filename:
+        return "application/octet-stream"
+    ext = ext_or_filename.lower().strip()
+    if "." in ext:
+        ext = ext.rsplit(".", 1)[-1]
+    return MIME_TYPES.get(ext, "application/octet-stream")
+
+
+def get_safe_base_name(filename: Optional[str], default: str = "dokumen") -> str:
+    """
+    Mengekstrak nama dasar berkas (tanpa ekstensi) secara aman dan bersih dari path traversal & karakter ilegal.
+    Contoh: 'laporan_keuangan.v1.pdf' -> 'laporan_keuangan.v1'
+            '../../etc/passwd.pdf' -> 'passwd'
+    """
+    if not filename:
+        return default
+    clean = os.path.basename(filename.strip().replace("\\", "/"))
+    base = os.path.splitext(clean)[0]
+    sanitized = re.sub(r'[\\/*?:"<>|\x00-\x1f]', "", base).strip()
+    return sanitized or default
+
+
+def build_output_filename(base_name: str, prefix: str = "", suffix: str = "", ext: str = "pdf") -> str:
+    """Membentuk nama berkas keluaran yang terstruktur dan aman."""
+    clean_base = get_safe_base_name(base_name)
+    parts = []
+    if prefix:
+        parts.append(prefix.strip("-_ "))
+    parts.append(clean_base)
+    if suffix:
+        parts.append(suffix.strip("-_ "))
+    clean_ext = ext.lstrip(".")
+    return f"{'-'.join(parts)}.{clean_ext}"
+
+
+def create_file_response(
+    content: bytes,
+    filename: str,
+    mime_type: Optional[str] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+) -> Response:
+    """
+    Membentuk FastAPI Response untuk pengunduhan berkas binary dengan Content-Disposition dan MIME type yang benar.
+    """
+    media_type = mime_type or get_mime_type(filename)
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=headers,
+    )
+

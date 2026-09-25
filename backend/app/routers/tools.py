@@ -15,12 +15,19 @@ from enum import Enum
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Form, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 import fitz  # PyMuPDF
 from PIL import Image
 
 from app.core.config import MAX_FILE_SIZE
-from app.utils.file_utils import validate_file, cleanup_folder, validate_pdf_bytes
+from app.utils.file_utils import (
+    validate_file,
+    cleanup_folder,
+    validate_pdf_bytes,
+    get_safe_base_name,
+    build_output_filename,
+    create_file_response,
+)
 from app.utils.job_store import create_job, update_job
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
@@ -102,13 +109,7 @@ def merge_pdf(files: List[UploadFile] = File(...)):
         merged_bytes = merged_doc.tobytes(garbage=3, deflate=True)
         merged_doc.close()
 
-        return Response(
-            content=merged_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": "attachment; filename=merged_document.pdf",
-            }
-        )
+        return create_file_response(merged_bytes, "merged_document.pdf")
 
     except HTTPException:
         merged_doc.close()
@@ -152,9 +153,8 @@ def split_pdf(
             detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB)."
         )
 
-    # Sanitasi nama berkas untuk output
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    # Sanitasi nama berkas untuk output via helper terpusat
+    safe_base = get_safe_base_name(filename)
 
     src_doc = None
     try:
@@ -224,13 +224,7 @@ def split_pdf(
             new_doc.close()
 
             output_filename = f"{safe_base}_extracted.pdf"
-            return Response(
-                content=pdf_bytes,
-                media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{output_filename}"',
-                }
-            )
+            return create_file_response(pdf_bytes, output_filename)
 
         # === MODE 3: SPLIT SETIAP X HALAMAN (OUTPUT: ZIP IN-MEMORY) ===
         elif split_mode == SplitType.FIXED:
@@ -257,13 +251,7 @@ def split_pdf(
             zip_buffer.close()
 
             output_filename = f"{safe_base}_split.zip"
-            return Response(
-                content=zip_bytes,
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{output_filename}"',
-                }
-            )
+            return create_file_response(zip_bytes, output_filename)
 
         # === MODE 4: SPLIT SETIAP HALAMAN (OUTPUT: ZIP IN-MEMORY) ===
         elif split_mode == SplitType.ALL:
@@ -282,13 +270,7 @@ def split_pdf(
             zip_buffer.close()
 
             output_filename = f"{safe_base}_split.zip"
-            return Response(
-                content=zip_bytes,
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{output_filename}"',
-                }
-            )
+            return create_file_response(zip_bytes, output_filename)
 
         else:
             raise HTTPException(status_code=400, detail=f"Mode split '{split_mode}' tidak dikenali.")
@@ -407,8 +389,7 @@ def compress_pdf(
             detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB)."
         )
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     comp_filename = f"compressed_{safe_base}.pdf"
 
     doc = None
@@ -521,13 +502,7 @@ def compress_pdf(
             except Exception:
                 pdf_bytes = content
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{comp_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, comp_filename)
 
     except HTTPException:
         raise
@@ -672,9 +647,7 @@ def watermark_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    # Sanitasi nama berkas output
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     out_filename = f"watermarked-{safe_base}.pdf"
 
     doc = None
@@ -905,13 +878,7 @@ def watermark_pdf(
         # 5. Serialisasi In-Memory dengan optimasi stream standar iLovePDF
         pdf_bytes = doc.tobytes(garbage=3, deflate=True)
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -965,8 +932,7 @@ def protect_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     out_filename = f"protected-{safe_base}.pdf"
 
     doc = None
@@ -1019,13 +985,7 @@ def protect_pdf(
             deflate=True
         )
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -1062,10 +1022,9 @@ def unlock_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    if raw_base.startswith("protected-"):
-        raw_base = raw_base[len("protected-"):]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
+    if safe_base.startswith("protected-"):
+        safe_base = safe_base[len("protected-"):]
     out_filename = f"unlocked-{safe_base}.pdf"
 
     doc = None
@@ -1119,13 +1078,7 @@ def unlock_pdf(
             deflate=True
         )
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -1178,8 +1131,7 @@ def crop_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     out_filename = f"cropped-{safe_base}.pdf"
 
     doc = None
@@ -1228,13 +1180,7 @@ def crop_pdf(
             deflate=True
         )
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -1287,8 +1233,7 @@ def convert_pdfa(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     out_filename = f"pdfa-{part}{conf.lower()}-{safe_base}.pdf"
 
     doc = None
@@ -1380,13 +1325,7 @@ def convert_pdfa(
             garbage=3
         )
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -1432,9 +1371,8 @@ def edit_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
-    out_filename = f"edited-{safe_base}.pdf"
+    safe_base = get_safe_base_name(filename)
+    out_filename = build_output_filename(safe_base, prefix="edited-")
 
     doc = None
     try:
@@ -1538,13 +1476,7 @@ def edit_pdf(
             deflate=True
         )
 
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{out_filename}"',
-            }
-        )
+        return create_file_response(pdf_bytes, out_filename)
 
     except HTTPException:
         raise
@@ -1576,8 +1508,7 @@ async def ocr_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     clean_langs = (languages or "eng").strip()
     out_format = (output_format or "pdf").lower().strip()
 
@@ -1767,8 +1698,7 @@ async def translate_pdf(
         max_mb = MAX_FILE_SIZE // (1024 * 1024)
         raise HTTPException(status_code=400, detail=f"Berkas '{filename}' melebihi batas ukuran maksimal ({max_mb} MB).")
 
-    raw_base = os.path.splitext(filename)[0]
-    safe_base = re.sub(r'[^\w\-_\. ]', '_', raw_base).strip() or "dokumen"
+    safe_base = get_safe_base_name(filename)
     out_format = (output_format or "pdf").lower().strip()
     src_l = (source_lang or "auto").lower().strip()
     tgt_l = (target_lang or "id").lower().strip()

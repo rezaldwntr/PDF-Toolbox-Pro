@@ -20,6 +20,7 @@ from app.core.config import (
     SUBSCRIPTION_PLANS,
 )
 from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier, get_active_promo_price
+from app.utils.payment_utils import generate_order_id, parse_order_id
 
 logger = logging.getLogger("payment")
 router = APIRouter(prefix="/payment", tags=["Payment & Subscription"])
@@ -46,8 +47,8 @@ async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: Backg
     base_price = int(plan["price"])
     effective_price = await get_active_promo_price(req.plan_id, req.user_email, base_price)
 
-    # Format Order ID unik: PDFTB-[PLAN]-[USER_ID_PREFIX]-[TIMESTAMP]
-    order_id = f"PDFTB-{req.plan_id.upper()}-{req.user_id[:8]}-{int(time.time())}"
+    # Format Order ID unik terpusat via payment_utils
+    order_id = generate_order_id(req.plan_id, req.user_id)
 
     snap = midtransclient.Snap(
         is_production=MIDTRANS_IS_PRODUCTION,
@@ -166,11 +167,11 @@ async def midtrans_webhook(request: Request, background_tasks: BackgroundTasks):
         user_id = body.get("custom_field1")
         plan_id = body.get("custom_field2")
 
-        # Jika custom fields kosong, coba ekstrak dari format order_id (PDFTB-[PLAN]-[USERID_PREFIX]-[TIME])
-        if not plan_id and order_id.startswith("PDFTB-"):
-            parts = order_id.split("-")
-            if len(parts) >= 2:
-                plan_id = parts[1].lower()
+        # Jika custom fields kosong, coba ekstrak dari format order_id via parse_order_id
+        if not plan_id and order_id:
+            parsed = parse_order_id(order_id)
+            if parsed.get("valid"):
+                plan_id = parsed.get("plan_id")
 
         plan = SUBSCRIPTION_PLANS.get(str(plan_id).lower(), SUBSCRIPTION_PLANS["flash"])
 

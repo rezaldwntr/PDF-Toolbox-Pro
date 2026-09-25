@@ -25,7 +25,7 @@ import pandas as pd
 from openpyxl.styles import Border, Side, Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from app.utils.file_utils import validate_file, cleanup_folder
+from app.utils.file_utils import validate_file, cleanup_folder, get_safe_base_name, get_mime_type
 from app.utils.job_store import create_job, update_job
 
 router = APIRouter(prefix="/convert", tags=["Conversion"])
@@ -33,10 +33,7 @@ router = APIRouter(prefix="/convert", tags=["Conversion"])
 
 def sanitize_filename(name: str) -> str:
     """Membersihkan nama berkas dari karakter terlarang."""
-    name = os.path.basename(name)
-    clean = re.sub(r'[\\/*?:"<>|]', '_', name)
-    return clean or "document"
-
+    return get_safe_base_name(name, default="document")
 
 def parse_cell_value(val):
     """Mengonversi nilai string ke tipe numerik (int/float) jika memungkinkan agar formula Excel berfungsi."""
@@ -65,7 +62,7 @@ async def convert_pdf_to_docx(
     end_page: Optional[int] = Form(None),
 ):
     validate_file(file)
-    safe_basename = sanitize_filename(os.path.splitext(file.filename)[0])
+    safe_basename = get_safe_base_name(file.filename, default="document")
     docx_filename = f"{safe_basename}.docx"
 
     # Baca file di main thread sebelum masuk thread pool
@@ -129,7 +126,7 @@ async def convert_pdf_to_docx(
                 progress=100,
                 message="Konversi selesai!",
                 result=result_bytes,
-                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                media_type=get_mime_type("docx"),
                 filename=docx_filename,
             )
         except Exception as e:
@@ -151,7 +148,7 @@ async def convert_pdf_to_excel(
     sheet_per_page: bool = Form(False),
 ):
     validate_file(file)
-    safe_basename = sanitize_filename(os.path.splitext(file.filename)[0])
+    safe_basename = get_safe_base_name(file.filename, default="document")
     xlsx_filename = f"{safe_basename}.xlsx"
     pdf_bytes = await file.read()
     job_id = create_job(message="Mempersiapkan konversi Excel...")
@@ -299,7 +296,7 @@ async def convert_pdf_to_excel(
                 progress=100,
                 message="Konversi selesai!",
                 result=result_bytes,
-                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                media_type=get_mime_type("xlsx"),
                 filename=xlsx_filename,
             )
         except Exception as e:
@@ -319,7 +316,7 @@ async def convert_pdf_to_ppt(
     layout_mode: str = Form("editable"),
 ):
     validate_file(file)
-    safe_basename = sanitize_filename(os.path.splitext(file.filename)[0])
+    safe_basename = get_safe_base_name(file.filename, default="document")
     ppt_filename = f"{safe_basename}.pptx"
     pdf_bytes = await file.read()
     job_id = create_job(message="Mempersiapkan konversi PowerPoint...")
@@ -447,7 +444,7 @@ async def convert_pdf_to_ppt(
                 progress=100,
                 message="Konversi selesai!",
                 result=result_bytes,
-                media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                media_type=get_mime_type("pptx"),
                 filename=ppt_filename,
             )
         except Exception as e:
@@ -469,7 +466,7 @@ async def convert_pdf_to_image(
     extract_mode: str = Form("pages"),
 ):
     validate_file(file)
-    safe_basename = sanitize_filename(os.path.splitext(file.filename)[0])
+    safe_basename = get_safe_base_name(file.filename, default="document")
     fmt = "jpg" if output_format.lower() in ["jpg", "jpeg"] else "png"
     target_dpi = 300 if dpi >= 300 else 150
     pdf_bytes = await file.read()
@@ -517,7 +514,7 @@ async def convert_pdf_to_image(
                 img_bytes = pix.tobytes("jpeg" if fmt == "jpg" else "png")
                 doc.close()
 
-                media_type = "image/jpeg" if fmt == "jpg" else "image/png"
+                media_type = get_mime_type(fmt)
                 single_filename = f"{safe_basename}.{fmt}"
                 return img_bytes, media_type, single_filename
 

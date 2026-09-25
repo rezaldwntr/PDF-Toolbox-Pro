@@ -35,7 +35,7 @@ from openpyxl.styles import Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.core.config import MAX_FILE_SIZE_BY_TIER, GCS_BUCKET_NAME
-from app.utils.file_utils import get_tier_limit, cleanup_folder, validate_pdf_bytes
+from app.utils.file_utils import get_tier_limit, cleanup_folder, validate_pdf_bytes, get_safe_base_name
 from app.utils.supabase_utils import verify_supabase_token
 from app.utils.job_store import create_job, update_job
 from app.utils.gcs_utils import (
@@ -169,8 +169,8 @@ async def process_gcs_job(req: ProcessJobRequest):
             detail="Pola path blob berkas tidak sah. Akses ditolak demi keamanan dokumen."
         )
 
+    base_name = get_safe_base_name(blob_name)
     raw_filename = os.path.basename(blob_name)
-    base_name = os.path.splitext(raw_filename)[0]
 
     job_id = create_job(message=f"Mempersiapkan pemrosesan berkas {action.upper()} dari penyimpanan awan...")
 
