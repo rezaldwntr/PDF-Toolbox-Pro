@@ -12,6 +12,19 @@ export default defineConfig({
     __VERCEL_ENV__: JSON.stringify(vercelEnv),
     __GIT_BRANCH__: JSON.stringify(gitBranch),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-pdf': ['pdf-lib'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     proxy: {
       // Menangani proxy untuk endpoint konversi

@@ -9,10 +9,27 @@ app = FastAPI(
     version="8.0 Cloud Storage Ready",
 )
 
+import os
+
 # === KONFIGURASI CORS ===
+ALLOWED_ORIGINS = [
+    "https://pdftoolbox.app",
+    "https://www.pdftoolbox.app",
+    "https://pdf-toolbox-pro-git-preview-rezaldwntrs-projects.vercel.app",
+    "https://pdf-toolbox-pro-rezaldwntrs-projects.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8080",
+]
+
+env_origins = os.getenv("ALLOWED_ORIGINS", "")
+if env_origins:
+    ALLOWED_ORIGINS.extend([origin.strip() for origin in env_origins.split(",") if origin.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

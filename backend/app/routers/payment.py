@@ -1,4 +1,5 @@
 # app/routers/payment.py
+import asyncio
 import hashlib
 import time
 import logging
@@ -32,7 +33,7 @@ class CreateSnapTokenRequest(BaseModel):
 
 
 @router.post("/create-snap-token")
-def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundTasks):
+async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundTasks):
     """
     Membuat transaksi Snap Midtrans dan mengembalikan token pembayaran.
     Mendukung QRIS, GoPay, ShopeePay, dan Virtual Account bank.
@@ -43,7 +44,7 @@ def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundT
         raise HTTPException(status_code=400, detail=f"Paket tidak valid: {req.plan_id}")
 
     base_price = int(plan["price"])
-    effective_price = get_active_promo_price(req.plan_id, req.user_email, base_price)
+    effective_price = await get_active_promo_price(req.plan_id, req.user_email, base_price)
 
     # Format Order ID unik: PDFTB-[PLAN]-[USER_ID_PREFIX]-[TIMESTAMP]
     order_id = f"PDFTB-{req.plan_id.upper()}-{req.user_id[:8]}-{int(time.time())}"
@@ -88,7 +89,7 @@ def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundT
     }
 
     try:
-        transaction = snap.create_transaction(param)
+        transaction = await asyncio.to_thread(snap.create_transaction, param)
         
         # Catat order baru ke tabel payment_transactions
         background_tasks.add_task(
@@ -213,7 +214,7 @@ async def check_payment_status(order_id: str):
     )
 
     try:
-        status_resp = core.transactions.status(order_id)
+        status_resp = await asyncio.to_thread(core.transactions.status, order_id)
         tx_status = status_resp.get("transaction_status")
 
         is_paid = tx_status in ("settlement", "capture")

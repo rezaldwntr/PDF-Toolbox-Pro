@@ -25,16 +25,25 @@ def get_tier_limit(tier: Optional[str] = None) -> int:
     return MAX_FILE_SIZE_BY_TIER.get(tier, MAX_FILE_SIZE)
 
 
-def validate_pdf_bytes(content: bytes, filename: str = "dokumen.pdf"):
+def validate_pdf_bytes(
+    content: bytes,
+    filename: str = "dokumen.pdf",
+    raise_exception: bool = True
+) -> bool:
     """
     Validasi magic bytes dokumen PDF (%PDF-).
     Mencegah berkas berbahaya atau injeksi biner dengan ekstensi .pdf palsu.
+    Mengembalikan True jika valid. Jika tidak valid, melempar HTTPException (default)
+    atau mengembalikan False jika raise_exception=False.
     """
     if not content or not content.startswith(b"%PDF-"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Berkas '{filename}' bukan format dokumen PDF yang sah (header berkas biner tidak valid)."
-        )
+        if raise_exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Berkas '{filename}' bukan format dokumen PDF yang sah (header berkas biner tidak valid)."
+            )
+        return False
+    return True
 
 
 def validate_file(file: UploadFile, tier: Optional[str] = None):

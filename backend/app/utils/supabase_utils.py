@@ -9,6 +9,23 @@ from app.core.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 logger = logging.getLogger("supabase_utils")
 
+# Singleton persistent client with connection pooling and keep-alive
+_async_client: Optional[httpx.AsyncClient] = None
+
+
+def get_supabase_client() -> httpx.AsyncClient:
+    """
+    Mengembalikan singleton persistent HTTP client dengan connection pooling & HTTP keep-alive.
+    Menghilangkan overhead pembuatan TCP/TLS handshake baru di setiap panggilan API Supabase.
+    """
+    global _async_client
+    if _async_client is None or _async_client.is_closed:
+        _async_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+        )
+    return _async_client
+
 
 def get_supabase_headers() -> Dict[str, str]:
     """Mengembalikan HTTP header dengan service role key untuk akses admin Supabase REST API."""
@@ -59,14 +76,14 @@ async def record_payment_transaction(
     headers["Prefer"] = "resolution=merge-duplicates"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(endpoint, json=payload, headers=headers)
-            if resp.status_code in (200, 201, 204):
-                logger.info(f"Berhasil mencatat transaksi {order_id} ({status})")
-                return True
-            else:
-                logger.warning(f"Gagal mencatat transaksi di Supabase ({resp.status_code}): {resp.text}")
-                return False
+        client = get_supabase_client()
+        resp = await client.post(endpoint, json=payload, headers=headers)
+        if resp.status_code in (200, 201, 204):
+            logger.info(f"Berhasil mencatat transaksi {order_id} ({status})")
+            return True
+        else:
+            logger.warning(f"Gagal mencatat transaksi di Supabase ({resp.status_code}): {resp.text}")
+            return False
     except Exception as e:
         logger.error(f"Error saat mencatat transaksi di Supabase: {e}")
         return False
@@ -104,9 +121,9 @@ async def record_tool_usage(
     headers = get_supabase_headers()
 
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(endpoint, json=payload, headers=headers)
-            return resp.status_code in (200, 201, 204)
+        client = get_supabase_client()
+        resp = await client.post(endpoint, json=payload, headers=headers)
+        return resp.status_code in (200, 201, 204)
     except Exception as e:
         logger.warning(f"Gagal mencatat log pemakaian alat ({tool_name}): {e}")
         return False
@@ -133,20 +150,20 @@ async def cleanup_expired_user_subscriptions() -> int:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.patch(endpoint, json=payload, headers=headers)
-            if resp.status_code in (200, 204):
-                try:
-                    updated = resp.json()
-                    count = len(updated) if isinstance(updated, list) else 0
-                    if count > 0:
-                        logger.info(f"[Cleanup] Berhasil mendowngrade {count} akun langganan kedaluwarsa ke tier 'free'.")
-                    return count
-                except Exception:
-                    return 1
-            else:
-                logger.warning(f"[Cleanup] Gagal memperbarui akun kedaluwarsa di Supabase ({resp.status_code}): {resp.text}")
-                return 0
+        client = get_supabase_client()
+        resp = await client.patch(endpoint, json=payload, headers=headers)
+        if resp.status_code in (200, 204):
+            try:
+                updated = resp.json()
+                count = len(updated) if isinstance(updated, list) else 0
+                if count > 0:
+                    logger.info(f"[Cleanup] Berhasil mendowngrade {count} akun langganan kedaluwarsa ke tier 'free'.")
+                return count
+            except Exception:
+                return 1
+        else:
+            logger.warning(f"[Cleanup] Gagal memperbarui akun kedaluwarsa di Supabase ({resp.status_code}): {resp.text}")
+            return 0
     except Exception as e:
         logger.error(f"[Cleanup] Error saat membersihkan akun kedaluwarsa: {e}")
         return 0
@@ -171,25 +188,25 @@ async def fetch_user_profiles(limit: int = 100, offset: int = 0, search: Optiona
 
     headers = get_supabase_headers()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(endpoint, headers=headers)
-            if resp.status_code == 200:
-                users = resp.json()
-                # Normalisasi defensif: Jika ada akun kedaluwarsa yang belum tersinkron, set tier='free'
-                now_utc = datetime.now(timezone.utc)
-                for u in users:
-                    exp_str = u.get("subscription_expiry")
-                    current_tier = (u.get("tier") or "free").lower()
-                    if current_tier in ("flash", "monthly", "annual") and exp_str:
-                        try:
-                            exp_dt = datetime.fromisoformat(exp_str.replace("Z", "+00:00"))
-                            if exp_dt < now_utc:
-                                u["tier"] = "free"
-                                u["is_expired"] = True
-                        except Exception:
-                            pass
-                return users
-            return []
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            users = resp.json()
+            # Normalisasi defensif: Jika ada akun kedaluwarsa yang belum tersinkron, set tier='free'
+            now_utc = datetime.now(timezone.utc)
+            for u in users:
+                exp_str = u.get("subscription_expiry")
+                current_tier = (u.get("tier") or "free").lower()
+                if current_tier in ("flash", "monthly", "annual") and exp_str:
+                    try:
+                        exp_dt = datetime.fromisoformat(exp_str.replace("Z", "+00:00"))
+                        if exp_dt < now_utc:
+                            u["tier"] = "free"
+                            u["is_expired"] = True
+                    except Exception:
+                        pass
+            return users
+        return []
     except Exception as e:
         logger.error(f"Error fetch user profiles: {e}")
         return []
@@ -203,11 +220,11 @@ async def fetch_payment_transactions(limit: int = 100, offset: int = 0) -> List[
     endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/payment_transactions?select=*&order=created_at.desc&limit={limit}&offset={offset}"
     headers = get_supabase_headers()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(endpoint, headers=headers)
-            if resp.status_code == 200:
-                return resp.json()
-            return []
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        return []
     except Exception as e:
         logger.error(f"Error fetch payment transactions: {e}")
         return []
@@ -224,11 +241,11 @@ async def fetch_tool_usages(limit: int = 100, offset: int = 0, tool_name: Option
 
     headers = get_supabase_headers()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(endpoint, headers=headers)
-            if resp.status_code == 200:
-                return resp.json()
-            return []
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        return []
     except Exception as e:
         logger.error(f"Error fetch tool usages: {e}")
         return []
@@ -264,21 +281,21 @@ async def update_supabase_user_tier(
     headers = get_supabase_headers()
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.patch(endpoint, json=payload, headers=headers)
-            if resp.status_code in (200, 204):
-                logger.info(f"Berhasil mengupdate user {user_id} ke tier {tier} (expiry: {expiry})")
-                return True
-            else:
-                logger.warning(f"Gagal update tier di Supabase ({resp.status_code}): {resp.text}")
-                return False
+        client = get_supabase_client()
+        resp = await client.patch(endpoint, json=payload, headers=headers)
+        if resp.status_code in (200, 204):
+            logger.info(f"Berhasil mengupdate user {user_id} ke tier {tier} (expiry: {expiry})")
+            return True
+        else:
+            logger.warning(f"Gagal update tier di Supabase ({resp.status_code}): {resp.text}")
+            return False
     except Exception as e:
         logger.error(f"Error saat update user tier di Supabase: {e}")
         return False
 
 
-def get_active_promo_price(plan_id: str, user_email: Optional[str], base_price: int) -> int:
-    """Mengambil harga promo yang berlaku dari Supabase promo_settings."""
+async def get_active_promo_price(plan_id: str, user_email: Optional[str], base_price: int) -> int:
+    """Mengambil harga promo yang berlaku dari Supabase promo_settings secara asinkron."""
     if not SUPABASE_URL:
         return base_price
 
@@ -286,30 +303,30 @@ def get_active_promo_price(plan_id: str, user_email: Optional[str], base_price: 
     headers = get_supabase_headers()
 
     try:
-        with httpx.Client(timeout=4.0) as client:
-            resp = client.get(endpoint, headers=headers)
-            if resp.status_code == 200:
-                promos = resp.json()
-                now_utc = datetime.now(timezone.utc)
-                for p in promos:
-                    v_until = p.get("valid_until")
-                    if v_until:
-                        try:
-                            exp_dt = datetime.fromisoformat(v_until.replace("Z", "+00:00"))
-                            if exp_dt < now_utc:
-                                continue
-                        except Exception:
-                            pass
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            promos = resp.json()
+            now_utc = datetime.now(timezone.utc)
+            for p in promos:
+                v_until = p.get("valid_until")
+                if v_until:
+                    try:
+                        exp_dt = datetime.fromisoformat(v_until.replace("Z", "+00:00"))
+                        if exp_dt < now_utc:
+                            continue
+                    except Exception:
+                        pass
 
-                    target_emails = p.get("target_emails") or []
-                    if not target_emails or len(target_emails) == 0:
-                        disc = p.get("discount_price")
-                        if disc and int(disc) > 0:
-                            return int(disc)
-                    elif user_email and any(t.strip().lower() == user_email.strip().lower() for t in target_emails):
-                        disc = p.get("discount_price")
-                        if disc and int(disc) > 0:
-                            return int(disc)
+                target_emails = p.get("target_emails") or []
+                if not target_emails or len(target_emails) == 0:
+                    disc = p.get("discount_price")
+                    if disc and int(disc) > 0:
+                        return int(disc)
+                elif user_email and any(t.strip().lower() == user_email.strip().lower() for t in target_emails):
+                    disc = p.get("discount_price")
+                    if disc and int(disc) > 0:
+                        return int(disc)
     except Exception as e:
         logger.warning(f"Error fetching active promo: {e}")
 
@@ -336,13 +353,12 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(endpoint, headers=headers)
-            if resp.status_code == 200:
-                return resp.json()
-            logger.warning(f"[Security] Token Supabase tidak valid: {resp.status_code}")
-            return None
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        logger.warning(f"[Security] Token Supabase tidak valid: {resp.status_code}")
+        return None
     except Exception as e:
         logger.error(f"[Security] Gagal memverifikasi token Supabase: {e}")
         return None
-

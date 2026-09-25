@@ -182,7 +182,7 @@ async def process_gcs_job(req: ProcessJobRequest):
                 raise ValueError("Berkas tidak ditemukan atau belum selesai diunggah ke penyimpanan awan.")
 
             # Validasi Magic Bytes PDF resmi
-            if not validate_pdf_bytes(pdf_bytes):
+            if not validate_pdf_bytes(pdf_bytes, raise_exception=False):
                 raise ValueError("Berkas yang diunggah tidak valid atau rusak (Header binary PDF tidak dikenali).")
 
             update_job(job_id, progress=15, message="Memverifikasi integritas dokumen...")
