@@ -250,7 +250,14 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
                         <p className="truncate font-bold text-gray-800 dark:text-gray-200 text-sm">{file.name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{pagePreviews.length} Halaman • {(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
-                    <button onClick={resetState} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><TrashIcon className="w-4 h-4"/></button>
+                    <button
+                      type="button"
+                      onClick={resetState}
+                      aria-label="Hapus dan ganti berkas"
+                      className="ml-auto text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 p-2.5 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-[0.95]"
+                    >
+                      <TrashIcon className="w-4 h-4"/>
+                    </button>
                 </div>
 
                 {/* Rest of the controls code remains same... */}
@@ -304,8 +311,20 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
                          <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Halaman Terpilih</label>
                             <div className="flex gap-2 mb-2">
-                                <button onClick={selectAllPages} className="text-xs bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 px-2 py-1 rounded">Pilih Semua</button>
-                                <button onClick={deselectAllPages} className="text-xs bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 px-2 py-1 rounded">Reset</button>
+                                <button
+                                  type="button"
+                                  onClick={selectAllPages}
+                                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg transition-all duration-200 active:scale-[0.98] min-h-[38px] flex items-center justify-center"
+                                >
+                                  Pilih Semua
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={deselectAllPages}
+                                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg transition-all duration-200 active:scale-[0.98] min-h-[38px] flex items-center justify-center"
+                                >
+                                  Reset
+                                </button>
                             </div>
                             <p className="text-xs font-medium text-gray-800 dark:text-gray-200 break-words mb-2">
                                 {pagePreviews.filter(p => p.selected).map(p => p.pageNumber).join(', ') || "Klik halaman di kanan untuk memilih"}

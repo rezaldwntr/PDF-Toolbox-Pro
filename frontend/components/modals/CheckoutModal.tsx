@@ -344,8 +344,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               <span className="text-xs font-bold font-mono">{timerStr}</span>
             </div>
             <button 
+              type="button"
               onClick={closeCheckout} 
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-[0.95] cursor-pointer"
               aria-label="Tutup Modal"
             >
               <X size={18} />
@@ -368,7 +369,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                 <button
                   type="button"
                   onClick={signInWithGoogle}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                  className="px-3.5 py-2 min-h-[38px] bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white font-bold text-xs rounded-lg shadow-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer"
                 >
                   Masuk dengan Google Sekarang →
                 </button>
@@ -521,10 +522,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               <button
                 type="button"
                 onClick={copyAdminEmail}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200 active:scale-[0.95] cursor-pointer"
                 title="Salin Email Admin"
+                aria-label="Salin Email Admin"
               >
-                {copiedEmail ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                {copiedEmail ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
               </button>
             </div>
             <div className="flex items-center justify-center gap-1 text-[10px]">

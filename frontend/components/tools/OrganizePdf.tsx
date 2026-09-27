@@ -315,17 +315,24 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const renderContent = () => {
-    // ... UI Rendering Code ...
+    // Tampilan hasil akhir pengunduhan dokumen yang telah berhasil disusun
     if (outputUrl) {
       return (
         <div className="text-center text-gray-600 dark:text-gray-300 flex flex-col items-center gap-6 animate-fade-in">
           <CheckCircleIcon />
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">PDF Berhasil Diatur!</h3>
-          <p className="text-lg">File Anda telah berhasil disusun ulang.</p>
-          <a href={outputUrl} download={`${filesWithBuffer[0]?.file.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 text-lg shadow-md shadow-blue-200 dark:shadow-none">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">PDF Berhasil Diatur!</h3>
+          <p className="text-lg leading-relaxed">File Anda telah berhasil disusun ulang.</p>
+          <a
+            href={outputUrl}
+            download={`${filesWithBuffer[0]?.file.name.replace('.pdf', '') || 'dokumen'}-diatur.pdf`}
+            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 text-lg shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 dark:shadow-none min-h-[44px]"
+          >
             <DownloadIcon /> Unduh PDF
           </a>
-          <button onClick={resetState} className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+          <button
+            onClick={resetState}
+            className="font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-all duration-200 py-2.5 px-4 rounded-lg min-h-[44px] inline-flex items-center justify-center active:scale-[0.98]"
+          >
             Atur PDF Lainnya
           </button>
         </div>

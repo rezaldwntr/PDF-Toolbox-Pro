@@ -376,7 +376,7 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button
               type="submit"
               disabled={isProcessing || !password.trim() || !legalAccepted}
-              className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all duration-200 ${
+              className={`w-full py-3.5 px-4 min-h-[44px] rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none ${
                 isProcessing || !password.trim() || !legalAccepted
                   ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25 hover:shadow-md active:scale-[0.99]'

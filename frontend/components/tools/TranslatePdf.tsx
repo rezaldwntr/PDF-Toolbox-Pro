@@ -397,10 +397,11 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         Pratinjau Hasil Terjemahan:
                       </span>
                       <button
+                        type="button"
                         onClick={handleCopyText}
-                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 py-1.5 px-2.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all duration-200 active:scale-[0.96] flex items-center gap-1.5 font-semibold min-h-[36px]"
                       >
-                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                         {copied ? 'Tersalin!' : 'Salin Teks'}
                       </button>
                     </div>

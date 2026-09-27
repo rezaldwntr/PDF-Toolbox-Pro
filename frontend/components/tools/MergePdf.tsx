@@ -245,10 +245,19 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
         <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6">
           <DownloadIcon className="w-16 h-16 text-emerald-500" />
           <p className="text-base sm:text-lg">File Anda telah berhasil digabungkan secara rapi.</p>
-          <a href={mergedPdfUrl} download={`merged-${Date.now()}.pdf`} className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-colors text-base shadow-md w-full max-w-sm">
+          <a
+            href={mergedPdfUrl}
+            download={`merged-${Date.now()}.pdf`}
+            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 text-base shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 w-full max-w-sm min-h-[44px]"
+          >
             Unduh PDF Gabungan
           </a>
-          <button onClick={reset} className="font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm">Gabungkan PDF Lainnya</button>
+          <button
+            onClick={reset}
+            className="font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-all duration-200 py-2.5 px-4 rounded-lg min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98]"
+          >
+            Gabungkan PDF Lainnya
+          </button>
         </div>
       </ToolContainer>
     )

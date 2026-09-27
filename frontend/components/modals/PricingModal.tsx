@@ -50,8 +50,13 @@ const PricingModal: React.FC<PricingModalProps> = ({ onSelectView }) => {
     <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-[#1A1E27] rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-6 text-center border-b border-slate-100 dark:border-slate-800">
-          <button onClick={() => setShowPricingModal(false)} className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <div className="p-6 text-center border-b border-slate-100 dark:border-slate-800 relative">
+          <button
+            type="button"
+            onClick={() => setShowPricingModal(false)}
+            aria-label="Tutup Modal"
+            className="absolute top-4 right-4 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-[0.95] cursor-pointer"
+          >
             <X size={20} />
           </button>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-1">Pilih Paket yang Tepat</h2>

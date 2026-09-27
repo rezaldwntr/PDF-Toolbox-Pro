@@ -309,7 +309,7 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
                   type="button"
                   onClick={isAllFilteredSelected ? handleDeselectAllFiltered : handleSelectAllFiltered}
                   disabled={filteredUsers.length === 0}
-                  className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-40"
+                  className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 py-1.5 px-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none text-xs sm:text-sm"
                 >
                   {isAllFilteredSelected
                     ? `Batal Pilih ${filteredUsers.length} Akun Ini`

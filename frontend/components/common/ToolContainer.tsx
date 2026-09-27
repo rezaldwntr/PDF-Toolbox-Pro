@@ -30,8 +30,9 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
       {/* Top Bar: Back navigation & 3-step indicator */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <button
+          type="button"
           onClick={onBack}
-          className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-[#1E222B] hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition-all text-xs sm:text-sm font-semibold"
+          className="group inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-[#1E222B] hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] border border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-200 text-xs sm:text-sm font-semibold cursor-pointer"
         >
           <ArrowLeft size={16} className="transform group-hover:-translate-x-1 transition-transform" />
           <span>Kembali ke Beranda</span>
@@ -65,7 +66,7 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
       {/* Main Spoke Workspace */}
       <div className="flex flex-col items-center">
         <div className="text-center mb-6 max-w-xl">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight mb-2">
             {title}
           </h1>
           {description && (

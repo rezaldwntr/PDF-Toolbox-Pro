@@ -515,9 +515,9 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <button
                   type="button"
                   onClick={handleCopyText}
-                  className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+                  className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-700 dark:hover:text-blue-300 py-1.5 px-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-200 active:scale-[0.96] flex items-center gap-1.5 min-h-[36px]"
                 >
-                  <Copy className="w-3 h-3" />
+                  <Copy className="w-3.5 h-3.5" />
                   <span>{copied ? 'Tersalin!' : 'Salin Teks'}</span>
                 </button>
               </div>

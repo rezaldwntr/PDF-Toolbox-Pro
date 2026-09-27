@@ -1375,7 +1375,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
                 <button
                   onClick={loadPromos}
                   disabled={isLoadingPromos}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 text-xs font-semibold transition"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPromos ? 'animate-spin' : ''}`} />
                   <span>Muat Ulang Promo</span>

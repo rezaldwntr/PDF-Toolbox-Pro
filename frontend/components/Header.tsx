@@ -162,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Beralih ke mode terang' : 'Beralih ke mode gelap'}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-[0.95] border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
             >
               {theme === 'dark' ? (
                 <Sun size={18} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
@@ -176,8 +176,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
             ) : isGuest ? (
               <button
+                type="button"
                 onClick={signInWithGoogle}
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm shadow-blue-600/20 transition-all active:scale-95"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white shadow-sm shadow-blue-600/20 transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 Masuk
               </button>
@@ -185,8 +186,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               // User avatar + dropdown menu
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setShowUserMenu(v => !v)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                  className="flex items-center gap-2 pl-2 pr-3 py-2 min-h-[44px] rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 active:scale-[0.98] cursor-pointer"
                 >
                   {user?.avatarUrl ? (
                     <img src={user.avatarUrl} alt={user.fullName ?? 'User'} className="w-7 h-7 rounded-full object-cover border-2 border-blue-500/30" />
@@ -259,8 +261,10 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-[#1E222B] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
             <button
+              type="button"
               onClick={() => setShowEnvModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Tutup Modal Status"
+              className="absolute top-4 right-4 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-[0.95]"
             >
               <X size={18} />
             </button>
