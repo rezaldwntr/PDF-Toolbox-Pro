@@ -22,75 +22,11 @@ from app.routers.tools_helpers import (
     get_target_pages,
     translate_text_chunk,
     build_pdfa_xmp,
+    apply_find_and_replace,
+    apply_block_edits,
 )
 
 router = APIRouter(tags=["Tools - Advanced"])
-
-
-def _apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages):
-    """Mencari dan mengganti kata/kalimat di dokumen PDF."""
-    search_str = (search_text or "").strip()
-    replace_str = replace_text or ""
-    if not search_str:
-        raise HTTPException(status_code=400, detail="Teks pencarian tidak boleh kosong.")
-
-    sel = (page_selection or "all").lower().strip()
-    if sel == "current":
-        target_pages = [max(0, min(current_page - 1, doc_len - 1))]
-    else:
-        target_pages = get_target_pages(doc_len, sel, custom_pages, exclude_first_page=False)
-
-    for p_idx in target_pages:
-        page = doc[p_idx]
-        matches = page.search_for(search_str)
-        if not case_sensitive and search_str.lower() != search_str:
-            matches += [m for m in page.search_for(search_str.lower()) if m not in matches]
-            matches += [m for m in page.search_for(search_str.capitalize()) if m not in matches]
-            matches += [m for m in page.search_for(search_str.upper()) if m not in matches]
-
-        for rect in matches:
-            page.add_redact_annot(rect, fill=(1, 1, 1))
-            page.apply_redactions()
-            if replace_str:
-                font_size = max(7.0, min(28.0, rect.height * 0.85))
-                text_w = fitz.get_text_length(replace_str, fontname="helv", fontsize=font_size)
-                target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 4), rect.y1)
-                page.insert_textbox(target_rect, replace_str, fontsize=font_size, fontname="helv", color=(0, 0, 0), align=0)
-
-
-def _apply_block_edits(doc, doc_len, edits_json):
-    """Menyunting blok teks visual dengan redaksi bersih dan penulisan teks baru."""
-    if not edits_json:
-        raise HTTPException(status_code=400, detail="Tidak ada data perubahan teks yang dikirimkan.")
-
-    try:
-        edits = json.loads(edits_json)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Format JSON data suntingan tidak valid.")
-
-    if not isinstance(edits, list) or len(edits) == 0:
-        raise HTTPException(status_code=400, detail="Daftar suntingan teks kosong.")
-
-    for item in edits:
-        p_num = int(item.get("page", 1))
-        p_idx = max(0, min(p_num - 1, doc_len - 1))
-        page = doc[p_idx]
-
-        raw_rect = item.get("rect", [])
-        if len(raw_rect) == 4:
-            rect = fitz.Rect(raw_rect[0], raw_rect[1], raw_rect[2], raw_rect[3])
-            bg_color = hex_to_rgb(item.get("bg_color", "#ffffff"))
-            fg_color = hex_to_rgb(item.get("color", "#000000"))
-            font_size = float(item.get("font_size", 12.0))
-            new_text = str(item.get("new_text", ""))
-
-            page.add_redact_annot(rect, fill=bg_color)
-            page.apply_redactions()
-
-            if new_text.strip():
-                text_w = fitz.get_text_length(new_text, fontname="helv", fontsize=font_size)
-                target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 4), rect.y1 + 4)
-                page.insert_textbox(target_rect, new_text, fontsize=font_size, fontname="helv", color=fg_color, align=0)
 
 
 # === 1. PANGKAS PDF (CROP) ===
@@ -300,9 +236,9 @@ def edit_pdf(
 
         mode = (edit_mode or "find_replace").lower().strip()
         if mode == "find_replace":
-            _apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages)
+            apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages)
         elif mode == "block_edits":
-            _apply_block_edits(doc, doc_len, edits_json)
+            apply_block_edits(doc, doc_len, edits_json)
         else:
             raise HTTPException(status_code=400, detail=f"Mode sunting '{mode}' tidak dikenal.")
 

@@ -45,7 +45,7 @@ from app.utils.gcs_utils import (
     delete_blob,
     configure_bucket_security,
 )
-from app.routers.tools import _translate_text_chunk, _get_target_pages
+from app.routers.tools_helpers import translate_text_chunk, get_target_pages
 
 router = APIRouter(prefix="/storage", tags=["Storage & Direct Upload"])
 
@@ -464,7 +464,7 @@ async def _process_translate(job_id: str, pdf_bytes: bytes, base_name: str, opts
                 orig = b[4].strip()
                 if not orig:
                     continue
-                tr = _translate_text_chunk(orig, src_l, tgt_l)
+                tr = translate_text_chunk(orig, src_l, tgt_l)
                 p_trans.append(tr)
                 if out_fmt == "pdf":
                     rect = fitz.Rect(b[0], b[1], b[2], b[3])

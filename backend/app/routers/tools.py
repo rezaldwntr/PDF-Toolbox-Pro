@@ -18,4 +18,27 @@ router.include_router(tools_core.router)
 router.include_router(tools_security.router)
 router.include_router(tools_advanced.router)
 
-__all__ = ["router", "SplitType", "CompressionType"]
+from app.routers.tools_helpers import (
+    translate_text_chunk,
+    translate_text_chunk as _translate_text_chunk,
+    get_target_pages,
+    get_target_pages as _get_target_pages,
+    calculate_pdf_permissions,
+    build_pdfa_xmp,
+    hex_to_rgb,
+    get_fontname,
+)
+
+__all__ = [
+    "router",
+    "SplitType",
+    "CompressionType",
+    "translate_text_chunk",
+    "_translate_text_chunk",
+    "get_target_pages",
+    "_get_target_pages",
+    "calculate_pdf_permissions",
+    "build_pdfa_xmp",
+    "hex_to_rgb",
+    "get_fontname",
+]
