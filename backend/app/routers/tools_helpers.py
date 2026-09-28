@@ -92,16 +92,16 @@ def calculate_pdf_permissions(allow_print: bool, allow_modify: bool, allow_copy:
     """Kalkulasi Bitmask Izin (Permissions) Standar ISO PDF."""
     perm = 0
     if allow_print:
-        perm |= fitz.PDF_PERM_PRINT
+        perm |= getattr(fitz, "PDF_PERM_PRINT", 4)
     if allow_modify:
-        perm |= fitz.PDF_PERM_MODIFY
+        perm |= getattr(fitz, "PDF_PERM_MODIFY", 8)
     if allow_copy:
-        perm |= fitz.PDF_PERM_COPY
+        perm |= getattr(fitz, "PDF_PERM_COPY", 16)
     if allow_annotate:
-        perm |= fitz.PDF_PERM_ANNOTATE
+        perm |= getattr(fitz, "PDF_PERM_ANNOTATE", 32)
     if allow_fill_forms:
-        perm |= fitz.PDF_PERM_FILL_FORM
-    perm |= fitz.PDF_PERM_ACCESSIBILITY
+        perm |= getattr(fitz, "PDF_PERM_FORM", getattr(fitz, "PDF_PERM_FILL_FORM", 256))
+    perm |= getattr(fitz, "PDF_PERM_ACCESSIBILITY", 512)
     return perm
 
 
