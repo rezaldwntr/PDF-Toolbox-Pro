@@ -5,6 +5,12 @@ import { UploadIcon, DownloadIcon, TrashIcon, FilePdfIcon, CheckCircleIcon, ZipI
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
+import { 
+  extractPagesToPdf, 
+  splitDocumentToParts, 
+  bundlePdfsToZip, 
+  CLIENT_PDF_MAX_SIZE_BYTES 
+} from '../../lib/pdfWorker';
 
 // Deklarasi global untuk pdfjsLib dari CDN
 declare const pdfjsLib: any;
@@ -23,6 +29,38 @@ interface PagePreview {
 
 // Frontend modes mapping to UI logic
 type FrontendMode = 'range' | 'selected' | 'fixed' | 'all';
+
+/**
+ * Helper prosedural untuk eksekusi pemisahan PDF di memori browser (Client-Side).
+ */
+const executeClientSplit = async (
+  buffer: ArrayBuffer,
+  splitMode: FrontendMode,
+  start: number,
+  end: number,
+  selectedPages: number[],
+  step: number
+): Promise<{ blob: Blob; ext: 'pdf' | 'zip' }> => {
+  if (splitMode === 'range') {
+    const pageNumbers: number[] = [];
+    for (let i = start; i <= end; i++) pageNumbers.push(i);
+    const bytes = await extractPagesToPdf(buffer, pageNumbers);
+    return { blob: new Blob([bytes], { type: 'application/pdf' }), ext: 'pdf' };
+  }
+  if (splitMode === 'selected') {
+    const bytes = await extractPagesToPdf(buffer, selectedPages);
+    return { blob: new Blob([bytes], { type: 'application/pdf' }), ext: 'pdf' };
+  }
+  if (splitMode === 'fixed') {
+    const parts = await splitDocumentToParts(buffer, step);
+    const zipBlob = await bundlePdfsToZip(parts);
+    return { blob: zipBlob, ext: 'zip' };
+  }
+  // Mode 'all'
+  const parts = await splitDocumentToParts(buffer, 1);
+  const zipBlob = await bundlePdfsToZip(parts);
+  return { blob: zipBlob, ext: 'zip' };
+};
 
 const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -123,46 +161,65 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Konfigurasi Parameter Backend berdasarkan Mode Frontend
-    let backendMode = 'extract';
-    let resultExt: 'pdf' | 'zip' = 'pdf';
-
-    if (mode === 'range') {
-        // Mode 1a: Extract Range
-        backendMode = 'extract';
-        formData.append('split_mode', 'extract');
-        formData.append('pages', `${rangeStart}-${rangeEnd}`);
-        resultExt = 'pdf';
-    } else if (mode === 'selected') {
-        // Mode 1b: Extract Selected
-        const selectedPages = pagePreviews.filter(p => p.selected).map(p => p.pageNumber);
-        if (selectedPages.length === 0) {
-            addToast('Pilih setidaknya satu halaman.', 'warning');
-            return;
-        }
-        backendMode = 'extract';
-        formData.append('split_mode', 'extract');
-        formData.append('pages', selectedPages.join(','));
-        resultExt = 'pdf';
-    } else if (mode === 'fixed') {
-        // Mode 2: Fixed Step (ZIP output)
-        backendMode = 'fixed';
-        formData.append('split_mode', 'fixed');
-        formData.append('fixed_step', fixedStep.toString());
-        resultExt = 'zip';
-    } else if (mode === 'all') {
-        // Mode 3: All Pages (ZIP output)
-        backendMode = 'all';
-        formData.append('split_mode', 'all');
-        resultExt = 'zip';
+    const selectedPages = pagePreviews.filter((p) => p.selected).map((p) => p.pageNumber);
+    if (mode === 'selected' && selectedPages.length === 0) {
+      addToast('Pilih setidaknya satu halaman.', 'warning');
+      return;
     }
 
     setIsProcessing(true);
-    setProcessingMessage('Memproses di server...');
-    
+    const isClientSide = file.size <= CLIENT_PDF_MAX_SIZE_BYTES;
+
+    // 1. Eksekusi Pemisahan Instan di Browser (Client-Side WASM / In-Memory)
+    if (isClientSide) {
+      setProcessingMessage('Memisahkan di browser (Privasi 100% In-Memory)...');
+      try {
+        const buffer = await file.arrayBuffer();
+        const { blob, ext } = await executeClientSplit(
+          buffer,
+          mode,
+          rangeStart,
+          rangeEnd,
+          selectedPages,
+          fixedStep
+        );
+        setOutputUrl(URL.createObjectURL(blob));
+        setOutputFileType(ext);
+        consumeQuota();
+        addToast('Pemisahan PDF instan selesai di browser!', 'success');
+        setIsProcessing(false);
+        setProcessingMessage('');
+        return;
+      } catch (clientError: any) {
+        console.warn('Client-side split gagal, beralih ke backend fallback:', clientError);
+        setProcessingMessage('Beralih ke Server...');
+      }
+    } else {
+      setProcessingMessage('Memproses berkas besar di server...');
+    }
+
+    // 2. Fallback Otomatis ke Backend jika file besar (>50MB) atau terenkripsi
+    const formData = new FormData();
+    formData.append('file', file);
+    let resultExt: 'pdf' | 'zip' = 'pdf';
+
+    if (mode === 'range') {
+      formData.append('split_mode', 'extract');
+      formData.append('pages', `${rangeStart}-${rangeEnd}`);
+      resultExt = 'pdf';
+    } else if (mode === 'selected') {
+      formData.append('split_mode', 'extract');
+      formData.append('pages', selectedPages.join(','));
+      resultExt = 'pdf';
+    } else if (mode === 'fixed') {
+      formData.append('split_mode', 'fixed');
+      formData.append('fixed_step', fixedStep.toString());
+      resultExt = 'zip';
+    } else if (mode === 'all') {
+      formData.append('split_mode', 'all');
+      resultExt = 'zip';
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
 
@@ -170,24 +227,24 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
       const response = await fetch(`${BACKEND_URL}/tools/split-pdf`, {
         method: 'POST',
         body: formData,
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.detail || err.error || "Gagal memisahkan PDF.");
+        throw new Error(err.detail || err.error || 'Gagal memisahkan PDF.');
       }
 
       const blob = await response.blob();
       setOutputUrl(URL.createObjectURL(blob));
       setOutputFileType(resultExt);
-      consumeQuota(); // Pemotongan kuota tamu saat proses selesai
-      addToast('Pemisahan berhasil diselesaikan!', 'success');
+      consumeQuota();
+      addToast('Pemisahan berhasil diselesaikan di server!', 'success');
     } catch (error: any) {
       clearTimeout(timeoutId);
-      addToast(error.name === 'AbortError' ? "Waktu habis (5 menit)." : error.message, 'error');
+      addToast(error.name === 'AbortError' ? 'Waktu habis (5 menit).' : error.message, 'error');
     } finally {
       setIsProcessing(false);
       setProcessingMessage('');
@@ -358,14 +415,22 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
                     )}
                 </div>
 
-                <button onClick={handleProcess} disabled={isProcessing} className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                <button 
+                  type="button"
+                  onClick={handleProcess} 
+                  disabled={isProcessing} 
+                  className="w-full min-h-[48px] mt-6 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
+                >
                     {isProcessing ? (
                         <>
                             <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Memproses...
+                            <span>{processingMessage || 'Memproses...'}</span>
                         </>
                     ) : `Pisahkan PDF ${mode === 'fixed' || mode === 'all' ? '(ZIP)' : ''}`}
                 </button>
+                <p className="text-center text-[11px] text-slate-500 dark:text-slate-400 mt-2.5 font-medium tracking-tight">
+                  ⚡ Mode Klien: Berkas &lt;50 MB diproses instan 100% di memori peramban tanpa upload.
+                </p>
             </div>
           </div>
 

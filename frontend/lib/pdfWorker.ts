@@ -69,3 +69,86 @@ export async function getPdfPageCount(data: ArrayBuffer | Uint8Array): Promise<n
     return 1;
   }
 }
+
+// Batas ukuran berkas untuk pemrosesan murni di memori browser (50 MB)
+export const CLIENT_PDF_MAX_SIZE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Menggabungkan beberapa dokumen PDF murni di browser menggunakan pdf-lib.
+ * Zero server load, privasi 100%, latensi instan.
+ */
+export async function mergeDocuments(buffers: ArrayBuffer[]): Promise<Uint8Array> {
+  const { PDFDocument } = await import('pdf-lib');
+  const mergedPdf = await PDFDocument.create();
+
+  for (const buf of buffers) {
+    const srcDoc = await PDFDocument.load(buf.slice(0));
+    const pageIndices = srcDoc.getPageIndices();
+    const copiedPages = await mergedPdf.copyPages(srcDoc, pageIndices);
+    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  }
+
+  return await mergedPdf.save();
+}
+
+/**
+ * Mengekstrak nomor-nomor halaman tertentu ke dalam dokumen PDF tunggal baru.
+ * pageNumbers: array nomor halaman (1-based, misal [1, 2, 3] atau [1, 3, 5]).
+ */
+export async function extractPagesToPdf(
+  buffer: ArrayBuffer,
+  pageNumbers: number[]
+): Promise<Uint8Array> {
+  const { PDFDocument } = await import('pdf-lib');
+  const srcDoc = await PDFDocument.load(buffer.slice(0));
+  const newDoc = await PDFDocument.create();
+  const totalPages = srcDoc.getPageCount();
+
+  const validIndices = pageNumbers
+    .map((num) => num - 1)
+    .filter((idx) => idx >= 0 && idx < totalPages);
+
+  const copiedPages = await newDoc.copyPages(srcDoc, validIndices);
+  copiedPages.forEach((page) => newDoc.addPage(page));
+  return await newDoc.save();
+}
+
+/**
+ * Memecah dokumen PDF ke dalam kelompok halaman tetap (fixed step) atau per halaman tunggal.
+ */
+export async function splitDocumentToParts(
+  buffer: ArrayBuffer,
+  step: number
+): Promise<{ name: string; bytes: Uint8Array }[]> {
+  const { PDFDocument } = await import('pdf-lib');
+  const srcDoc = await PDFDocument.load(buffer.slice(0));
+  const totalPages = srcDoc.getPageCount();
+  const parts: { name: string; bytes: Uint8Array }[] = [];
+
+  for (let start = 0; start < totalPages; start += step) {
+    const end = Math.min(start + step, totalPages);
+    const chunkDoc = await PDFDocument.create();
+    const indices: number[] = [];
+    for (let i = start; i < end; i++) indices.push(i);
+
+    const copiedPages = await chunkDoc.copyPages(srcDoc, indices);
+    copiedPages.forEach((p) => chunkDoc.addPage(p));
+    const bytes = await chunkDoc.save();
+    const label = step === 1 ? `halaman_${start + 1}.pdf` : `halaman_${start + 1}-${end}.pdf`;
+    parts.push({ name: label, bytes });
+  }
+
+  return parts;
+}
+
+/**
+ * Mengompresi daftar berkas PDF ke dalam format berkas ZIP murni di browser.
+ */
+export async function bundlePdfsToZip(
+  files: { name: string; bytes: Uint8Array }[]
+): Promise<Blob> {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  files.forEach((f) => zip.file(f.name, f.bytes));
+  return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+}

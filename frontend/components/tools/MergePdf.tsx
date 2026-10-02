@@ -7,7 +7,7 @@ import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
-import { PDFDocument } from 'pdf-lib';
+import { mergeDocuments, CLIENT_PDF_MAX_SIZE_BYTES } from '../../lib/pdfWorker';
 
 import { BACKEND_URL } from '../../config';
 
@@ -35,6 +35,7 @@ interface FileDragInfo {
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [isMerging, setIsMerging] = useState(false);
+  const [mergeStatusText, setMergeStatusText] = useState<string>('');
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null); // Kept for "Tambah File" button logic
   const { addToast } = useToast();
@@ -176,59 +177,60 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     }
 
     setIsMerging(true);
+    const totalSize = files.reduce((acc, f) => acc + f.file.size, 0);
+    const isClientSide = totalSize <= CLIENT_PDF_MAX_SIZE_BYTES;
 
-    try {
-      // 1. Eksekusi Penggabungan Instan di Browser Menggunakan pdf-lib (Standar Modern iLovePDF / Smallpdf)
-      // Bebas latensi jaringan, 100% instan (<50ms), dan privasi berkas terjamin
-      const mergedPdf = await PDFDocument.create();
-
-      for (const item of files) {
-        // Muat dari arrayBuffer yang sudah tersimpan di state
-        const srcDoc = await PDFDocument.load(item.buffer.slice(0));
-        const pageIndices = srcDoc.getPageIndices();
-        const copiedPages = await mergedPdf.copyPages(srcDoc, pageIndices);
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
-      }
-
-      const mergedPdfBytes = await mergedPdf.save();
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-      setMergedPdfUrl(URL.createObjectURL(blob));
-      consumeQuota(); // Pemotongan kuota (di-bypass saat preview mode)
-      addToast('PDF berhasil digabungkan secara instan!', 'success');
-    } catch (clientError: any) {
-      console.warn("Client-side merge gagal, mencoba backend fallback:", clientError);
-
-      // 2. Fallback Otomatis ke Backend jika dokumen terenkripsi khusus
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-
+    // 1. Eksekusi Penggabungan Instan di Browser (Client-Side WASM / In-Memory)
+    if (isClientSide) {
+      setMergeStatusText('Menggabungkan di Browser (Privasi 100% In-Memory)...');
       try {
-        const formData = new FormData();
-        files.forEach(f => formData.append('files', f.file));
-
-        const response = await fetch(`${BACKEND_URL}/tools/merge-pdf`, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.detail || errData.error || "Gagal menggabungkan PDF.");
-        }
-
-        const blob = await response.blob();
+        const mergedPdfBytes = await mergeDocuments(files.map((item) => item.buffer));
+        const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
         setMergedPdfUrl(URL.createObjectURL(blob));
         consumeQuota();
-        addToast('PDF berhasil digabungkan!', 'success');
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        addToast(error.name === 'AbortError' ? "Waktu koneksi habis." : (clientError.message || error.message), 'error');
+        addToast('PDF berhasil digabungkan secara instan di browser!', 'success');
+        setIsMerging(false);
+        setMergeStatusText('');
+        return;
+      } catch (clientError: any) {
+        console.warn('Client-side merge gagal, mencoba backend fallback:', clientError);
+        setMergeStatusText('Beralih ke Server...');
       }
+    } else {
+      setMergeStatusText('Menggabungkan di Server (Berkas Besar >50MB)...');
+    }
+
+    // 2. Fallback Otomatis ke Backend jika file besar atau dokumen terenkripsi
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    try {
+      const formData = new FormData();
+      files.forEach((f) => formData.append('files', f.file));
+
+      const response = await fetch(`${BACKEND_URL}/tools/merge-pdf`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || 'Gagal menggabungkan PDF.');
+      }
+
+      const blob = await response.blob();
+      setMergedPdfUrl(URL.createObjectURL(blob));
+      consumeQuota();
+      addToast('PDF berhasil digabungkan di server!', 'success');
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      addToast(error.name === 'AbortError' ? 'Waktu koneksi habis.' : error.message, 'error');
     } finally {
       setIsMerging(false);
+      setMergeStatusText('');
     }
   };
 
@@ -364,15 +366,22 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
             )}
 
             <div className="mt-8">
-                <button onClick={handleMerge} disabled={isMerging || files.length < 2} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50">
+                <button 
+                  type="button"
+                  onClick={handleMerge} 
+                  disabled={isMerging || files.length < 2} 
+                  className="w-full min-h-[48px] bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed text-sm sm:text-base"
+                >
                 {isMerging ? (
                     <>
                       <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Sedang Menggabungkan PDF...
+                      <span>{mergeStatusText || 'Sedang Menggabungkan PDF...'}</span>
                     </>
                 ) : `Gabungkan ${files.length} PDF Sekarang`}
                 </button>
-                <p className="text-center text-[10px] text-gray-400 mt-2 uppercase tracking-tight">Diproses instan & aman langsung di browser</p>
+                <p className="text-center text-[11px] text-slate-500 dark:text-slate-400 mt-2.5 font-medium tracking-tight">
+                  ⚡ Mode Klien: Berkas &lt;50 MB diproses instan 100% di memori peramban tanpa upload.
+                </p>
             </div>
         </>
       )}
