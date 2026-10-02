@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { View } from '../../types';
 import { ChevronDown, HelpCircle, MessageSquare, Zap, Shield, Sparkles } from 'lucide-react';
@@ -40,6 +40,22 @@ const faqData = [
   { 
     q: 'Bisakah saya menggunakan PDF Toolbox Pro di HP Android atau iPhone?', 
     a: 'Tentu saja! Seluruh antarmuka PDF Toolbox Pro dirancang 100% responsif untuk semua ukuran layar, mulai dari smartphone Android, iPhone, iPad, tablet, hingga laptop dan PC desktop.' 
+  },
+  { 
+    q: 'Kapan waktu yang tepat untuk mengompres PDF: sebelum atau sesudah dibubuhi e-Meterai?', 
+    a: 'Sangat disarankan mengompres dokumen SEBELUM pembubuhan e-Meterai. Jika dokumen dikompres setelah memiliki e-meterai, proses optimasi biner dapat merusak segel digital kriptografi (X.509 Certificate) yang ditanamkan oleh Peruri, sehingga sistem verifikasi BKN/SSCASN mendeteksinya sebagai Tidak Memenuhi Syarat (TMS). Gunakan Preset Berkas Resmi di fitur Kompres PDF kami untuk memastikan ukuran dokumen berada di bawah 300–500 KB sebelum e-meterai dibubuhkan.' 
+  },
+  { 
+    q: 'Bagaimana aturan posisi penempatan e-Meterai yang benar pada surat pernyataan atau lamaran?', 
+    a: 'e-Meterai harus diletakkan BERDAMPINGAN di sebelah kiri tanda tangan pelamar (tidak boleh menimpa atau tertutup tanda tangan). Pastikan gambar meterai juga tidak menutupi teks dokumen, nama terang, atau tanggal surat. Urutan yang benar: tanda tangani dokumen terlebih dahulu di sisi kanan, baru kemudian bubuhkan e-meterai di sisi kirinya.' 
+  },
+  { 
+    q: 'Mengapa status e-Meterai menjadi "Tidak Terverifikasi" saat diunggah ke SSCASN?', 
+    a: 'Penyebab paling umum adalah dokumen dicetak (print) lalu dipindai ulang (scan) setelah dibubuhi e-meterai, atau dokumen diedit/digabungkan kembali setelah proses meterai selesai. Begitu e-meterai dibubuhkan secara digital, berkas PDF tersebut tersegel secara kriptografis. Pemindaian ulang atau pengubahan biner setelahnya akan menghapus tanda tangan digital Peruri.' 
+  },
+  { 
+    q: 'Apakah fitur Gabungkan PDF atau Edit PDF bisa dipakai pada berkas yang sudah ber-e-Meterai?', 
+    a: 'Tidak disarankan. Menggabungkan atau menyunting PDF yang sudah ber-e-meterai akan mereset struktur segel digital Peruri. Lakukan seluruh penggabungan berkas, pengeditan teks, dan kompresi ukuran terlebih dahulu, baru kemudian bubuhkan e-meterai sebagai langkah paling akhir sebelum diunggah ke portal resmi.' 
   },
 ];
 

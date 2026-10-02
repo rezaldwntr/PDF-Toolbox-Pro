@@ -33,6 +33,56 @@ interface BlogPost {
 
 const blogPosts: BlogPost[] = [
   {
+    id: 'panduan-resmi-emeterai-sscasn-peruri',
+    title: 'Panduan Lengkap e-Meterai SSCASN & Dokumen Resmi: Aturan Penempatan, Validasi, dan Alur Kerja Bebas TMS',
+    category: 'Regulasi & CASN/BKN',
+    summary: 'Pelajari aturan penempatan e-Meterai resmi Peruri agar tidak Tidak Memenuhi Syarat (TMS). Lengkap dengan urutan kompresi, format PDF 1.6, dan cara menghindari kerusakan segel digital.',
+    color: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
+    readTime: '5 min baca',
+    date: '02 Oktober 2026',
+    author: 'Tim Regulasi & Dokumen Digital PDF Toolbox',
+    paragraphs: [
+      {
+        heading: '1. Apa Itu e-Meterai Resmi & Mengapa Sistem SSCASN Sangat Ketat?',
+        text: 'e-Meterai (Meterai Elektronik) adalah meterai resmi yang diterbitkan oleh Perum Percetakan Uang Republik Indonesia (Peruri) berdasarkan Undang-Undang No. 10 Tahun 2020 tentang Bea Meterai. Berbeda dengan stempel gambar biasa, e-Meterai memuat elemen keamanan tingkat tinggi berupa Electronic Signature X.509 Certificate, barcode unik 22 digit alphanumeric, dan nomor seri terenkripsi 256-bit. Sistem verifikasi otomatis di portal SSCASN BKN dan instansi pemerintah akan membaca keabsahan sertifikat digital ini secara langsung. Jika dokumen mengalami kerusakan struktur biner, pelamar otomatis dinyatakan Tidak Memenuhi Syarat (TMS) pada seleksi administrasi.'
+      },
+      {
+        heading: '2. Aturan Emas Penempatan e-Meterai: Jangan Menumpuk Tanda Tangan!',
+        text: 'Kesalahan paling fatal yang sering menyebabkan dokumen gugur di seleksi administrasi adalah tumpang-tindih antara tanda tangan dan e-meterai. Ikuti kaidah penempatan resmi berikut:',
+        points: [
+          'Posisi Berdampingan: e-Meterai wajib diletakkan di sebelah kiri tanda tangan pelamar (posisi berdampingan sejajar, BUKAN menimpa tanda tangan).',
+          'Bebas Hambatan: Pastikan gambar meterai tidak menutupi nama terang, nomor NIK, klausul isi surat pernyataan, atau nomor surat.',
+          'Ukuran Proporsional: Gunakan rasio ukuran standar pembubuhan resmi (jangan memperbesar atau memipihkan meterai secara ekstrem).',
+          'Urutan Pembubuhan: Bubuhkan tanda tangan (basah yang di-scan atau digital) terlebih dahulu di kolom kanan -> kemudian bubuhkan e-meterai di sisi kiri.'
+        ]
+      },
+      {
+        heading: '3. Format Teknis PDF yang Diterima Sistem Peruri & BKN',
+        text: 'Situs resmi e-meterai Peruri dan verifikator SSCASN menetapkan persyaratan berkas digital yang sangat spesifik:',
+        points: [
+          'Standar PDF: Gunakan format PDF versi 1.6 atau PDF/A. Dokumen PDF versi lama sering kali gagal memuat metadata sertifikat Peruri.',
+          'Batas Ukuran: Portal SSCASN membatasi ukuran surat pernyataan dan lamaran maksimal 300 KB hingga 500 KB.',
+          'DILARANG KERAS Mencetak lalu Scan Ulang: Jangan pernah mencetak dokumen yang sudah dibubuhi e-meterai lalu men-scan-nya kembali. Tindakan ini akan menghapus segel digital kriptografi Peruri sehingga meterai dianggap palsu atau tidak terbaca sistem.'
+        ]
+      },
+      {
+        heading: '4. Alur Kerja (Workflow) Bebas Error dengan PDF Toolbox Pro',
+        text: 'Untuk menjamin dokumen Anda lolos verifikasi 100%, ikuti urutan alur kerja sistematis berikut:',
+        points: [
+          'Langkah 1 (Penyusunan & Tanda Tangan): Siapkan surat lamaran atau pernyataan 5 poin dalam bentuk PDF, lalu bubuhkan tanda tangan di sebelah kanan.',
+          'Langkah 2 (Kompresi Target Presisi): Sebelum membubuhkan e-meterai, buka fitur Kompres PDF di PDF Toolbox Pro, pilih preset resmi "Surat Lamaran (< 300 KB)". Ini memastikan ukuran berkas aman tanpa merusak dokumen setelahnya.',
+          'Langkah 3 (Pembubuhan e-Meterai): Unggah file yang sudah ramping ke portal resmi e-meterai (Peruri / distributor resmi) dan tempelkan di sisi kiri tanda tangan.',
+          'Langkah 4 (Validasi Mandiri): Buka file hasil pembubuhan e-meterai di PDF Reader resmi untuk memastikan notifikasi "Signature is Valid" muncul sebelum mengunggahnya ke sscasn.bkn.go.id.'
+        ]
+      }
+    ],
+    keyTakeaways: [
+      'e-Meterai wajib berada di sebelah kiri tanda tangan secara berdampingan (tidak boleh saling menimpa).',
+      'Lakukan kompresi berkas ke target < 300 KB SEBELUM membubuhkan e-meterai agar segel sertifikat digital tidak terganggu.',
+      'Dilarang mencetak dan men-scan ulang dokumen yang sudah memiliki e-meterai karena sertifikat digitalnya akan hilang.'
+    ]
+  },
+  {
     id: 'tips-gabung-lamaran-kerja',
     title: 'Tips & Strategi Menggabungkan Dokumen Lamaran Kerja Menjadi Satu PDF Rapi',
     category: 'Karir & Produktivitas',
