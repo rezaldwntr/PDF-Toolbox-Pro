@@ -259,6 +259,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           view: View.TRANSLATE_PDF,
           category: 'Keamanan & Lanjutan',
           keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
+        },
+        {
+          id: 'redact-pdf',
+          title: 'Sensor Data Sensitif',
+          description: 'Sensor permanen NIK, KK, NPWP, Rekening, HP, & Email sesuai UU PDP No. 27/2022.',
+          icon: <ShieldCheck size={22} />,
+          badge: 'UU PDP',
+          active: true,
+          view: View.REDACT_PDF,
+          category: 'Keamanan & Lanjutan',
+          keywords: ['redact', 'sensor', 'nik', 'ktp', 'uu pdp', 'pdp', 'npwp', 'rekening', 'privasi', 'rahasia', 'keamanan', 'pii']
         }
       ]
     }

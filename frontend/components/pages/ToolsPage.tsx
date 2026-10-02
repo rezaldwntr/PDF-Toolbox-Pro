@@ -20,7 +20,8 @@ import {
   Lock, 
   Unlock, 
   Landmark,
-  Languages 
+  Languages,
+  ShieldCheck 
 } from 'lucide-react';
 
 interface ToolsPageProps {
@@ -66,6 +67,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
         { title: "Proteksi PDF", description: "Kunci dokumen dengan kata sandi kuat.", icon: <Lock size={22} />, active: true, view: View.PROTECT_PDF },
         { title: "Buka Kunci", description: "Buka sandi perlindungan PDF milik Anda.", icon: <Unlock size={22} />, active: true, view: View.UNLOCK_PDF },
         { title: "Terjemahkan PDF", description: "Terjemahkan PDF ke 30+ bahasa dengan AI.", icon: <Languages size={22} />, active: true, view: View.TRANSLATE_PDF },
+        { title: "Sensor Data Sensitif", description: "Sensor permanen NIK, NPWP, No Rekening, HP, & Email sesuai UU PDP.", icon: <ShieldCheck size={22} />, active: true, view: View.REDACT_PDF },
       ]
     }
   ];
