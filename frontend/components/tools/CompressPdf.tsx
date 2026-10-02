@@ -5,6 +5,11 @@ import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
 import PdfPreview from './PdfPreview';
+import { 
+  OFFICIAL_PRESET_CATEGORIES, 
+  OfficialPreset, 
+  getOfficialPresetById 
+} from '../../lib/officialPresets';
 
 declare const pdfjsLib: any;
 
@@ -18,11 +23,26 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [pageCount, setPageCount] = useState<number>(0);
   const [compressionType, setCompressionType] = useState<CompressionOption>('recommended');
   const [targetSizeKb, setTargetSizeKb] = useState<number>(500);
+  const [selectedPresetCategory, setSelectedPresetCategory] = useState<'cpns' | 'akademik' | 'umum'>('cpns');
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
   const { addToast } = useToast();
   const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+
+  const activePreset = activePresetId ? getOfficialPresetById(activePresetId) : null;
+
+  const handleSelectOfficialPreset = (preset: OfficialPreset) => {
+    setActivePresetId(preset.id);
+    setCompressionType('target');
+    setTargetSizeKb(preset.targetKb);
+    addToast(`Preset resmi "${preset.name}" (${preset.badge}) diaktifkan.`, 'info');
+  };
+
+  const handleClearPreset = () => {
+    setActivePresetId(null);
+  };
 
   const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
@@ -30,6 +50,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setFile(selectedFile);
       setResultUrl(null);
       setResultSize(null);
+      setActivePresetId(null);
 
       // Otomatis atur estimasi target ke 50% ukuran berkas jika masuk mode target
       const fileKb = Math.round(selectedFile.size / 1024);
@@ -191,7 +212,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {/* Card Pratinjau Visual Dokumen Asli */}
           <div className="w-full max-w-md mx-auto bg-white dark:bg-[#1E222B] p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative group hover:shadow-md transition-all">
             <button 
-              onClick={() => { setFile(null); setFileBuffer(null); setPageCount(0); }} 
+              onClick={() => { setFile(null); setFileBuffer(null); setPageCount(0); setActivePresetId(null); }} 
               className="absolute top-2.5 right-2.5 p-1.5 text-rose-500 bg-white/90 dark:bg-slate-800/90 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-full shadow-md z-10 transition-transform active:scale-90 border border-slate-200 dark:border-slate-700"
               title="Hapus dan pilih file lain"
             >
@@ -215,6 +236,137 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </p>
             </div>
           </div>
+
+          {/* Preset Berkas Resmi Indonesia (SSCASN, Akademik & Umum) */}
+          <div className="bg-white dark:bg-[#1E222B] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-base select-none">🇮🇩</span>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                    Preset Berkas Resmi Indonesia
+                  </h3>
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                    Akurat & Teruji
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Pilih standar dokumen instansi untuk mengatur batas kilobita (KB) secara otomatis.
+                </p>
+              </div>
+
+              {activePreset && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Aktif: {activePreset.name} ({activePreset.badge})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearPreset}
+                    className="text-xs text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 font-medium underline transition-colors"
+                  >
+                    Atur Ulang
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Kategori Tab Pemilihan */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {OFFICIAL_PRESET_CATEGORIES.map((cat) => {
+                const isActive = selectedPresetCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedPresetCategory(cat.id)}
+                    className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 whitespace-nowrap cursor-pointer border ${
+                      isActive
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
+                        : 'bg-slate-100/80 hover:bg-slate-200/70 dark:bg-slate-800/70 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <span>{cat.icon}</span>
+                    <span>{cat.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {cat.presets.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Keterangan Sumber Resmi Kategori */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1">
+              <span>
+                📋 Rujukan:{' '}
+                {
+                  OFFICIAL_PRESET_CATEGORIES.find((c) => c.id === selectedPresetCategory)
+                    ?.source
+                }
+              </span>
+              <span className="hidden sm:inline">Klik kartu untuk mengunci target KB</span>
+            </div>
+
+            {/* Kartu Grid Preset */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {OFFICIAL_PRESET_CATEGORIES.find(
+                (c) => c.id === selectedPresetCategory
+              )?.presets.map((preset) => {
+                const isSelected = activePresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectOfficialPreset(preset)}
+                    className={`min-h-[58px] p-3 rounded-xl border text-left transition-all duration-200 relative flex flex-col justify-between group cursor-pointer ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 shadow-xs ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 text-slate-800 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-white dark:hover:bg-slate-850'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="font-bold text-xs leading-snug line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {preset.name}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md shrink-0 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                        }`}
+                      >
+                        {preset.badge}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="truncate pr-2">{preset.desc}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
+                        {preset.sourceNote}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Banner Informasi Jika Berkas Sudah Lebih Kecil Dari Target Preset */}
+            {activePreset && file && (file.size / 1024) <= activePreset.targetKb && (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs animate-fade-in">
+                <span className="text-sm select-none">💡</span>
+                <p className="leading-relaxed">
+                  Berkas Anda (<strong>{(file.size / 1024).toFixed(1)} KB</strong>) saat ini sudah berada di bawah batas maksimal <strong>{activePreset.name}</strong> ({activePreset.badge}). Kompresi tetap dapat dijalankan untuk menormalkan metadata dan optimasi gambar.
+                </p>
+              </div>
+            )}
+          </div>
           
           {/* Pilihan 4 Mode Kompresi */}
           <div>
@@ -225,7 +377,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {/* 1. Kompres Tinggi */}
               <button 
                 type="button"
-                onClick={() => setCompressionType('extreme')} 
+                onClick={() => { setCompressionType('extreme'); setActivePresetId(null); }} 
                 className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${
                   compressionType === 'extreme' 
                     ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 shadow-sm ring-2 ring-blue-500/20' 
@@ -249,7 +401,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {/* 2. Rekomendasi (Default) */}
               <button 
                 type="button"
-                onClick={() => setCompressionType('recommended')} 
+                onClick={() => { setCompressionType('recommended'); setActivePresetId(null); }} 
                 className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${
                   compressionType === 'recommended' 
                     ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 shadow-sm ring-2 ring-blue-500/20' 
@@ -273,7 +425,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {/* 3. Kompres Rendah */}
               <button 
                 type="button"
-                onClick={() => setCompressionType('low')} 
+                onClick={() => { setCompressionType('low'); setActivePresetId(null); }} 
                 className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${
                   compressionType === 'low' 
                     ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200 shadow-sm ring-2 ring-blue-500/20' 
@@ -313,7 +465,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </div>
                   <h4 className="font-bold text-sm text-slate-900 dark:text-white">Ukuran Target</h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Tentukan batas ukuran berkas yang Anda inginkan secara spesifik dalam KB.
+                    {activePreset ? `Terkunci: ${activePreset.name} (${activePreset.badge})` : 'Tentukan batas ukuran berkas yang Anda inginkan secara spesifik dalam KB.'}
                   </p>
                 </div>
               </button>
@@ -331,13 +483,36 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   Ukuran saat ini: {(file.size / 1024).toFixed(1)} KB
                 </span>
               </div>
+
+              {activePreset && (
+                <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border border-blue-200/60 dark:border-blue-900/60">
+                  <span className="font-medium flex items-center gap-1.5">
+                    <span>🎯</span>
+                    <span>Preset aktif: <strong>{activePreset.name}</strong> ({activePreset.sourceNote})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearPreset}
+                    className="text-[11px] underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-semibold cursor-pointer"
+                  >
+                    Beralih ke Manual
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 <input 
                   type="number" 
                   min="30"
                   max={Math.max(100, Math.round(file.size / 1024))}
                   value={targetSizeKb} 
-                  onChange={(e) => setTargetSizeKb(Math.max(1, Number(e.target.value)))} 
+                  onChange={(e) => {
+                    const val = Math.max(1, Number(e.target.value));
+                    setTargetSizeKb(val);
+                    if (activePreset && activePreset.targetKb !== val) {
+                      setActivePresetId(null);
+                    }
+                  }} 
                   className="flex-1 p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
                   placeholder="Misal: 500"
                 />
@@ -351,7 +526,12 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <button
                     key={preset}
                     type="button"
-                    onClick={() => setTargetSizeKb(preset)}
+                    onClick={() => {
+                      setTargetSizeKb(preset);
+                      if (activePreset && activePreset.targetKb !== preset) {
+                        setActivePresetId(null);
+                      }
+                    }}
                     className={`text-xs px-3 py-1 rounded-lg border font-medium transition-all ${
                       targetSizeKb === preset
                         ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
