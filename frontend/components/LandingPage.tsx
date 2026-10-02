@@ -22,6 +22,7 @@ import {
   Unlock, 
   Languages, 
   Search,
+  Landmark,
   Sparkles,
   ShieldCheck,
   Clock,
@@ -103,6 +104,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
           view: View.PDF_TO_EXCEL,
           category: 'Konversi PDF',
           keywords: ['excel', 'xlsx', 'xls', 'spreadsheet', 'tabel', 'angka']
+        },
+        {
+          id: 'bank-statement',
+          title: 'Rekening Koran ke Excel',
+          description: 'Ekstrak mutasi PDF bank BCA, Mandiri, BRI, BNI, BSI & BPD ke XLSX otomatis.',
+          icon: <Landmark size={22} />,
+          badge: 'BARU',
+          active: true,
+          view: View.BANK_STATEMENT,
+          category: 'Konversi PDF',
+          keywords: ['bank', 'rekening koran', 'mutasi', 'bca', 'mandiri', 'bri', 'bni', 'bsi', 'kalsel', 'bpd', 'excel', 'gaji', 'asn']
         },
         {
           id: 'pdf-to-ppt',

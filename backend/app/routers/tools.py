@@ -8,7 +8,7 @@ Modularized according to Ponytail Master Rules into:
 - tools_helpers.py   : Pure procedural helper utilities
 """
 from fastapi import APIRouter
-from app.routers import tools_core, tools_security, tools_advanced
+from app.routers import tools_core, tools_security, tools_advanced, tools_finance
 from app.routers.tools_core import SplitType, CompressionType
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/tools", tags=["Tools"])
 router.include_router(tools_core.router)
 router.include_router(tools_security.router)
 router.include_router(tools_advanced.router)
+router.include_router(tools_finance.router)
 
 from app.routers.tools_helpers import (
     translate_text_chunk,

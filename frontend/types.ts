@@ -23,6 +23,7 @@ export enum View {
   EDIT_PDF,
   OCR_PDF,
   TRANSLATE_PDF,
+  BANK_STATEMENT,
   
   BLOG,
   FAQ,

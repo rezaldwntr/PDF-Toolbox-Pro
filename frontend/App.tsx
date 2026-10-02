@@ -27,6 +27,7 @@ const PdfToPdfa = React.lazy(() => import('./components/tools/PdfToPdfa'));
 const EditPdf = React.lazy(() => import('./components/tools/EditPdf'));
 const OcrPdf = React.lazy(() => import('./components/tools/OcrPdf'));
 const TranslatePdf = React.lazy(() => import('./components/tools/TranslatePdf'));
+const BankStatementPdf = React.lazy(() => import('./components/tools/BankStatementPdf'));
 
 // Lazy-loaded Admin Dashboard (~1,800+ lines isolated from regular users)
 const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard'));
@@ -73,6 +74,7 @@ const VIEW_TO_TOOL_NAME: Partial<Record<View, string>> = {
   [View.EDIT_PDF]: 'Edit PDF',
   [View.OCR_PDF]: 'OCR PDF',
   [View.TRANSLATE_PDF]: 'Translate PDF',
+  [View.BANK_STATEMENT]: 'Bank Statement Parser',
 };
 
 // Fallback spinner saat modul perkakas atau halaman sedang diunduh secara asinkron
@@ -195,6 +197,8 @@ function AppContent() {
         return <OcrPdf onBack={handleBackToHome} />;
       case View.TRANSLATE_PDF:
         return <TranslatePdf onBack={handleBackToHome} />;
+      case View.BANK_STATEMENT:
+        return <BankStatementPdf onBack={handleBackToHome} />;
 
       // Informational Pages
       case View.ABOUT:

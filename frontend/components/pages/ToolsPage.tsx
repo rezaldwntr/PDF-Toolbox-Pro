@@ -19,6 +19,7 @@ import {
   Eye, 
   Lock, 
   Unlock, 
+  Landmark,
   Languages 
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
       title: "2. Konversi PDF",
       tools: [
         { title: "PDF ke Excel", description: "Ekstrak tabel PDF ke spreadsheet Excel.", icon: <FileSpreadsheet size={22} />, active: true, view: View.PDF_TO_EXCEL },
+        { title: "Rekening Koran ke Excel", description: "Ekstrak mutasi PDF bank BCA, Mandiri, BRI, BNI, BSI, BPD ke XLSX.", icon: <Landmark size={22} />, active: true, view: View.BANK_STATEMENT },
         { title: "PDF ke PPT", description: "Ubah slide PDF menjadi presentasi PowerPoint.", icon: <Presentation size={22} />, active: true, view: View.PDF_TO_PPT },
         { title: "PDF ke Gambar (JPG)", description: "Simpan halaman PDF sebagai gambar tajam.", icon: <Image size={22} />, active: true, view: View.PDF_TO_IMAGE },
         { title: "PDF/A", description: "Format arsip jangka panjang berstandar ISO.", icon: <FileCheck size={22} />, active: true, view: View.PDF_A },
