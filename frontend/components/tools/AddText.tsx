@@ -1,28 +1,34 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import ProcessingStepper from '../common/ProcessingStepper';
+import DownloadResultCard from '../common/DownloadResultCard';
+import { PDFDocument } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import {
   Type,
-  Plus,
   Trash2,
   Copy,
   ChevronLeft,
   ChevronRight,
   ZoomIn,
   ZoomOut,
-  Download,
   RotateCcw,
-  CheckCircle2,
-  FileText
 } from 'lucide-react';
-import { TextPropertiesPanel, TextBox, FontFamily, TextAlignment } from './text/TextPropertiesPanel';
-
-// Global declaration for pdfjsLib from CDN
-declare const pdfjsLib: any;
+import {
+  TextPropertiesPanel,
+  TextBox,
+  FontFamily,
+  TextAlignment,
+} from './text/TextPropertiesPanel';
+import {
+  getCssFontFamily,
+  renderTextBoxesToPdf,
+} from './text/PdfFontEmbedder';
+import { triggerFileDownload } from '../../lib/download';
+import { formatFileSize } from '../../lib/formatters';
+import { ensurePdfjsReady } from '../../lib/pdfWorker';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -37,132 +43,47 @@ interface PagePreview {
 
 export type { TextBox, FontFamily, TextAlignment };
 
-// Konfigurasi URL font kustom (TTF) yang bersumber dari Fontsource / jsDelivr
-const CUSTOM_FONTS: Record<string, {
-  regular: string;
-  bold?: string;
-  italic?: string;
-  fallbackFamily: 'Helvetica' | 'Times Roman' | 'Courier';
-}> = {
-  Calibri: {
-    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-400-normal.ttf',
-    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-700-normal.ttf',
-    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/carlito@latest/latin-400-italic.ttf',
-    fallbackFamily: 'Helvetica',
-  },
-  Roboto: {
-    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-normal.ttf',
-    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf',
-    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-italic.ttf',
-    fallbackFamily: 'Helvetica',
-  },
-  Garamond: {
-    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-400-normal.ttf',
-    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-700-normal.ttf',
-    italic: 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-400-italic.ttf',
-    fallbackFamily: 'Times Roman',
-  },
-  Caveat: {
-    regular: 'https://cdn.jsdelivr.net/fontsource/fonts/caveat@latest/latin-400-normal.ttf',
-    bold: 'https://cdn.jsdelivr.net/fontsource/fonts/caveat@latest/latin-700-normal.ttf',
-    fallbackFamily: 'Helvetica',
-  },
-};
-
-// Cache font bytes in-memory agar unduhan font hanya dilakukan sekali
-const fontBytesCache = new Map<string, ArrayBuffer>();
-
-const fetchFontBytes = async (url: string): Promise<ArrayBuffer> => {
-  if (fontBytesCache.has(url)) {
-    return fontBytesCache.get(url)!;
-  }
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Gagal mengunduh font: ${url} (status: ${response.status})`);
-  }
-  const buffer = await response.arrayBuffer();
-  fontBytesCache.set(url, buffer);
-  return buffer;
-};
-
-// Pemetaan CSS font-family untuk kanvas pratinjau browser
-export const getCssFontFamily = (family: FontFamily): string => {
-  switch (family) {
-    case 'Calibri':
-      return '"Carlito", Calibri, "Segoe UI", sans-serif';
-    case 'Roboto':
-      return 'Roboto, -apple-system, BlinkMacSystemFont, sans-serif';
-    case 'Times Roman':
-      return '"Times New Roman", Times, serif';
-    case 'Garamond':
-      return '"EB Garamond", Garamond, Georgia, serif';
-    case 'Courier':
-      return '"Courier New", Courier, monospace';
-    case 'Caveat':
-      return '"Caveat", cursive, sans-serif';
-    case 'Helvetica':
-    default:
-      return 'Helvetica, Arial, sans-serif';
-  }
-};
-
-// Sanitasi teks untuk mencegah crash WinAnsi encoding pada standard fonts PDF
-const sanitizeTextForPdf = (input: string, isStandardFont: boolean = true): string => {
-  if (!input) return '';
-  const normalized = input
-    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
-    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
-    .replace(/[\u2013\u2014\u2015]/g, '-')
-    .replace(/[\u2022\u2023\u25E6\u2043]/g, '*')
-    .replace(/[\u2026]/g, '...')
-    .replace(/[\u00A0\u202F\u2007]/g, ' ');
-  if (isStandardFont) {
-    return normalized.replace(/[^\x20-\x7E\xA0-\xFF\n\r]/g, '');
-  }
-  return normalized;
-};
-
 const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState('');
+  const [processingStep, setProcessingStep] = useState(1);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  
+  const [outputSize, setOutputSize] = useState<number | null>(null);
+
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
   const [editingBoxId, setEditingBoxId] = useState<string | null>(null);
   const [activePageIndex, setActivePageIndex] = useState(0);
-  const [zoom, setZoom] = useState(1.0);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const pageContainerRef = useRef<HTMLDivElement>(null);
-  const { addToast } = useToast();
-  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+  const [zoom, setZoom] = useState(0.85);
 
+  const { addToast } = useToast();
+  const { consumeQuota, checkQuotaBeforeAction } = useQuota();
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
-    if (pageContainerRef.current) {
-      const activeEl = pageContainerRef.current.querySelector(`[data-page-index="${activePageIndex}"]`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && fileWithBuffer && textBoxes.length > 0 && !isProcessing && !outputUrl) {
+        e.preventDefault();
+        handleSave();
       }
-    }
-  }, [activePageIndex]);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fileWithBuffer, textBoxes, isProcessing, outputUrl]);
 
   const resetState = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
     setFileWithBuffer(null);
     setPagePreviews([]);
     setIsProcessing(false);
-    setProcessingMessage('');
     setTextBoxes([]);
     setSelectedBoxId(null);
     setEditingBoxId(null);
     setActivePageIndex(0);
-    setZoom(1.0);
-    if (outputUrl) URL.revokeObjectURL(outputUrl);
+    setZoom(0.85);
     setOutputUrl(null);
+    setOutputSize(null);
   }, [outputUrl]);
 
   const handleFileChange = async (files: FileList | null) => {
@@ -170,18 +91,18 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Membaca file dan merender pratinjau...');
+    setProcessingStep(1);
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
 
-      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
-      
+      const pdfjs = await ensurePdfjsReady();
+      const pdfDoc = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
       const previews: PagePreview[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 }); // Higher scale for better quality editing
+        const viewport = page.getViewport({ scale: 1.2 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -189,31 +110,27 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         previews.push({
           url: canvas.toDataURL('image/png'),
           width: viewport.width,
-          height: viewport.height
+          height: viewport.height,
         });
       }
       setPagePreviews(previews);
       setActivePageIndex(0);
-    } catch (error) {
-      console.error("Gagal memuat PDF:", error);
-      addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
+    } catch {
+      addToast('Gagal memuat file PDF. Pastikan file tidak rusak.', 'error');
       resetState();
     } finally {
       setIsProcessing(false);
-      setProcessingMessage('');
     }
   };
 
-  // Menambah kotak teks baru
   const addTextBox = (targetPage?: number, customX?: number, customY?: number) => {
     if (pagePreviews.length === 0) return;
     const pageIdx = targetPage !== undefined ? targetPage : activePageIndex;
     const page = pagePreviews[pageIdx];
     const newId = `box-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-    // Default di tengah halaman atau pada koordinat klik
-    const posX = customX !== undefined ? Math.max(10, Math.min(customX, page.width - 150)) : (page.width / 2) - 75;
-    const posY = customY !== undefined ? Math.max(10, Math.min(customY, page.height - 50)) : (page.height / 3);
+    const posX = customX !== undefined ? Math.max(10, Math.min(customX, page.width - 150)) : page.width / 2 - 75;
+    const posY = customY !== undefined ? Math.max(10, Math.min(customY, page.height - 50)) : page.height / 3;
 
     const newBox: TextBox = {
       id: newId,
@@ -231,49 +148,42 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       backgroundColor: undefined,
     };
 
-    setTextBoxes(prev => [...prev, newBox]);
+    setTextBoxes((prev) => [...prev, newBox]);
     setSelectedBoxId(newId);
     setEditingBoxId(newId);
   };
 
   const updateTextBox = (id: string, updates: Partial<TextBox>) => {
-    setTextBoxes(prev => prev.map(box => box.id === id ? { ...box, ...updates } : box));
+    setTextBoxes((prev) => prev.map((box) => (box.id === id ? { ...box, ...updates } : box)));
   };
 
   const duplicateTextBox = (id: string) => {
-    const box = textBoxes.find(b => b.id === id);
+    const box = textBoxes.find((b) => b.id === id);
     if (!box) return;
     const newId = `box-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const newBox: TextBox = {
-      ...box,
-      id: newId,
-      x: box.x + 20,
-      y: box.y + 20,
-    };
-    setTextBoxes(prev => [...prev, newBox]);
+    const newBox: TextBox = { ...box, id: newId, x: box.x + 20, y: box.y + 20 };
+    setTextBoxes((prev) => [...prev, newBox]);
     setSelectedBoxId(newId);
-    addToast('Teks berhasil diduplikasi', 'info');
   };
 
   const deleteTextBox = (id: string) => {
-    setTextBoxes(prev => prev.filter(box => box.id !== id));
+    setTextBoxes((prev) => prev.filter((box) => box.id !== id));
     if (selectedBoxId === id) setSelectedBoxId(null);
     if (editingBoxId === id) setEditingBoxId(null);
   };
 
-  // Interaksi Drag Kotak Teks
   const handleBoxPointerDown = (e: React.PointerEvent, id: string) => {
-    if (editingBoxId === id) return; // Izinkan seleksi teks saat sedang mengedit inline
+    if (editingBoxId === id) return;
     e.preventDefault();
     e.stopPropagation();
     setSelectedBoxId(id);
-    
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    const offsetX = (e.clientX - rect.left) / zoom;
-    const offsetY = (e.clientY - rect.top) / zoom;
-    
-    setDragState({ id, offsetX, offsetY });
+    setDragState({
+      id,
+      offsetX: (e.clientX - rect.left) / zoom,
+      offsetY: (e.clientY - rect.top) / zoom,
+    });
   };
 
   useEffect(() => {
@@ -281,525 +191,306 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const handlePointerMove = (e: PointerEvent) => {
       e.preventDefault();
-      
-      setTextBoxes(prev => prev.map(box => {
-        if (box.id === dragState.id) {
-          const pageEl = document.querySelector(`[data-page-index="${box.pageIndex}"]`) as HTMLElement;
-          if (!pageEl) return box;
-          const pageRect = pageEl.getBoundingClientRect();
-          const preview = pagePreviews[box.pageIndex];
-          
-          let newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
-          let newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
+      setTextBoxes((prev) =>
+        prev.map((box) => {
+          if (box.id === dragState.id) {
+            const pageEl = document.querySelector(`[data-page-index="${box.pageIndex}"]`) as HTMLElement;
+            if (!pageEl) return box;
+            const pageRect = pageEl.getBoundingClientRect();
+            const preview = pagePreviews[box.pageIndex];
 
-          // Batasi agar tidak keluar halaman
-          newX = Math.max(0, Math.min(newX, preview.width - 40));
-          newY = Math.max(0, Math.min(newY, preview.height - 20));
+            let newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
+            let newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
 
-          return { ...box, x: Math.round(newX), y: Math.round(newY) };
-        }
-        return box;
-      }));
+            newX = Math.max(0, Math.min(newX, preview.width - 40));
+            newY = Math.max(0, Math.min(newY, preview.height - 20));
+
+            return { ...box, x: Math.round(newX), y: Math.round(newY) };
+          }
+          return box;
+        })
+      );
     };
 
-    const handlePointerUp = () => {
-      setDragState(null);
-    };
-
+    const handlePointerUp = () => setDragState(null);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [dragState, zoom, pagePreviews]);
 
-  // Click-to-place: klik pada halaman untuk menambahkan teks langsung
-  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageIndex: number) => {
-    if ((e.target as HTMLElement).closest('[data-textbox]')) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = (e.clientX - rect.left) / zoom;
-    const clickY = (e.clientY - rect.top) / zoom;
-
-    setActivePageIndex(pageIndex);
-    addTextBox(pageIndex, clickX, clickY);
-  };
-
-
-  // Menyimpan PDF Akhir dengan Penataan Vektor Presisi
   const handleSave = async () => {
-    if (!fileWithBuffer || textBoxes.length === 0) {
+    if (!fileWithBuffer || textBoxes.length === 0 || !checkQuotaBeforeAction()) {
       addToast('Tambahkan setidaknya satu teks sebelum menyimpan.', 'warning');
       return;
     }
 
-    if (!checkQuotaBeforeAction()) {
-      return;
-    }
-
     setIsProcessing(true);
-    setProcessingMessage('Menyimpan teks ke dalam PDF...');
+    setProcessingStep(1);
 
     try {
+      setProcessingStep(2);
       const pdfDoc = await PDFDocument.load(fileWithBuffer.buffer.slice(0));
+      await renderTextBoxesToPdf(pdfDoc, textBoxes, pagePreviews);
 
-      // 1. Inisialisasi fontkit jika tersedia di window
-      const fontkitLib = (window as any).fontkit;
-      if (fontkitLib && typeof pdfDoc.registerFontkit === 'function') {
-        try {
-          pdfDoc.registerFontkit(fontkitLib);
-        } catch (e) {
-          console.warn('Fontkit registration warning:', e);
-        }
-      }
-
-      // 2. Embed Matrix Font Standar (12 varian lengkap)
-      const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-      const helveticaBoldOblique = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
-
-      const times = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-      const timesBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-      const timesItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
-      const timesBoldItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic);
-
-      const courier = await pdfDoc.embedFont(StandardFonts.Courier);
-      const courierBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
-      const courierOblique = await pdfDoc.embedFont(StandardFonts.CourierOblique);
-      const courierBoldOblique = await pdfDoc.embedFont(StandardFonts.CourierBoldOblique);
-
-      const selectStandardFont = (family: 'Helvetica' | 'Times Roman' | 'Courier', isBold: boolean, isItalic: boolean) => {
-        if (family === 'Times Roman') {
-          if (isBold && isItalic) return timesBoldItalic;
-          if (isBold) return timesBold;
-          if (isItalic) return timesItalic;
-          return times;
-        }
-        if (family === 'Courier') {
-          if (isBold && isItalic) return courierBoldOblique;
-          if (isBold) return courierBold;
-          if (isItalic) return courierOblique;
-          return courier;
-        }
-        if (isBold && isItalic) return helveticaBoldOblique;
-        if (isBold) return helveticaBold;
-        if (isItalic) return helveticaOblique;
-        return helvetica;
-      };
-
-      // 3. Dynamic Font Resolver (Custom TTF Embed + Graceful Fallback)
-      const embeddedCustomFonts = new Map<string, any>();
-
-      const resolveFont = async (family: FontFamily, isBold: boolean, isItalic: boolean) => {
-        const customDef = CUSTOM_FONTS[family];
-        if (customDef && fontkitLib) {
-          let url = customDef.regular;
-          if (isBold && customDef.bold) {
-            url = customDef.bold;
-          } else if (isItalic && customDef.italic) {
-            url = customDef.italic;
-          }
-
-          if (embeddedCustomFonts.has(url)) {
-            return embeddedCustomFonts.get(url);
-          }
-
-          try {
-            setProcessingMessage(`Memuat font ${family}...`);
-            const bytes = await fetchFontBytes(url);
-            const embedded = await pdfDoc.embedFont(bytes);
-            embeddedCustomFonts.set(url, embedded);
-            return embedded;
-          } catch (err) {
-            console.warn(`Fallback font ${family} (${url}) ke standar:`, err);
-            return selectStandardFont(customDef.fallbackFamily, isBold, isItalic);
-          }
-        }
-
-        if (family === 'Times Roman') return selectStandardFont('Times Roman', isBold, isItalic);
-        if (family === 'Courier') return selectStandardFont('Courier', isBold, isItalic);
-        return selectStandardFont('Helvetica', isBold, isItalic);
-      };
-
-      const pages = pdfDoc.getPages();
-
-      for (const box of textBoxes) {
-        if (box.pageIndex >= pages.length) continue;
-        const page = pages[box.pageIndex];
-        const preview = pagePreviews[box.pageIndex];
-        if (!preview) continue;
-
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        const scaleX = pageWidth / preview.width;
-        const scaleY = pageHeight / preview.height;
-
-        const font = await resolveFont(box.fontFamily, box.isBold, box.isItalic);
-        const pdfFontSize = box.fontSize * scaleY;
-        const lineHeight = pdfFontSize * 1.25;
-
-        // Sanitasi teks (hanya karakter standard font yang di-filter ketat)
-        const isStandard = box.fontFamily === 'Helvetica' || box.fontFamily === 'Times Roman' || box.fontFamily === 'Courier';
-        const cleanText = sanitizeTextForPdf(box.text, isStandard);
-        const lines = cleanText.split('\n');
-
-        // Hitung lebar baris terpanjang untuk alignment dan background
-        let maxLineWidth = 0;
-        const lineWidths = lines.map(line => {
-          const w = font.widthOfTextAtSize(line || ' ', pdfFontSize);
-          if (w > maxLineWidth) maxLineWidth = w;
-          return w;
-        });
-
-        const totalTextHeight = lines.length * lineHeight;
-        const textOpacity = Math.max(0.1, Math.min(box.opacity ?? 1.0, 1.0));
-
-        // Gambar Latar Belakang jika diaktifkan
-        if (box.backgroundColor) {
-          const bgR = parseInt(box.backgroundColor.slice(1, 3), 16) / 255;
-          const bgG = parseInt(box.backgroundColor.slice(3, 5), 16) / 255;
-          const bgB = parseInt(box.backgroundColor.slice(5, 7), 16) / 255;
-
-          page.drawRectangle({
-            x: (box.x * scaleX) - 4,
-            y: pageHeight - (box.y * scaleY) - totalTextHeight + (pdfFontSize * 0.2),
-            width: maxLineWidth + 8,
-            height: totalTextHeight + 4,
-            color: rgb(bgR, bgG, bgB),
-            opacity: textOpacity * 0.9,
-          });
-        }
-
-        // Parse Warna Teks
-        const r = parseInt(box.color.slice(1, 3), 16) / 255;
-        const g = parseInt(box.color.slice(3, 5), 16) / 255;
-        const b = parseInt(box.color.slice(5, 7), 16) / 255;
-
-        // Gambar tiap baris teks dengan kalkulasi perataan (*Text Alignment*)
-        lines.forEach((line, lineIdx) => {
-          const lineWidth = lineWidths[lineIdx];
-          let alignOffsetX = 0;
-          if (box.align === 'center') {
-            alignOffsetX = (maxLineWidth - lineWidth) / 2;
-          } else if (box.align === 'right') {
-            alignOffsetX = maxLineWidth - lineWidth;
-          }
-
-          const lineX = (box.x * scaleX) + alignOffsetX;
-          const lineY = pageHeight - (box.y * scaleY) - (lineIdx + 0.8) * lineHeight;
-
-          page.drawText(line, {
-            x: lineX,
-            y: lineY,
-            size: pdfFontSize,
-            font: font,
-            color: rgb(r, g, b),
-            opacity: textOpacity,
-          });
-        });
-      }
-
+      setProcessingStep(3);
       const finalPdfBytes = await pdfDoc.save();
       const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+      setOutputSize(blob.size);
       setOutputUrl(URL.createObjectURL(blob));
       consumeQuota();
-      addToast('PDF berhasil diperbarui dan disimpan!', 'success');
-
-    } catch (error) {
-      console.error("Gagal menyimpan PDF:", error);
-      addToast("Terjadi kesalahan saat menyimpan teks ke PDF.", 'error');
+      addToast('PDF berhasil diperbarui dengan teks baru!', 'success');
+    } catch {
+      addToast('Gagal menyematkan teks ke berkas PDF.', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const selectedBox = textBoxes.find(b => b.id === selectedBoxId);
-
-  const renderContent = () => {
-    // 1. Success State
-    if (outputUrl) {
-      return (
-        <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6 animate-fade-in py-12">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Teks Berhasil Ditambahkan!</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Dokumen PDF Anda telah diperbarui dengan teks dan pemformatan presisi.</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
-            <a
-              href={outputUrl}
-              download={`${fileWithBuffer?.file.name.replace('.pdf', '') || 'dokumen'}-diedit.pdf`}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/25"
-            >
-              <Download className="w-5 h-5" /> Unduh Dokumen PDF
-            </a>
-            <button
-              onClick={resetState}
-              className="flex items-center gap-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-3 px-6 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" /> Edit Dokumen Lain
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // 2. Loading State
-    if (isProcessing && pagePreviews.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center p-12 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-lg text-slate-800 dark:text-slate-200 font-semibold">{processingMessage}</p>
-        </div>
-      );
-    }
-
-    // 3. Upload State
-    if (!fileWithBuffer) {
-      return (
-        <FileUploader
-          onFileSelect={handleFileChange}
-          label="Pilih PDF untuk Tambah Teks"
-          description="Tambahkan teks, catatan, paraf, atau stempel tulisan langsung ke halaman PDF"
-        />
-      );
-    }
-
-    // 4. Editor Workspace
-    return (
-      <div className="flex flex-col gap-4">
-        {/* Main Toolbar */}
-        <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">{fileWithBuffer.file.name}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{pagePreviews.length} Halaman &bull; {textBoxes.length} Kotak Teks</p>
-            </div>
-          </div>
-
-          {/* Quick Page Nav */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
-            <button
-              onClick={() => setActivePageIndex(p => Math.max(0, p - 1))}
-              disabled={activePageIndex === 0}
-              title="Halaman Sebelumnya"
-              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 px-2 select-none">
-              Hal {activePageIndex + 1} / {pagePreviews.length}
-            </span>
-            <button
-              onClick={() => setActivePageIndex(p => Math.min(pagePreviews.length - 1, p + 1))}
-              disabled={activePageIndex >= pagePreviews.length - 1}
-              title="Halaman Selanjutnya"
-              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => addTextBox(activePageIndex)}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Tambah Teks
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isProcessing}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition-colors text-xs shadow-md shadow-blue-500/20 disabled:opacity-50"
-            >
-              {isProcessing ? 'Menyimpan...' : 'Simpan PDF'}
-            </button>
-          </div>
-        </div>
-
-        {/* Workspace Body */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          {/* Canvas Area (3 Cols) */}
-          <div className="lg:col-span-3 relative flex flex-col items-center">
-            <div
-              ref={pageContainerRef}
-              className="w-full bg-slate-100 dark:bg-slate-900/80 p-6 rounded-2xl max-h-[78vh] overflow-auto border border-slate-200 dark:border-slate-800 shadow-inner flex flex-col items-center gap-8"
-            >
-              {pagePreviews.map((page, index) => {
-                const isActive = activePageIndex === index;
-
-                return (
-                  <div key={index} className="flex flex-col items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xs">
-                      Halaman {index + 1}
-                    </span>
-
-                    <div
-                      data-page-index={index}
-                      onClick={e => handlePageClick(e, index)}
-                      style={{
-                        width: page.width * zoom,
-                        height: page.height * zoom,
-                      }}
-                      className={`relative bg-white shadow-xl transition-all select-none cursor-crosshair rounded-xs ${
-                        isActive ? 'ring-2 ring-blue-500/40' : 'opacity-95'
-                      }`}
-                    >
-                      <img
-                        src={page.url}
-                        alt={`Halaman ${index + 1}`}
-                        style={{ width: page.width * zoom, height: page.height * zoom }}
-                        className="pointer-events-none select-none w-full h-full"
-                      />
-
-                      {/* Text Boxes on this page */}
-                      {textBoxes
-                        .filter(b => b.pageIndex === index)
-                        .map(box => {
-                          const isSelected = selectedBoxId === box.id;
-                          const isEditing = editingBoxId === box.id;
-
-                          return (
-                            <div
-                              key={box.id}
-                              data-textbox="true"
-                              onPointerDown={e => handleBoxPointerDown(e, box.id)}
-                              onDoubleClick={e => {
-                                e.stopPropagation();
-                                setEditingBoxId(box.id);
-                              }}
-                              style={{
-                                left: box.x * zoom,
-                                top: box.y * zoom,
-                                fontSize: box.fontSize * zoom,
-                                fontFamily: getCssFontFamily(box.fontFamily),
-                                color: box.color,
-                                fontWeight: box.isBold ? 'bold' : 'normal',
-                                fontStyle: box.isItalic ? 'italic' : 'normal',
-                                textAlign: box.align,
-                                backgroundColor: box.backgroundColor || 'transparent',
-                                opacity: box.opacity ?? 1.0,
-                                padding: `${2 * zoom}px ${6 * zoom}px`,
-                                borderRadius: '4px',
-                                lineHeight: 1.25,
-                              }}
-                              className={`absolute cursor-move select-none transition-all whitespace-pre-wrap ${
-                                isSelected
-                                  ? 'ring-2 ring-blue-500 shadow-lg z-20'
-                                  : 'hover:ring-1 hover:ring-blue-400/80 z-10'
-                              }`}
-                            >
-                              {isEditing ? (
-                                <textarea
-                                  autoFocus
-                                  value={box.text}
-                                  onChange={e => updateTextBox(box.id, { text: e.target.value })}
-                                  onBlur={() => setEditingBoxId(null)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Escape') setEditingBoxId(null);
-                                  }}
-                                  style={{
-                                    fontSize: 'inherit',
-                                    fontFamily: 'inherit',
-                                    color: 'inherit',
-                                    fontWeight: 'inherit',
-                                    fontStyle: 'inherit',
-                                    textAlign: box.align,
-                                    minWidth: '100px',
-                                  }}
-                                  className="bg-transparent border-0 outline-none resize-none p-0 m-0 w-full overflow-hidden"
-                                  rows={box.text.split('\n').length || 1}
-                                />
-                              ) : (
-                                <span>{box.text || <em className="text-slate-400">Klik 2x untuk ketik</em>}</span>
-                              )}
-
-                              {/* Floating action buttons when selected */}
-                              {isSelected && !isEditing && (
-                                <div className="absolute -top-3.5 -right-3.5 flex items-center gap-1 z-30">
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      duplicateTextBox(box.id);
-                                    }}
-                                    title="Duplikat Teks"
-                                    className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md hover:bg-blue-700 transition-colors"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      deleteTextBox(box.id);
-                                    }}
-                                    title="Hapus Teks"
-                                    className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Floating Zoom Bar */}
-            <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-1 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xl">
-              <button
-                onClick={() => setZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))))}
-                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
-                title="Perkecil"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 w-12 text-center select-none">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={() => setZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))))}
-                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
-                title="Perbesar"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setZoom(1.0)}
-                className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 ml-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-
-          {/* Right Properties Panel (TextPropertiesPanel Sub-component) */}
-          <TextPropertiesPanel
-            selectedBox={selectedBox}
-            updateTextBox={updateTextBox}
-            duplicateTextBox={duplicateTextBox}
-            deleteTextBox={deleteTextBox}
-          />
-        </div>
-      </div>
-    );
-  };
+  const currentPage = pagePreviews[activePageIndex];
+  const selectedBox = textBoxes.find((b) => b.id === selectedBoxId);
 
   return (
-    <ToolContainer title="Tambahkan Teks ke PDF" onBack={onBack} maxWidth="max-w-7xl">
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e.target.files)} />
-      {renderContent()}
+    <ToolContainer
+      title="Tambahkan Teks ke PDF"
+      description="Ketik dan tempatkan teks bebas, catatan, atau anotasi langsung ke lembar PDF dengan kontrol tipografi penuh."
+      onBack={onBack}
+      canvasSlot={
+        fileWithBuffer && currentPage ? (
+          <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
+            {/* Top Toolbar */}
+            <div className="flex items-center justify-between w-full max-w-xl mb-3">
+              {/* Pagination */}
+              <div className="flex items-center gap-2 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  disabled={activePageIndex <= 0}
+                  onClick={() => setActivePageIndex((p) => Math.max(0, p - 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono text-text-primary">
+                  {activePageIndex + 1} / {pagePreviews.length}
+                </span>
+                <button
+                  disabled={activePageIndex >= pagePreviews.length - 1}
+                  onClick={() => setActivePageIndex((p) => Math.min(pagePreviews.length - 1, p + 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary"
+                  title="Perkecil"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-mono text-text-primary px-1">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoom((z) => Math.min(1.8, z + 0.1))}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary"
+                  title="Perbesar"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Paper Preview with Text Boxes Overlay */}
+            <div
+              data-page-index={activePageIndex}
+              style={{
+                width: `${currentPage.width * zoom}px`,
+                height: `${currentPage.height * zoom}px`,
+              }}
+              className="relative border border-border-subtle rounded-xl shadow-lg bg-white overflow-hidden my-auto select-none"
+            >
+              <img
+                src={currentPage.url}
+                alt={`Halaman ${activePageIndex + 1}`}
+                className="w-full h-full object-contain pointer-events-none"
+              />
+
+              {/* Placed Text Boxes */}
+              {textBoxes
+                .filter((b) => b.pageIndex === activePageIndex)
+                .map((box) => {
+                  const isSelected = selectedBoxId === box.id;
+                  const isEditing = editingBoxId === box.id;
+
+                  return (
+                    <div
+                      key={box.id}
+                      data-textbox="true"
+                      onPointerDown={(e) => handleBoxPointerDown(e, box.id)}
+                      onDoubleClick={() => setEditingBoxId(box.id)}
+                      style={{
+                        left: `${box.x * zoom}px`,
+                        top: `${box.y * zoom}px`,
+                        fontFamily: getCssFontFamily(box.fontFamily),
+                        fontSize: `${box.fontSize * zoom}px`,
+                        color: box.color,
+                        fontWeight: box.isBold ? 'bold' : 'normal',
+                        fontStyle: box.isItalic ? 'italic' : 'normal',
+                        textAlign: box.align,
+                        opacity: box.opacity ?? 1.0,
+                        backgroundColor: box.backgroundColor || 'transparent',
+                      }}
+                      className={`absolute cursor-move touch-none px-2 py-1 rounded transition-shadow ${
+                        isSelected ? 'border-2 border-accent-primary ring-2 ring-accent-primary/20 shadow-md' : 'border border-dashed border-accent-primary/60 hover:border-accent-primary'
+                      }`}
+                    >
+                      {isEditing ? (
+                        <textarea
+                          autoFocus
+                          value={box.text}
+                          onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                          onBlur={() => setEditingBoxId(null)}
+                          className="bg-transparent border-none outline-none resize-none p-0 m-0 w-full"
+                          rows={box.text.split('\n').length || 1}
+                        />
+                      ) : (
+                        <div className="whitespace-pre-wrap select-none">{box.text}</div>
+                      )}
+
+                      {/* Floating actions for selected text */}
+                      {isSelected && !isEditing && (
+                        <div className="absolute -top-7 right-0 flex items-center gap-1 bg-surface border border-border-subtle rounded-lg p-0.5 shadow-md">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateTextBox(box.id);
+                            }}
+                            className="p-1 hover:bg-canvas rounded text-text-muted hover:text-text-primary"
+                            title="Duplikasi"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTextBox(box.id);
+                            }}
+                            className="p-1 hover:bg-rose-50 text-text-muted hover:text-rose-500 rounded"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Bottom Info Bar */}
+            <div className="mt-3 flex items-center justify-between w-full max-w-xl text-xs text-text-secondary">
+              <button
+                onClick={resetState}
+                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Ganti Dokumen
+              </button>
+              <span>{fileWithBuffer.file.name}</span>
+            </div>
+          </div>
+        ) : undefined
+      }
+      inspectorSlot={
+        fileWithBuffer ? (
+          <TextPropertiesPanel
+            selectedBox={selectedBox || null}
+            onUpdateBox={(updates) => {
+              if (selectedBoxId) updateTextBox(selectedBoxId, updates);
+            }}
+            onAddTextBox={() => addTextBox(activePageIndex)}
+            onDeleteBox={() => {
+              if (selectedBoxId) deleteTextBox(selectedBoxId);
+            }}
+            activePageIndex={activePageIndex}
+            totalPages={pagePreviews.length}
+          />
+        ) : undefined
+      }
+      floatingBarSlot={
+        fileWithBuffer ? (
+          <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
+              <Type className="w-4 h-4 text-accent-primary" />
+              <span>{textBoxes.length} Kotak Teks Ditambahkan</span>
+            </div>
+            <button
+              onClick={() => handleSave()}
+              disabled={isProcessing || textBoxes.length === 0}
+              className="w-full sm:w-auto px-6 py-2.5 min-h-[44px] bg-accent-primary hover:bg-accent-hover disabled:bg-canvas disabled:text-text-muted text-accent-contrast font-bold text-sm rounded-xl transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2"
+            >
+              <Type className="w-4 h-4" />
+              <span>Simpan Dokumen Bertulisan</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-accent-contrast/20 rounded text-[10px]">↵</kbd>
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
+      {/* Upload Phase */}
+      {!fileWithBuffer && (
+        <div className="max-w-2xl mx-auto space-y-6">
+          <FileUploader
+            onFileSelect={handleFileChange}
+            accept={{ 'application/pdf': ['.pdf'] }}
+            maxFiles={1}
+            title="Pilih Berkas PDF untuk Ditambahkan Teks"
+            subtitle="Unggah dokumen PDF untuk mengetikkan teks, catatan, atau menambahkan paragraf baru"
+          />
+        </div>
+      )}
+
+      {/* Processing State */}
+      {isProcessing && (
+        <div className="max-w-md mx-auto py-12">
+          <ProcessingStepper
+            currentStep={processingStep}
+            steps={[
+              { label: 'Mengunduh & Memuat Font Glyphs Dokumen' },
+              { label: 'Menyematkan Blok Teks ke Koordinat PDF (RAM)' },
+              { label: 'Menyusun File PDF Baru dengan Teks Vektor' },
+            ]}
+          />
+        </div>
+      )}
+
+      {/* Result State */}
+      {outputUrl && fileWithBuffer && (
+        <div className="max-w-lg mx-auto py-8">
+          <DownloadResultCard
+            fileName={`${fileWithBuffer.file.name.replace(/\.pdf$/i, '')}-edited.pdf`}
+            originalSize={fileWithBuffer.file.size}
+            resultSize={outputSize || fileWithBuffer.file.size}
+            onDownload={() =>
+              triggerFileDownload(
+                outputUrl,
+                `${fileWithBuffer.file.name.replace(/\.pdf$/i, '')}-edited.pdf`
+              )
+            }
+            onReset={resetState}
+            resetLabel="Tambah Teks ke Berkas Lain"
+            successTitle="Teks Berhasil Disematkan!"
+            successDescription="Semua kotak teks dan gaya tipografi telah disimpan secara permanen ke dokumen PDF Anda."
+            resultUrl={outputUrl}
+          />
+        </div>
+      )}
     </ToolContainer>
   );
 };

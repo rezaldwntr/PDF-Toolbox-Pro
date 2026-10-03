@@ -1,27 +1,26 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
+import ProcessingStepper from '../common/ProcessingStepper';
+import DownloadResultCard from '../common/DownloadResultCard';
 import { PDFDocument } from 'pdf-lib';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import {
   Trash2,
   Copy,
-  Plus,
   RotateCcw,
-  CheckCircle2,
-  Download,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
   ChevronRight,
-  FileText
+  FileSignature,
 } from 'lucide-react';
 import { SignatureSidebar, SignatureItem } from './signature/SignatureSidebar';
+import { triggerFileDownload } from '../../lib/download';
+import { formatFileSize } from '../../lib/formatters';
+import { ensurePdfjsReady } from '../../lib/pdfWorker';
 
-declare const pdfjsLib: any;
-
-// --- TYPES ---
 interface PdfFileWithBuffer {
   file: File;
   buffer: ArrayBuffer;
@@ -35,7 +34,6 @@ interface PagePreview {
 
 export type { SignatureItem };
 
-// Representasi tanda tangan yang ditempatkan di halaman
 export interface PlacedSignature {
   id: string;
   signatureId: string;
@@ -50,24 +48,21 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [fileWithBuffer, setFileWithBuffer] = useState<PdfFileWithBuffer | null>(null);
   const [pagePreviews, setPagePreviews] = useState<PagePreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState('');
+  const [processingStep, setProcessingStep] = useState(1);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
+  const [outputSize, setOutputSize] = useState<number | null>(null);
 
   // Galeri Tanda Tangan & Penempatan
   const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [placedSignatures, setPlacedSignatures] = useState<PlacedSignature[]>([]);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
 
-  // Navigasi & Tampilan Kanvas
+  // Navigasi & Zoom
   const [activePageIndex, setActivePageIndex] = useState(0);
-  const [targetPageSelection, setTargetPageSelection] = useState<'all' | number>(0);
-  const [zoom, setZoom] = useState(1.0);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(0.85);
 
   const { addToast } = useToast();
-  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+  const { consumeQuota, checkQuotaBeforeAction } = useQuota();
 
   // Drag & Resize state
   const [dragState, setDragState] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -79,84 +74,48 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     startHeight: number;
   } | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && fileWithBuffer && placedSignatures.length > 0 && !isProcessing && !outputUrl) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fileWithBuffer, placedSignatures, isProcessing, outputUrl]);
+
   const resetState = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
     setFileWithBuffer(null);
     setPagePreviews([]);
     setIsProcessing(false);
-    setProcessingMessage('');
     setSignatures([]);
     setPlacedSignatures([]);
     setSelectedPlacedId(null);
     setActivePageIndex(0);
-    setTargetPageSelection(0);
-    setZoom(1.0);
-    if (outputUrl) URL.revokeObjectURL(outputUrl);
+    setZoom(0.85);
     setOutputUrl(null);
+    setOutputSize(null);
   }, [outputUrl]);
-
-  // Sinkronisasi target lembar dengan halaman yang aktif (kecuali jika mode 'all')
-  useEffect(() => {
-    setTargetPageSelection(prev => (prev === 'all' ? 'all' : activePageIndex));
-  }, [activePageIndex]);
-
-  // Deteksi halaman aktif secara dinamis saat kanvas digulir (scroll)
-  useEffect(() => {
-    const container = pageContainerRef.current;
-    if (!container) return;
-
-    let timeoutId: any;
-    const handleScroll = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        const pageElements = container.querySelectorAll('[data-page-index]');
-        const containerRect = container.getBoundingClientRect();
-        const containerCenterY = containerRect.top + containerRect.height / 2;
-
-        let closestIdx = activePageIndex;
-        let minDistance = Infinity;
-
-        pageElements.forEach(el => {
-          const rect = el.getBoundingClientRect();
-          const pageCenterY = rect.top + rect.height / 2;
-          const dist = Math.abs(pageCenterY - containerCenterY);
-          if (dist < minDistance) {
-            minDistance = dist;
-            const idxAttr = el.getAttribute('data-page-index');
-            if (idxAttr !== null) {
-              closestIdx = parseInt(idxAttr, 10);
-            }
-          }
-        });
-
-        if (closestIdx !== activePageIndex && !isNaN(closestIdx)) {
-          setActivePageIndex(closestIdx);
-        }
-      }, 60);
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      clearTimeout(timeoutId);
-    };
-  }, [activePageIndex, pagePreviews.length]);
 
   const handleFileChange = async (files: FileList | null) => {
     const selectedFile = files ? files[0] : null;
     if (!selectedFile || selectedFile.type !== 'application/pdf') return;
     resetState();
     setIsProcessing(true);
-    setProcessingMessage('Membaca dokumen dan merender halaman...');
+    setProcessingStep(1);
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setFileWithBuffer({ file: selectedFile, buffer: arrayBuffer });
 
-      const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+      const pdfjs = await ensurePdfjsReady();
+      const pdfDoc = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
       const previews: PagePreview[] = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
+        const viewport = page.getViewport({ scale: 1.2 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -169,17 +128,14 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
       setPagePreviews(previews);
       setActivePageIndex(0);
-    } catch (error) {
-      console.error("Gagal memuat PDF:", error);
-      addToast("Gagal memuat file PDF. Pastikan file tidak rusak.", 'error');
+    } catch {
+      addToast('Gagal memuat file PDF. Pastikan file tidak rusak.', 'error');
       resetState();
     } finally {
       setIsProcessing(false);
-      setProcessingMessage('');
     }
   };
 
-  // --- PLACING & INTERACTION LOGIC ---
   const placeOnAllPages = (signature: SignatureItem) => {
     if (pagePreviews.length === 0) return;
     const newPlacedList: PlacedSignature[] = pagePreviews.map((page, pageIndex) => ({
@@ -191,16 +147,16 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       width: signature.width,
       height: signature.height,
     }));
-    setPlacedSignatures((prev: PlacedSignature[]) => [...prev, ...newPlacedList]);
-    addToast(`Tanda tangan berhasil dipasang di seluruh ${pagePreviews.length} halaman!`, 'success');
+    setPlacedSignatures((prev) => [...prev, ...newPlacedList]);
+    addToast(`Tanda tangan dipasang di semua ${pagePreviews.length} halaman!`, 'success');
   };
 
   const placeSignatureOnPage = (signature: SignatureItem, pageIndex: number, customX?: number, customY?: number) => {
     const page = pagePreviews[pageIndex];
     if (!page) return;
 
-    const posX = customX !== undefined ? customX : (page.width / 2) - (signature.width / 2);
-    const posY = customY !== undefined ? customY : (page.height * 0.7) - (signature.height / 2);
+    const posX = customX !== undefined ? customX : page.width / 2 - signature.width / 2;
+    const posY = customY !== undefined ? customY : page.height * 0.7 - signature.height / 2;
 
     const newPlaced: PlacedSignature = {
       id: `placed-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -212,13 +168,13 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       height: signature.height,
     };
 
-    setPlacedSignatures((prev: PlacedSignature[]) => [...prev, newPlaced]);
+    setPlacedSignatures((prev) => [...prev, newPlaced]);
     setSelectedPlacedId(newPlaced.id);
     setActivePageIndex(pageIndex);
   };
 
   const duplicatePlacedSignature = (id: string) => {
-    const target = placedSignatures.find(p => p.id === id);
+    const target = placedSignatures.find((p) => p.id === id);
     if (!target) return;
     const newPlaced: PlacedSignature = {
       ...target,
@@ -226,28 +182,26 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       x: target.x + 20,
       y: target.y + 20,
     };
-    setPlacedSignatures(prev => [...prev, newPlaced]);
+    setPlacedSignatures((prev) => [...prev, newPlaced]);
     setSelectedPlacedId(newPlaced.id);
-    addToast('Tanda tangan berhasil diduplikasi', 'info');
   };
 
   const deletePlacedSignature = (id: string) => {
-    setPlacedSignatures(prev => prev.filter(p => p.id !== id));
+    setPlacedSignatures((prev) => prev.filter((p) => p.id !== id));
     if (selectedPlacedId === id) setSelectedPlacedId(null);
   };
 
-  // Dragging handler via Pointer Events
   const handleBoxPointerDown = (e: React.PointerEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     setSelectedPlacedId(id);
-
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    const offsetX = (e.clientX - rect.left) / zoom;
-    const offsetY = (e.clientY - rect.top) / zoom;
-
-    setDragState({ id, offsetX, offsetY });
+    setDragState({
+      id,
+      offsetX: (e.clientX - rect.left) / zoom,
+      offsetY: (e.clientY - rect.top) / zoom,
+    });
   };
 
   const handleResizePointerDown = (e: React.PointerEvent, sig: PlacedSignature) => {
@@ -267,29 +221,30 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const handlePointerMove = (e: PointerEvent) => {
       e.preventDefault();
-      setPlacedSignatures(prev => prev.map(sig => {
-        if (sig.id === dragState.id) {
-          const pageEl = document.querySelector(`[data-page-index="${sig.pageIndex}"]`) as HTMLElement;
-          if (!pageEl) return sig;
-          const pageRect = pageEl.getBoundingClientRect();
-          const preview = pagePreviews[sig.pageIndex];
+      setPlacedSignatures((prev) =>
+        prev.map((sig) => {
+          if (sig.id === dragState.id) {
+            const pageEl = document.querySelector(`[data-page-index="${sig.pageIndex}"]`) as HTMLElement;
+            if (!pageEl) return sig;
+            const pageRect = pageEl.getBoundingClientRect();
+            const preview = pagePreviews[sig.pageIndex];
 
-          let newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
-          let newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
+            let newX = (e.clientX - pageRect.left) / zoom - dragState.offsetX;
+            let newY = (e.clientY - pageRect.top) / zoom - dragState.offsetY;
 
-          newX = Math.max(0, Math.min(newX, preview.width - sig.width));
-          newY = Math.max(0, Math.min(newY, preview.height - sig.height));
+            newX = Math.max(0, Math.min(newX, preview.width - sig.width));
+            newY = Math.max(0, Math.min(newY, preview.height - sig.height));
 
-          return { ...sig, x: Math.round(newX), y: Math.round(newY) };
-        }
-        return sig;
-      }));
+            return { ...sig, x: Math.round(newX), y: Math.round(newY) };
+          }
+          return sig;
+        })
+      );
     };
 
     const handlePointerUp = () => setDragState(null);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
@@ -301,63 +256,42 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const handlePointerMove = (e: PointerEvent) => {
       e.preventDefault();
-      setPlacedSignatures(prev => prev.map(sig => {
-        if (sig.id === resizeState.id) {
-          const dx = (e.clientX - resizeState.startX) / zoom;
-          const aspectRatio = resizeState.startWidth / resizeState.startHeight;
-          const newWidth = Math.max(50, Math.min(500, resizeState.startWidth + dx));
-          const newHeight = Math.round(newWidth / aspectRatio);
-
-          return { ...sig, width: newWidth, height: newHeight };
-        }
-        return sig;
-      }));
+      setPlacedSignatures((prev) =>
+        prev.map((sig) => {
+          if (sig.id === resizeState.id) {
+            const dx = (e.clientX - resizeState.startX) / zoom;
+            const aspectRatio = resizeState.startWidth / resizeState.startHeight;
+            const newWidth = Math.max(40, Math.min(450, resizeState.startWidth + dx));
+            const newHeight = Math.round(newWidth / aspectRatio);
+            return { ...sig, width: newWidth, height: newHeight };
+          }
+          return sig;
+        })
+      );
     };
 
     const handlePointerUp = () => setResizeState(null);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [resizeState, zoom]);
 
-  // Click-to-place langsung pada halaman
-  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageIndex: number) => {
-    if ((e.target as HTMLElement).closest('[data-signature-box]')) return;
-    setActivePageIndex(pageIndex);
-
-    // Jika ada tanda tangan tersimpan di galeri, tempatkan tanda tangan aktif/terakhir
-    if (signatures.length > 0) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = (e.clientX - rect.left) / zoom;
-      const clickY = (e.clientY - rect.top) / zoom;
-      const activeSig = signatures[signatures.length - 1];
-      placeSignatureOnPage(activeSig, pageIndex, clickX - (activeSig.width / 2), clickY - (activeSig.height / 2));
-    }
-  };
-
-  // --- SAVE FINAL PDF WITH SINGLE-EMBED IMAGE CACHING ---
   const handleSave = async () => {
-    if (!fileWithBuffer || placedSignatures.length === 0) {
+    if (!fileWithBuffer || placedSignatures.length === 0 || !checkQuotaBeforeAction()) {
       addToast('Tambahkan setidaknya satu tanda tangan ke halaman dokumen.', 'warning');
       return;
     }
 
-    if (!checkQuotaBeforeAction()) {
-      return;
-    }
-
     setIsProcessing(true);
-    setProcessingMessage('Menyematkan tanda tangan ke dalam dokumen PDF...');
+    setProcessingStep(1);
 
     try {
+      setProcessingStep(2);
       const pdfDoc = await PDFDocument.load(fileWithBuffer.buffer.slice(0));
       const pages = pdfDoc.getPages();
-
-      // Cache gambar yang sudah di-embed agar tidak diduplikasi di memori PDF
       const embeddedImagesMap = new Map<string, any>();
 
       for (const placed of placedSignatures) {
@@ -372,323 +306,273 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         let pdfImage = embeddedImagesMap.get(placed.signatureId);
         if (!pdfImage) {
-          const sig = signatures.find(s => s.id === placed.signatureId);
+          const sig = signatures.find((s) => s.id === placed.signatureId);
           if (!sig) continue;
-
-          const imageBytes = await fetch(sig.dataUrl).then(res => res.arrayBuffer());
-          if (sig.dataUrl.includes('image/jpeg')) {
-            pdfImage = await pdfDoc.embedJpg(imageBytes);
-          } else {
-            pdfImage = await pdfDoc.embedPng(imageBytes);
-          }
+          const imageBytes = await fetch(sig.dataUrl).then((res) => res.arrayBuffer());
+          pdfImage = sig.dataUrl.includes('image/jpeg')
+            ? await pdfDoc.embedJpg(imageBytes)
+            : await pdfDoc.embedPng(imageBytes);
           embeddedImagesMap.set(placed.signatureId, pdfImage);
         }
 
         page.drawImage(pdfImage, {
           x: placed.x * scaleX,
-          y: pageHeight - (placed.y * scaleY) - (placed.height * scaleY),
+          y: pageHeight - placed.y * scaleY - placed.height * scaleY,
           width: placed.width * scaleX,
           height: placed.height * scaleY,
         });
       }
 
+      setProcessingStep(3);
       const finalPdfBytes = await pdfDoc.save();
       const blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+      setOutputSize(blob.size);
       setOutputUrl(URL.createObjectURL(blob));
       consumeQuota();
-      addToast('PDF berhasil ditandatangani dan siap diunduh!', 'success');
-    } catch (error) {
-      console.error("Gagal menandatangani PDF:", error);
-      addToast("Terjadi kesalahan saat menyimpan tanda tangan ke PDF.", 'error');
+      addToast('PDF berhasil ditandatangani!', 'success');
+    } catch {
+      addToast('Gagal menyematkan tanda tangan ke berkas PDF.', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const renderContent = () => {
-    // 1. Success State
-    if (outputUrl) {
-      return (
-        <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6 animate-fade-in py-12">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">PDF Berhasil Ditandatangani!</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tanda tangan digital Anda telah disematkan dengan kualitas resolusi tinggi.</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
-            <a
-              href={outputUrl}
-              download={`${fileWithBuffer?.file.name.replace('.pdf', '') || 'dokumen'}-ditandatangani.pdf`}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/25"
-            >
-              <Download className="w-5 h-5" /> Unduh Dokumen PDF
-            </a>
-            <button
-              onClick={resetState}
-              className="flex items-center gap-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-3 px-6 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" /> Tandatangani Dokumen Lain
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // 2. Loading State
-    if (isProcessing && pagePreviews.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center p-12 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-lg text-slate-800 dark:text-slate-200 font-semibold">{processingMessage}</p>
-        </div>
-      );
-    }
-
-    // 3. Upload State
-    if (!fileWithBuffer) {
-      return (
-        <FileUploader
-          onFileSelect={handleFileChange}
-          label="Pilih PDF untuk Ditandatangani"
-          description="Tambahkan tanda tangan gambar, goresan tangan langsung, atau tanda tangan ketik resmi"
-        />
-      );
-    }
-
-    // 4. Editor Workspace
-    return (
-      <div className="flex flex-col gap-4">
-        {/* Main Toolbar */}
-        <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">{fileWithBuffer.file.name}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{pagePreviews.length} Halaman &bull; {placedSignatures.length} Tanda Tangan Dipasang</p>
-            </div>
-          </div>
-
-          {/* Quick Page Nav */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
-            <button
-              onClick={() => setActivePageIndex(p => Math.max(0, p - 1))}
-              disabled={activePageIndex === 0}
-              title="Halaman Sebelumnya"
-              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 px-2 select-none">
-              Hal {activePageIndex + 1} / {pagePreviews.length}
-            </span>
-            <button
-              onClick={() => setActivePageIndex(p => Math.min(pagePreviews.length - 1, p + 1))}
-              disabled={activePageIndex >= pagePreviews.length - 1}
-              title="Halaman Selanjutnya"
-              className="p-1 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={isProcessing || placedSignatures.length === 0}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-xl transition-colors text-xs shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? 'Menyimpan...' : 'Simpan PDF'}
-          </button>
-        </div>
-
-        {/* Workspace Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          {/* Canvas Area (3 Cols) */}
-          <div className="lg:col-span-3 relative flex flex-col items-center">
-            <div
-              ref={pageContainerRef}
-              className="w-full bg-slate-100 dark:bg-slate-900/80 p-6 rounded-2xl max-h-[78vh] overflow-auto border border-slate-200 dark:border-slate-800 shadow-inner flex flex-col items-center gap-8"
-            >
-              {pagePreviews.map((page, index) => {
-                const isActive = activePageIndex === index;
-
-                return (
-                  <div key={index} className="flex flex-col items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xs">
-                      Halaman {index + 1}
-                    </span>
-
-                    <div
-                      data-page-index={index}
-                      onClick={e => handlePageClick(e, index)}
-                      style={{
-                        width: page.width * zoom,
-                        height: page.height * zoom,
-                      }}
-                      className={`relative bg-white shadow-xl transition-all select-none cursor-crosshair rounded-xs ${
-                        isActive ? 'ring-2 ring-blue-500/40' : 'opacity-95'
-                      }`}
-                    >
-                      <img
-                        src={page.url}
-                        alt={`Halaman ${index + 1}`}
-                        style={{ width: page.width * zoom, height: page.height * zoom }}
-                        className="pointer-events-none select-none w-full h-full"
-                      />
-
-                      {/* Placed Signatures on this page */}
-                      {placedSignatures
-                        .filter(p => p.pageIndex === index)
-                        .map(sig => {
-                          const isSelected = selectedPlacedId === sig.id;
-                          const sigItem = signatures.find(s => s.id === sig.signatureId);
-
-                          return (
-                            <div
-                              key={sig.id}
-                              data-signature-box="true"
-                              onPointerDown={e => handleBoxPointerDown(e, sig.id)}
-                              style={{
-                                left: sig.x * zoom,
-                                top: sig.y * zoom,
-                                width: sig.width * zoom,
-                                height: sig.height * zoom,
-                              }}
-                              className={`absolute cursor-move select-none transition-all group ${
-                                isSelected
-                                  ? 'ring-2 ring-blue-500 shadow-xl z-20 border border-blue-400/50'
-                                  : 'hover:ring-1 hover:ring-blue-400/80 z-10'
-                              }`}
-                            >
-                              {sigItem && (
-                                <img
-                                  src={sigItem.dataUrl}
-                                  alt="Tanda Tangan"
-                                  className="w-full h-full object-contain pointer-events-none select-none"
-                                />
-                              )}
-
-                              {/* Floating Actions when selected */}
-                              {isSelected && (
-                                <>
-                                  <div className="absolute -top-3.5 -right-3.5 flex items-center gap-1 z-30">
-                                    <button
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        duplicatePlacedSignature(sig.id);
-                                      }}
-                                      title="Duplikat Tanda Tangan"
-                                      className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md hover:bg-blue-700 transition-colors"
-                                    >
-                                      <Copy className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        deletePlacedSignature(sig.id);
-                                      }}
-                                      title="Hapus Tanda Tangan"
-                                      className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  </div>
-
-                                  {/* Resize Handle (NWSE Corner) */}
-                                  <div
-                                    onPointerDown={e => handleResizePointerDown(e, sig)}
-                                    title="Tarik untuk Ubah Ukuran"
-                                    className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30"
-                                  />
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Floating Zoom Bar */}
-            <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-1 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-xl">
-              <button
-                onClick={() => setZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))))}
-                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
-                title="Perkecil"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 w-12 text-center select-none">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={() => setZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))))}
-                className="p-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-colors"
-                title="Perbesar"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setZoom(1.0)}
-                className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 ml-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-
-          {/* Right Controls Panel (SignatureSidebar Sub-component) */}
-          <SignatureSidebar
-            signatures={signatures}
-            pageCount={pagePreviews.length}
-            targetPageSelection={targetPageSelection}
-            onTargetPageChange={val => {
-              setTargetPageSelection(val);
-              if (val !== 'all') {
-                setActivePageIndex(val);
-              }
-            }}
-            onAddAndPlaceSignature={(sig, target) => {
-              setSignatures((prev: SignatureItem[]) => [...prev, sig]);
-              if (target === 'all') {
-                placeOnAllPages(sig);
-              } else {
-                placeSignatureOnPage(sig, Number(target));
-              }
-            }}
-            onPlaceSignature={(sig, target) => {
-              if (target === 'all') {
-                placeOnAllPages(sig);
-              } else {
-                placeSignatureOnPage(sig, Number(target));
-              }
-            }}
-            onDeleteSignature={sigId => {
-              setSignatures((prev: SignatureItem[]) => prev.filter(s => s.id !== sigId));
-              setPlacedSignatures((prev: PlacedSignature[]) => prev.filter(p => p.signatureId !== sigId));
-            }}
-          />
-        </div>
-      </div>
-    );
-  };
+  const currentPage = pagePreviews[activePageIndex];
 
   return (
-    <ToolContainer title="Tambahkan Tanda Tangan" onBack={onBack} maxWidth="max-w-7xl">
-      <input
-        type="file"
-        accept=".pdf"
-        ref={fileInputRef}
-        className="hidden"
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFileChange(e.target.files)}
-      />
-      {renderContent()}
+    <ToolContainer
+      title="Tanda Tangan & e-Meterai PDF"
+      description="Bubuhkan tanda tangan basah, digital, ketikan, atau panduan e-Meterai resmi ke dokumen PDF Anda secara presisi."
+      onBack={onBack}
+      canvasSlot={
+        fileWithBuffer && currentPage ? (
+          <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
+            {/* Top Toolbar */}
+            <div className="flex items-center justify-between w-full max-w-xl mb-3">
+              {/* Pagination */}
+              <div className="flex items-center gap-2 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  disabled={activePageIndex <= 0}
+                  onClick={() => setActivePageIndex((p) => Math.max(0, p - 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono text-text-primary">
+                  {activePageIndex + 1} / {pagePreviews.length}
+                </span>
+                <button
+                  disabled={activePageIndex >= pagePreviews.length - 1}
+                  onClick={() => setActivePageIndex((p) => Math.min(pagePreviews.length - 1, p + 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary"
+                  title="Perkecil"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-mono text-text-primary px-1">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoom((z) => Math.min(1.8, z + 0.1))}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary"
+                  title="Perbesar"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Paper Preview with Signatures Overlay */}
+            <div
+              data-page-index={activePageIndex}
+              style={{
+                width: `${currentPage.width * zoom}px`,
+                height: `${currentPage.height * zoom}px`,
+              }}
+              className="relative border border-border-subtle rounded-xl shadow-lg bg-white overflow-hidden my-auto select-none"
+            >
+              <img
+                src={currentPage.url}
+                alt={`Halaman ${activePageIndex + 1}`}
+                className="w-full h-full object-contain pointer-events-none"
+              />
+
+              {/* Placed Signatures on this page */}
+              {placedSignatures
+                .filter((p) => p.pageIndex === activePageIndex)
+                .map((placed) => {
+                  const sigItem = signatures.find((s) => s.id === placed.signatureId);
+                  const isSelected = selectedPlacedId === placed.id;
+
+                  return (
+                    <div
+                      key={placed.id}
+                      data-signature-box="true"
+                      onPointerDown={(e) => handleBoxPointerDown(e, placed.id)}
+                      style={{
+                        left: `${placed.x * zoom}px`,
+                        top: `${placed.y * zoom}px`,
+                        width: `${placed.width * zoom}px`,
+                        height: `${placed.height * zoom}px`,
+                      }}
+                      className={`absolute cursor-move touch-none group ${
+                        isSelected ? 'border-2 border-accent-primary ring-2 ring-accent-primary/20' : 'border border-dashed border-accent-primary/60 hover:border-accent-primary'
+                      }`}
+                    >
+                      {sigItem && (
+                        <img
+                          src={sigItem.dataUrl}
+                          alt="Tanda tangan"
+                          className="w-full h-full object-contain pointer-events-none"
+                        />
+                      )}
+
+                      {/* Controls on hover / select */}
+                      {isSelected && (
+                        <>
+                          <div className="absolute -top-7 right-0 flex items-center gap-1 bg-surface border border-border-subtle rounded-lg p-0.5 shadow-md">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                duplicatePlacedSignature(placed.id);
+                              }}
+                              className="p-1 hover:bg-canvas rounded text-text-muted hover:text-text-primary"
+                              title="Duplikasi"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deletePlacedSignature(placed.id);
+                              }}
+                              className="p-1 hover:bg-rose-50 text-text-muted hover:text-rose-500 rounded"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          {/* Resize Handle */}
+                          <div
+                            onPointerDown={(e) => handleResizePointerDown(e, placed)}
+                            className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-accent-primary rounded-full cursor-se-resize border-2 border-white shadow-xs"
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Bottom Info Bar */}
+            <div className="mt-3 flex items-center justify-between w-full max-w-xl text-xs text-text-secondary">
+              <button
+                onClick={resetState}
+                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Ganti Dokumen
+              </button>
+              <span>{fileWithBuffer.file.name}</span>
+            </div>
+          </div>
+        ) : undefined
+      }
+      inspectorSlot={
+        fileWithBuffer ? (
+          <SignatureSidebar
+            signatures={signatures}
+            setSignatures={setSignatures}
+            placedSignatures={placedSignatures}
+            setPlacedSignatures={setPlacedSignatures}
+            activePageIndex={activePageIndex}
+            setActivePageIndex={setActivePageIndex}
+            pagePreviews={pagePreviews}
+            onPlaceSignature={(sig) => placeSignatureOnPage(sig, activePageIndex)}
+            onPlaceAllPages={placeOnAllPages}
+          />
+        ) : undefined
+      }
+      floatingBarSlot={
+        fileWithBuffer ? (
+          <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
+              <FileSignature className="w-4 h-4 text-accent-primary" />
+              <span>{placedSignatures.length} Tanda Tangan Ditempatkan</span>
+            </div>
+            <button
+              onClick={() => handleSave()}
+              disabled={isProcessing || placedSignatures.length === 0}
+              className="w-full sm:w-auto px-6 py-2.5 min-h-[44px] bg-accent-primary hover:bg-accent-hover disabled:bg-canvas disabled:text-text-muted text-accent-contrast font-bold text-sm rounded-xl transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2"
+            >
+              <FileSignature className="w-4 h-4" />
+              <span>Simpan Dokumen Bertanda Tangan</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-accent-contrast/20 rounded text-[10px]">↵</kbd>
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
+      {/* Upload Phase */}
+      {!fileWithBuffer && (
+        <div className="max-w-2xl mx-auto space-y-6">
+          <FileUploader
+            onFileSelect={handleFileChange}
+            accept={{ 'application/pdf': ['.pdf'] }}
+            maxFiles={1}
+            title="Pilih Berkas PDF untuk Ditandatangani"
+            subtitle="Unggah dokumen PDF untuk membubuhkan tanda tangan gambar, goresan tangan, atau e-Meterai"
+          />
+        </div>
+      )}
+
+      {/* Processing State */}
+      {isProcessing && (
+        <div className="max-w-md mx-auto py-12">
+          <ProcessingStepper
+            currentStep={processingStep}
+            steps={[
+              { label: 'Menyiapkan Aset Tanda Tangan & Layer' },
+              { label: 'Menyematkan Gambar ke Koordinat Halaman PDF (RAM)' },
+              { label: 'Menyusun & Memvalidasi Berkas PDF Bertanda Tangan' },
+            ]}
+          />
+        </div>
+      )}
+
+      {/* Result State */}
+      {outputUrl && fileWithBuffer && (
+        <div className="max-w-lg mx-auto py-8">
+          <DownloadResultCard
+            fileName={`${fileWithBuffer.file.name.replace(/\.pdf$/i, '')}-signed.pdf`}
+            originalSize={fileWithBuffer.file.size}
+            resultSize={outputSize || fileWithBuffer.file.size}
+            onDownload={() =>
+              triggerFileDownload(
+                outputUrl,
+                `${fileWithBuffer.file.name.replace(/\.pdf$/i, '')}-signed.pdf`
+              )
+            }
+            onReset={resetState}
+            resetLabel="Tandatangani Berkas Lain"
+            successTitle="Dokumen Berhasil Ditandatangani!"
+            successDescription="Tanda tangan dan stempel Anda telah disematkan secara permanen ke lembar dokumen PDF."
+            resultUrl={outputUrl}
+          />
+        </div>
+      )}
     </ToolContainer>
   );
 };
