@@ -1,10 +1,11 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import ToolContainer from '../common/ToolContainer';
-import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, CompressIcon } from '../icons';
+import { UploadIcon, FilePdfIcon, TrashIcon, CompressIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
-import CloudExportButtons from '../common/CloudExportButtons';
+import ProcessingStepper from '../common/ProcessingStepper';
+import DownloadResultCard from '../common/DownloadResultCard';
 import PdfPreview from './PdfPreview';
 import { 
   OFFICIAL_PRESET_CATEGORIES, 
@@ -135,69 +136,30 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  if (resultUrl) {
-    const origKb = file ? file.size / 1024 : 0;
-    const newKb = resultSize ? resultSize / 1024 : 0;
-    const savedPercent = origKb > 0 && newKb > 0 ? Math.max(0, Math.round(((origKb - newKb) / origKb) * 100)) : 0;
+  if (isProcessing) {
+    return (
+      <ToolContainer title="Memproses Kompresi PDF" onBack={onBack} currentStep={2}>
+        <ProcessingStepper toolName="Kompres PDF" isLocalRam={false} />
+      </ToolContainer>
+    );
+  }
 
+  if (resultUrl) {
     return (
       <ToolContainer title="Kompresi Selesai!" onBack={onBack} currentStep={3}>
-        <div className="text-center flex flex-col items-center gap-6 animate-fade-in">
-          <CheckCircleIcon className="w-16 h-16 text-green-500" />
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">PDF Berhasil Dikompres</h3>
-            <p className="text-slate-500 dark:text-slate-400">
-              Dokumen Anda telah dioptimalkan dengan standar kualitas tinggi.
-            </p>
-          </div>
-
-          {/* Ringkasan Statistik Ukuran Berkas */}
-          {file && resultSize && (
-            <div className="w-full max-w-sm bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-around shadow-xs">
-              <div className="text-center">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Ukuran Awal</span>
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{origKb.toFixed(1)} KB</span>
-              </div>
-              <div className="h-8 w-px bg-slate-300 dark:bg-slate-600" />
-              <div className="text-center">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Ukuran Baru</span>
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{newKb.toFixed(1)} KB</span>
-              </div>
-              <div className="h-8 w-px bg-slate-300 dark:bg-slate-600" />
-              <div className="text-center">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Hemat Ruang</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">-{savedPercent}%</span>
-              </div>
-            </div>
-          )}
-
-          <a 
-            href={resultUrl} 
-            download={`compressed-${file?.name}`} 
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl w-full max-w-sm shadow-lg transition-all flex items-center justify-center gap-2"
-          >
-            <DownloadIcon className="w-5 h-5" />
-            Unduh PDF Hasil Kompres
-          </a>
-
-          {/* Ekspor ke Cloud Storage (Google Drive & Dropbox) */}
-          <div className="w-full max-w-sm">
-            <CloudExportButtons 
-              fileUrl={resultUrl} 
-              fileName={`compressed-${file?.name || 'document.pdf'}`} 
-            />
-          </div>
-
-          <button 
-            onClick={() => {
-              setResultUrl(null);
-              setResultSize(null);
-            }} 
-            className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
-          >
-            Kompres File Lain
-          </button>
-        </div>
+        <DownloadResultCard
+          fileName={`compressed-${file?.name || 'document.pdf'}`}
+          downloadUrl={resultUrl}
+          originalSize={file?.size}
+          resultSize={resultSize ?? undefined}
+          onReset={() => {
+            setResultUrl(null);
+            setResultSize(null);
+          }}
+          resetLabel="Kompres Berkas Lain"
+          customSuccessMessage="Dokumen Anda telah dioptimalkan dengan standar kualitas tinggi."
+          isLocalRam={false}
+        />
       </ToolContainer>
     );
   }

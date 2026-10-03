@@ -17,6 +17,7 @@ import {
   Search 
 } from 'lucide-react';
 import { usePwa } from '../lib/pwa';
+import CommandBarModal from './common/CommandBarModal';
 
 interface HeaderProps {
   currentView: View;
@@ -84,23 +85,24 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEnvModal, setShowEnvModal] = React.useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = React.useState<boolean>(false);
+  const [isCommandBarOpen, setIsCommandBarOpen] = React.useState<boolean>(false);
   const { isOnline, isInstallable, isInstalled, promptInstall } = usePwa();
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'rezaldewantara@gmail.com';
   const tierBadge = user ? TIER_BADGE[user.tier] ?? TIER_BADGE.free : null;
   const breadcrumb = getViewBreadcrumb(currentView);
 
-  // Shortcut global: Cmd+K / Ctrl+K membuka pencarian perkakas
+  // Shortcut global: Cmd+K / Ctrl+K membuka dialog command bar modal (Design Bible Section 2.1 & 7.3)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        onSelectView(View.TOOLS_TAB);
+        setIsCommandBarOpen(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSelectView]);
+  }, []);
 
   return (
     <>
@@ -145,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
           <div className="hidden md:flex items-center gap-2 lg:gap-3">
             <button
               type="button"
-              onClick={() => onSelectView(View.TOOLS_TAB)}
+              onClick={() => setIsCommandBarOpen(true)}
               className="flex items-center justify-between w-56 lg:w-68 px-3 py-1.5 rounded-lg bg-elevated border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all text-xs cursor-pointer group shadow-2xs"
               title="Cari perkakas atau ketik perintah (⌘K / Ctrl+K)"
             >
@@ -450,6 +452,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
           </div>
         </div>
       )}
+
+      {/* Global Command Bar Modal (⌘K / Ctrl+K) */}
+      <CommandBarModal
+        isOpen={isCommandBarOpen}
+        onClose={() => setIsCommandBarOpen(false)}
+        onSelectView={onSelectView}
+      />
     </>
   );
 };
