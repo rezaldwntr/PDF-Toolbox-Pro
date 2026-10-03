@@ -29,6 +29,7 @@ const OcrPdf = React.lazy(() => import('./components/tools/OcrPdf'));
 const TranslatePdf = React.lazy(() => import('./components/tools/TranslatePdf'));
 const BankStatementPdf = React.lazy(() => import('./components/tools/BankStatementPdf'));
 const RedactPdf = React.lazy(() => import('./components/tools/RedactPdf'));
+const DeveloperApiHub = React.lazy(() => import('./components/developer/DeveloperApiHub'));
 
 // Lazy-loaded Admin Dashboard (~1,800+ lines isolated from regular users)
 const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard'));
@@ -220,6 +221,8 @@ function AppContent() {
         return <PrivacyPolicy onBack={handleBackToHome} />;
       case View.TERMS:
         return <TermsOfService onBack={handleBackToHome} onSelectView={setCurrentView} />;
+      case View.DEVELOPER_API:
+        return <DeveloperApiHub onBack={handleBackToHome} />;
 
       default:
         return <LandingPage onSelectView={setCurrentView} />;

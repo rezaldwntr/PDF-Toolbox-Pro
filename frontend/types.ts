@@ -25,6 +25,7 @@ export enum View {
   TRANSLATE_PDF,
   BANK_STATEMENT,
   REDACT_PDF,
+  DEVELOPER_API,
   
   BLOG,
   FAQ,

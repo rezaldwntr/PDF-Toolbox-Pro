@@ -79,3 +79,108 @@ SUBSCRIPTION_PLANS = {
         "tier": "annual",
     },
 }
+
+# ===========================================================================
+# KONFIGURASI B2B MICRO-API & DUAL PRICING (FASE 3C)
+# ===========================================================================
+API_ENDPOINT_WEIGHTS = {
+    "default": 1,
+    "compress": 1,
+    "redact": 1,
+    "watermark": 1,
+    "protect": 1,
+    "unlock": 1,
+    "bank_statement": 2,
+    "pdf_to_word": 2,
+    "pdf_to_excel": 2,
+    "ocr": 3,
+    "translate": 3,
+}
+
+# Opsi 1: Paket Kredit Prabayar (Pay-As-You-Go / Top-Up)
+API_PREPAID_PLANS = {
+    "sandbox": {
+        "id": "sandbox",
+        "name": "Free Sandbox",
+        "price_idr": 0,
+        "credits": 100,
+        "price_per_req": 0,
+        "rate_limit_rps": 1,
+        "max_file_size_mb": 10,
+        "validity_days": 365,
+    },
+    "starter": {
+        "id": "starter",
+        "name": "Starter Pack",
+        "price_idr": 49000,
+        "credits": 750,
+        "price_per_req": 65,
+        "rate_limit_rps": 3,
+        "max_file_size_mb": 15,
+        "validity_days": 365,
+    },
+    "growth": {
+        "id": "growth",
+        "name": "Growth Pack",
+        "price_idr": 149000,
+        "credits": 2500,
+        "price_per_req": 59,
+        "rate_limit_rps": 5,
+        "max_file_size_mb": 25,
+        "validity_days": 365,
+    },
+    "business": {
+        "id": "business",
+        "name": "Business Pack",
+        "price_idr": 399000,
+        "credits": 8000,
+        "price_per_req": 49,
+        "rate_limit_rps": 10,
+        "max_file_size_mb": 50,
+        "validity_days": 365,
+    },
+    "scale": {
+        "id": "scale",
+        "name": "Scale Pack",
+        "price_idr": 899000,
+        "credits": 20000,
+        "price_per_req": 44,
+        "rate_limit_rps": 20,
+        "max_file_size_mb": 50,
+        "validity_days": 365,
+    },
+}
+
+# Opsi 2: Langganan Bulanan Developer (Monthly Committed)
+API_SUBSCRIPTION_PLANS = {
+    "dev_starter": {
+        "id": "dev_starter",
+        "name": "Dev Starter",
+        "price_idr": 99000,
+        "monthly_credits": 3000,
+        "price_per_req": 33,
+        "rate_limit_rps": 5,
+        "max_file_size_mb": 25,
+        "support": "Email Support",
+    },
+    "dev_pro": {
+        "id": "dev_pro",
+        "name": "Dev Pro",
+        "price_idr": 249000,
+        "monthly_credits": 10000,
+        "price_per_req": 24,
+        "rate_limit_rps": 15,
+        "max_file_size_mb": 50,
+        "support": "Priority Queue + Email",
+    },
+    "dev_scale": {
+        "id": "dev_scale",
+        "name": "Dev Scale",
+        "price_idr": 699000,
+        "monthly_credits": 35000,
+        "price_per_req": 19,
+        "rate_limit_rps": 30,
+        "max_file_size_mb": 100,
+        "support": "Webhook + WhatsApp SLA",
+    },
+}

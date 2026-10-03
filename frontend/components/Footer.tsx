@@ -137,6 +137,15 @@ const Footer: React.FC<FooterProps> = ({ onSelectView }) => {
                   Hubungi Dukungan
                 </button>
               </li>
+              <li>
+                <button 
+                  onClick={() => onSelectView(View.DEVELOPER_API)} 
+                  className="inline-flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors mt-1"
+                >
+                  <span>B2B Micro-API</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-extrabold text-[10px]">Baru</span>
+                </button>
+              </li>
             </ul>
           </div>
         </div>
