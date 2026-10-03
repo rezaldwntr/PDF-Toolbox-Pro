@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View } from '../types';
 import UniversalDropzone from './UniversalDropzone';
-import ToolCard from './ToolCard';
+import ToolCard, { EngineType } from './ToolCard';
 import { 
   FileText, 
   Layers, 
@@ -23,17 +23,32 @@ import {
   Languages, 
   Search,
   Landmark,
-  Sparkles,
   ShieldCheck,
-  Clock,
   CheckCircle2,
-  HelpCircle,
-  ArrowRight,
   Zap,
   Award,
-  Globe,
   BookOpen
 } from 'lucide-react';
+
+interface ToolItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  active: boolean;
+  view: View;
+  category: string;
+  engineType: EngineType;
+  badge?: string;
+  keywords: string[];
+}
+
+interface ToolCategory {
+  id: string;
+  title: string;
+  description: string;
+  tools: ToolItem[];
+}
 
 interface LandingPageProps {
   onSelectView: (view: View) => void;
@@ -42,240 +57,261 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const toolCategories = useMemo(() => [
+  // 18+ Perkakas dengan Klasifikasi Mesin (Grup A: RAM Lokal, Grup B: Server Fast, Grup C: Heavy Cloud)
+  const toolCategories: ToolCategory[] = useMemo(() => [
     {
       id: 'essential',
       title: '1. Esensial & Populer',
-      description: 'Alat yang paling sering digunakan untuk produktivitas dokumen harian.',
+      description: 'Perkakas harian untuk manipulasi, pemisahan, dan optimasi berkas.',
       tools: [
         {
           id: 'pdf-to-word',
           title: 'PDF ke Word',
-          description: 'Ubah dokumen PDF ke format DOCX yang dapat diedit dengan mudah.',
-          icon: <FileText size={22} />,
+          description: 'Ekstrak dan transformasi dokumen PDF menjadi format DOCX yang dapat diedit.',
+          icon: <FileText size={20} />,
           active: true,
           view: View.PDF_TO_WORD,
           category: 'Esensial & Populer',
+          engineType: 'cloud',
           keywords: ['word', 'docx', 'doc', 'convert', 'teks', 'microsoft']
         },
         {
           id: 'merge-pdf',
           title: 'Gabungkan PDF',
-          description: 'Satukan beberapa berkas PDF menjadi satu dokumen berurutan.',
-          icon: <Layers size={22} />,
+          description: 'Satukan beberapa berkas PDF menjadi satu dokumen berurutan di RAM lokal.',
+          icon: <Layers size={20} />,
           active: true,
           view: View.MERGE,
           category: 'Esensial & Populer',
+          engineType: 'client',
           keywords: ['merge', 'gabung', 'satukan', 'kombinasi', 'susun']
         },
         {
           id: 'compress-pdf',
           title: 'Kompres PDF',
-          description: 'Kecilkan ukuran file PDF tanpa menurunkan kualitas teks & gambar.',
-          icon: <Minimize2 size={22} />,
+          description: 'Kecilkan ukuran berkas tanpa merusak kualitas cetak (Preset CPNS/BKN 200KB).',
+          icon: <Minimize2 size={20} />,
           active: true,
           view: View.COMPRESS,
           category: 'Esensial & Populer',
+          engineType: 'fast',
           keywords: ['kompres', 'kecilkan', 'compress', 'reduce', 'mb', 'kb', 'ringan']
         },
         {
           id: 'sign-pdf',
-          title: 'Tanda Tangan',
-          description: 'Bubuhkan tanda tangan digital Anda secara instan ke dokumen.',
-          icon: <PenTool size={22} />,
+          title: 'Tanda Tangan & e-Meterai',
+          description: 'Bubuhkan tanda tangan visual dan panduan penempatan e-Meterai Rp10.000.',
+          icon: <PenTool size={20} />,
           active: true,
           view: View.ADD_SIGNATURE,
           category: 'Esensial & Populer',
-          keywords: ['sign', 'tanda tangan', 'paraf', 'ttd', 'signature']
+          engineType: 'client',
+          keywords: ['sign', 'tanda tangan', 'paraf', 'ttd', 'signature', 'meterai']
         }
       ]
     },
     {
       id: 'convert',
-      title: '2. Konversi PDF',
-      description: 'Ekspor dan transformasi dokumen PDF ke format perkantoran lainnya.',
+      title: '2. Konversi & Finansial',
+      description: 'Ekspor tabel dan transformasi dokumen PDF ke format spreadsheet & presentasi.',
       tools: [
-        {
-          id: 'pdf-to-excel',
-          title: 'PDF ke Excel',
-          description: 'Ekstrak tabel dan data PDF langsung ke spreadsheet XLSX.',
-          icon: <FileSpreadsheet size={22} />,
-          active: true,
-          view: View.PDF_TO_EXCEL,
-          category: 'Konversi PDF',
-          keywords: ['excel', 'xlsx', 'xls', 'spreadsheet', 'tabel', 'angka']
-        },
         {
           id: 'bank-statement',
           title: 'Rekening Koran ke Excel',
-          description: 'Ekstrak mutasi PDF bank BCA, Mandiri, BRI, BNI, BSI & BPD ke XLSX otomatis.',
-          icon: <Landmark size={22} />,
+          description: 'Parser mutasi bank resmi BCA, Mandiri, BRI, BNI, BSI & BPD ke XLSX otomatis.',
+          icon: <Landmark size={20} />,
           badge: 'BARU',
           active: true,
           view: View.BANK_STATEMENT,
-          category: 'Konversi PDF',
-          keywords: ['bank', 'rekening koran', 'mutasi', 'bca', 'mandiri', 'bri', 'bni', 'bsi', 'kalsel', 'bpd', 'excel', 'gaji', 'asn']
+          category: 'Konversi & Finansial',
+          engineType: 'fast',
+          keywords: ['bank', 'rekening koran', 'mutasi', 'bca', 'mandiri', 'bri', 'bni', 'bsi', 'kalsel', 'bpd', 'excel']
+        },
+        {
+          id: 'pdf-to-excel',
+          title: 'PDF ke Excel',
+          description: 'Identifikasi baris dan kolom tabel PDF langsung ke spreadsheet XLSX.',
+          icon: <FileSpreadsheet size={20} />,
+          active: true,
+          view: View.PDF_TO_EXCEL,
+          category: 'Konversi & Finansial',
+          engineType: 'cloud',
+          keywords: ['excel', 'xlsx', 'xls', 'spreadsheet', 'tabel', 'angka']
         },
         {
           id: 'pdf-to-ppt',
           title: 'PDF ke PPT',
-          description: 'Konversi lembar presentasi PDF menjadi slide PowerPoint PPTX.',
-          icon: <Presentation size={22} />,
+          description: 'Konversi lembar presentasi PDF menjadi slide PowerPoint PPTX yang dapat diedit.',
+          icon: <Presentation size={20} />,
           active: true,
           view: View.PDF_TO_PPT,
-          category: 'Konversi PDF',
+          category: 'Konversi & Finansial',
+          engineType: 'cloud',
           keywords: ['ppt', 'pptx', 'powerpoint', 'slide', 'presentasi']
         },
         {
           id: 'pdf-to-image',
-          title: 'PDF ke Gambar (JPG)',
-          description: 'Ekspor setiap halaman PDF menjadi gambar berkualitas tinggi.',
-          icon: <Image size={22} />,
+          title: 'PDF ke Gambar (JPG/PNG)',
+          description: 'Ekspor setiap halaman dokumen menjadi gambar tajam resolusi tinggi.',
+          icon: <Image size={20} />,
           active: true,
           view: View.PDF_TO_IMAGE,
-          category: 'Konversi PDF',
+          category: 'Konversi & Finansial',
+          engineType: 'cloud',
           keywords: ['jpg', 'jpeg', 'png', 'gambar', 'image', 'foto']
         },
         {
           id: 'pdf-a',
-          title: 'PDF/A',
-          description: 'Standarisasi dokumen PDF untuk pengarsipan jangka panjang ISO.',
-          icon: <FileCheck size={22} />,
+          title: 'PDF/A Converter',
+          description: 'Standarisasi dokumen PDF untuk pengarsipan hukum jangka panjang standar ISO.',
+          icon: <FileCheck size={20} />,
           active: true,
           view: View.PDF_A,
-          category: 'Konversi PDF',
+          category: 'Konversi & Finansial',
+          engineType: 'cloud',
           keywords: ['pdf/a', 'arsip', 'iso', 'standar']
         }
       ]
     },
     {
       id: 'organize',
-      title: '3. Edit & Organisasi',
-      description: 'Tata urutan, potong, atau tambahkan anotasi pada berkas PDF.',
+      title: '3. Edit & Organisasi Halaman',
+      description: 'Tata urutan, potong margin, atau tambahkan anotasi teks langsung di browser.',
       tools: [
         {
           id: 'organize-pdf',
-          title: 'Atur PDF',
-          description: 'Hapus, putar, atau ubah susunan halaman dengan drag & drop visual.',
-          icon: <FolderTree size={22} />,
+          title: 'Atur & Susun PDF',
+          description: 'Hapus, putar, atau ubah urutan halaman dengan drag & drop visual di RAM.',
+          icon: <FolderTree size={20} />,
           active: true,
           view: View.ORGANIZE,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'client',
           keywords: ['atur', 'organize', 'susun', 'rotasi', 'urutan', 'halaman']
         },
         {
           id: 'split-pdf',
           title: 'Pisahkan PDF',
-          description: 'Ekstrak rentang halaman tertentu atau pisahkan menjadi beberapa file.',
-          icon: <Scissors size={22} />,
+          description: 'Ekstrak rentang halaman tertentu atau pisahkan menjadi beberapa dokumen terpisah.',
+          icon: <Scissors size={20} />,
           active: true,
           view: View.SPLIT,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'client',
           keywords: ['split', 'pisah', 'potong', 'ekstrak', 'halaman']
         },
         {
           id: 'add-text',
-          title: 'Tambah Teks',
-          description: 'Ketik dan sisipkan teks tambahan langsung ke dalam halaman PDF.',
-          icon: <Type size={22} />,
+          title: 'Tambah Teks & Anotasi',
+          description: 'Ketik dan sisipkan teks tambahan langsung di koordinat dokumen PDF.',
+          icon: <Type size={20} />,
           active: true,
           view: View.ADD_TEXT,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'client',
           keywords: ['text', 'teks', 'ketik', 'tulis', 'tambah teks']
         },
         {
           id: 'edit-text',
-          title: 'Edit Teks',
-          description: 'Ubah teks asli yang sudah ada di dalam dokumen PDF.',
-          icon: <Edit3 size={22} />,
+          title: 'Edit Teks PDF',
+          description: 'Analisis dan sunting teks asli yang sudah ada di dalam dokumen PDF.',
+          icon: <Edit3 size={20} />,
           active: true,
           view: View.EDIT_PDF,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'cloud',
           keywords: ['edit', 'sunting', 'ubah teks']
         },
         {
           id: 'crop-pdf',
           title: 'Crop PDF',
-          description: 'Pangkas margin atau area kosong yang tidak diinginkan pada dokumen.',
-          icon: <Crop size={22} />,
+          description: 'Pangkas margin atau area kosong yang tidak diinginkan dengan bounding box.',
+          icon: <Crop size={20} />,
           active: true,
           view: View.CROP_PDF,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'client',
           keywords: ['crop', 'potong margin', 'pangkas']
         },
         {
           id: 'watermark',
-          title: 'Watermark',
+          title: 'Cap Air (Watermark)',
           description: 'Sisipkan cap air teks atau logo untuk melindungi hak cipta dokumen.',
-          icon: <Stamp size={22} />,
+          icon: <Stamp size={20} />,
           active: true,
           view: View.WATERMARK,
-          category: 'Edit & Organisasi',
+          category: 'Edit & Organisasi Halaman',
+          engineType: 'fast',
           keywords: ['watermark', 'cap air', 'logo', 'hak cipta']
         }
       ]
     },
     {
       id: 'security',
-      title: '4. Keamanan & Lanjutan',
-      description: 'Proteksi, enkripsi, dan teknologi cerdas untuk dokumen Anda.',
+      title: '4. Keamanan, AI & Privasi',
+      description: 'Proteksi kata sandi, enkripsi AES-256, OCR, dan sensor PII kepatuhan UU PDP.',
       tools: [
         {
-          id: 'ocr-pdf',
-          title: 'OCR PDF',
-          description: 'Kenali dan ubah teks dari pindaian scan/foto menjadi teks digital.',
-          icon: <Eye size={22} />,
+          id: 'redact-pdf',
+          title: 'Sensor Data Sensitif (UU PDP)',
+          description: 'True binary redaction: hapus permanen NIK, NPWP, Rekening, HP & Medis.',
+          icon: <ShieldCheck size={20} />,
+          badge: 'UU PDP',
           active: true,
-          view: View.OCR_PDF,
-          category: 'Keamanan & Lanjutan',
-          keywords: ['ocr', 'scan', 'pindai', 'baca gambar']
+          view: View.REDACT_PDF,
+          category: 'Keamanan, AI & Privasi',
+          engineType: 'fast',
+          keywords: ['redact', 'sensor', 'nik', 'ktp', 'uu pdp', 'pdp', 'npwp', 'rekening', 'privasi', 'rahasia', 'pii']
         },
         {
           id: 'protect-pdf',
-          title: 'Proteksi PDF',
-          description: 'Kunci dokumen dengan kata sandi kuat dan enkripsi tingkat tinggi.',
-          icon: <Lock size={22} />,
+          title: 'Proteksi Sandi PDF',
+          description: 'Enkripsi dokumen dengan sandi kuat AES-256 bit dan pembatasan izin cetak.',
+          icon: <Lock size={20} />,
           active: true,
           view: View.PROTECT_PDF,
-          category: 'Keamanan & Lanjutan',
+          category: 'Keamanan, AI & Privasi',
+          engineType: 'fast',
           keywords: ['protect', 'kunci', 'sandi', 'password', 'enkripsi']
         },
         {
           id: 'unlock-pdf',
-          title: 'Buka Kunci',
-          description: 'Hapus proteksi kata sandi pada dokumen PDF milik Anda.',
-          icon: <Unlock size={22} />,
+          title: 'Buka Kunci PDF',
+          description: 'Buka dan dekripsi kata sandi perlindungan dokumen PDF milik Anda.',
+          icon: <Unlock size={20} />,
           active: true,
           view: View.UNLOCK_PDF,
-          category: 'Keamanan & Lanjutan',
+          category: 'Keamanan, AI & Privasi',
+          engineType: 'fast',
           keywords: ['unlock', 'buka kunci', 'hapus sandi', 'password']
         },
         {
-          id: 'translate-pdf',
-          title: 'Terjemahkan PDF',
-          description: 'Terjemahkan seluruh dokumen ke 30+ bahasa dengan AI dan tata letak asli.',
-          icon: <Languages size={22} />,
+          id: 'ocr-pdf',
+          title: 'OCR Dokumen Pindaian',
+          description: 'Kenali dan ubah teks dari pindaian scan/foto menjadi Searchable PDF.',
+          icon: <Eye size={20} />,
           active: true,
-          view: View.TRANSLATE_PDF,
-          category: 'Keamanan & Lanjutan',
-          keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
+          view: View.OCR_PDF,
+          category: 'Keamanan, AI & Privasi',
+          engineType: 'cloud',
+          keywords: ['ocr', 'scan', 'pindai', 'baca gambar']
         },
         {
-          id: 'redact-pdf',
-          title: 'Sensor Data Sensitif',
-          description: 'Sensor permanen NIK, KK, NPWP, Rekening, HP, & Email sesuai UU PDP No. 27/2022.',
-          icon: <ShieldCheck size={22} />,
-          badge: 'UU PDP',
+          id: 'translate-pdf',
+          title: 'Terjemahkan Dokumen',
+          description: 'Terjemahkan dokumen ke 30+ bahasa dengan preservasi tata letak Gemini Engine.',
+          icon: <Languages size={20} />,
           active: true,
-          view: View.REDACT_PDF,
-          category: 'Keamanan & Lanjutan',
-          keywords: ['redact', 'sensor', 'nik', 'ktp', 'uu pdp', 'pdp', 'npwp', 'rekening', 'privasi', 'rahasia', 'keamanan', 'pii']
+          view: View.TRANSLATE_PDF,
+          category: 'Keamanan, AI & Privasi',
+          engineType: 'cloud',
+          keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
         }
       ]
     }
   ], []);
 
-  // Filter tools based on user search query
+  // Filter tools berdasarkan input pencarian
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return toolCategories;
     const q = searchQuery.toLowerCase().trim();
@@ -290,39 +326,43 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
     })).filter(cat => cat.tools.length > 0);
   }, [searchQuery, toolCategories]);
 
+  const totalToolsCount = useMemo(() => {
+    return toolCategories.reduce((acc, cat) => acc + cat.tools.length, 0);
+  }, [toolCategories]);
+
   return (
     <div className="w-full">
-      {/* HERO SECTION */}
-      <section className="pt-12 pb-6 px-4 sm:px-6 lg:px-8 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-semibold mb-6">
-          <Sparkles size={14} />
-          <span>Platform Solusi PDF Server-Side Tercepat</span>
+      {/* HERO SECTION BERORIENTASI AKSI (Design Bible Section 3.1) */}
+      <section className="pt-10 pb-4 px-4 sm:px-6 lg:px-8 text-center max-w-4xl mx-auto">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-elevated border border-border-subtle text-text-secondary text-xs font-semibold mb-4 select-none">
+          <ShieldCheck size={13} className="text-emerald-500" />
+          <span>Kepatuhan UU PDP No. 27/2022 • Pemrosesan RAM Lokal & Zero Data Retention</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight sm:leading-tight mb-4">
-          Kelola Dokumen PDF.<br className="hidden sm:inline" /> Lebih Cepat & Bebas Hambatan.
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-text-primary tracking-tight leading-tight mb-3">
+          Platform Rekayasa Dokumen PDF.<br className="hidden sm:inline" /> Cepat, Taktil & Berstandar Presisi.
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed mb-8">
-          Satu tempat untuk menggabungkan, memisahkan, mengompresi, dan mengonversi PDF tanpa perlu membaca panduan manual.
+        <p className="text-sm sm:text-base text-text-secondary max-w-2xl mx-auto leading-relaxed mb-6">
+          Satu antarmuka utilitas modern untuk menggabungkan, memisahkan, mengompresi, dan menyunting dokumen PDF dengan enkripsi bank-grade tanpa jeda.
         </p>
 
-        {/* Quick Search Bar */}
-        <div className="relative max-w-xl mx-auto mb-4">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-            <Search size={18} />
+        {/* Quick Selector Search Bar (Section 3.1) */}
+        <div className="relative max-w-xl mx-auto mb-2">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-secondary">
+            <Search size={16} />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari alat PDF (misal: word, gabung, kompres, pisah)..."
-            className="w-full pl-11 pr-4 py-3 rounded-xl bg-white dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 dark:focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+            placeholder={`Cari dari ${totalToolsCount} perkakas (misal: kompres, word, tanda tangan, rekening)...`}
+            className="w-full pl-10 pr-16 py-2.5 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-secondary text-xs sm:text-sm focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-accent-primary shadow-2xs transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-medium text-text-secondary hover:text-text-primary"
             >
               Hapus
             </button>
@@ -330,41 +370,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
         </div>
       </section>
 
-      {/* UNIVERSAL DROPZONE (Section 4.1) */}
+      {/* UNIVERSAL DROPZONE (Section 3.2) */}
       {!searchQuery && (
         <section className="px-4 sm:px-6 lg:px-8">
           <UniversalDropzone onSelectView={onSelectView} />
         </section>
       )}
 
-      {/* TOOL CATEGORIES (Section 3) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      {/* KATALOG PERKAKAS GRID 3-KOLOM (Design Bible Section 3.3) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {filteredCategories.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-[#1E222B] rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
-            <p className="text-slate-600 dark:text-slate-300 font-medium mb-2">
-              Tidak ada alat yang cocok dengan pencarian "{searchQuery}".
+          <div className="text-center py-12 bg-surface rounded-xl border border-border-subtle p-8">
+            <p className="text-text-secondary font-medium text-sm mb-2">
+              Tidak ada perkakas yang cocok dengan pencarian "{searchQuery}".
             </p>
             <button
               onClick={() => setSearchQuery('')}
-              className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-xs font-bold text-accent-primary hover:underline"
             >
-              Tampilkan semua alat
+              Tampilkan semua perkakas
             </button>
           </div>
         ) : (
           filteredCategories.map((category) => (
             <div key={category.id} className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-slate-200 dark:border-slate-800 pb-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-border-subtle pb-2.5">
+                <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight">
                   {category.title}
                 </h2>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <span className="text-xs text-text-secondary font-normal">
                   {category.description}
                 </span>
               </div>
 
-              {/* Grid System: 1 col (sm), 2 col (md), 4 col (lg) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {/* Grid 3 Kolom Sesuai Spesifikasi Section 3.3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
                 {category.tools.map((tool) => (
                   <ToolCard
                     key={tool.id}
@@ -372,6 +412,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
                     description={tool.description}
                     icon={tool.icon}
                     active={tool.active}
+                    engineType={tool.engineType}
+                    badge={tool.badge}
                     onClick={() => tool.view && onSelectView(tool.view)}
                   />
                 ))}
@@ -381,164 +423,110 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
         )}
       </section>
 
-      {/* EDITORIAL SECTION 1: MENGAPA MEMILIH PDF TOOLBOX PRO */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800">
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-bold mb-3 border border-blue-200 dark:border-blue-800/60">
-            <Award size={14} />
+      {/* EDITORIAL SECTION 1: ARSITEKTUR MESIN & KEUNGGULAN UTAMA */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 border-t border-border-subtle">
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-elevated text-text-secondary text-xs font-semibold mb-2.5 border border-border-subtle">
+            <Award size={13} className="text-accent-primary" />
             <span>Standar Rekayasa Dokumen Generasi Baru</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Mengapa Jutaan Pengguna Memilih PDF Toolbox Pro?
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
+            Tiga Lapisan Arsitektur Mesin PDF Toolbox Pro
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mt-3 leading-relaxed">
-            Kami membangun platform ini untuk menghadirkan performa manipulasi dokumen sekelas software enterprise global, namun dengan arsitektur privasi yang menjunjung tinggi kerahasiaan data Anda dan harga yang ramah di kantong masyarakat Indonesia.
+          <p className="text-xs sm:text-sm text-text-secondary mt-2 leading-relaxed">
+            Beban kerja dibagi secara efisien antara eksekusi di memori browser pengguna dan server cepat untuk menjamin privasi maksimal dan kecepatan tinggi.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-5">
-              <Zap size={24} className="fill-blue-500" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="p-6 rounded-xl bg-surface border border-border-subtle shadow-2xs">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/20">
+              <Zap size={20} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Akselerasi CPU Multi-Core</h3>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Arsitektur hybrid cerdas kami membagi beban kerja secara efisien. Tugas ringan seperti penyusunan halaman diproses 0ms di browser Anda, sedangkan konversi dokumen berat dieksekusi secara paralel menggunakan thread server berkecepatan tinggi.
+            <div className="flex items-center gap-2 mb-1.5">
+              <h3 className="text-sm font-bold text-text-primary">Grup A: RAM Lokal</h3>
+              <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">0ms Upload</span>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Tugas seperti penggabungan, pemotongan, penyusunan halaman, dan penambahan teks dieksekusi 100% di memori browser Anda via WebAssembly. Dokumen tidak pernah diunggah ke server.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-5">
-              <ShieldCheck size={24} />
+          <div className="p-6 rounded-xl bg-surface border border-border-subtle shadow-2xs">
+            <div className="w-10 h-10 rounded-lg bg-accent-primary/10 text-accent-primary flex items-center justify-center mb-4 border border-accent-primary/20">
+              <ShieldCheck size={20} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Zero Data Retention (Privasi 100%)</h3>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Privasi Anda adalah hak mutlak. Semua berkas yang diproses di server dikirimkan via koneksi terenkripsi perbankan TLS 256-bit dan dimusnahkan secara permanen oleh sistem otomatis dalam waktu 60 menit. Kami tidak pernah melihat, menyalin, atau melatih AI dari dokumen Anda.
+            <div className="flex items-center gap-2 mb-1.5">
+              <h3 className="text-sm font-bold text-text-primary">Grup B: Server Fast</h3>
+              <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/30">PyMuPDF</span>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Kompresi akurat (preset CPNS 200KB), enkripsi AES-256, dan True Binary Redaction UU PDP diproses via engine Python ringan berkecepatan tinggi dengan auto-wipe dalam 60 menit.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-5">
-              <CheckCircle2 size={24} />
+          <div className="p-6 rounded-xl bg-surface border border-border-subtle shadow-2xs">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 border border-amber-500/20">
+              <CheckCircle2 size={20} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Adil, Transparan & Fleksibel</h3>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Nikmati kuota gratis setiap hari tanpa kewajiban kartu kredit. Jika butuh memproses berkas mendesak dalam jumlah besar, tersedia Flash Pass 24 Jam seharga Rp5.000 via QRIS tanpa jeratan biaya langganan bulanan yang membingungkan.
+            <div className="flex items-center gap-2 mb-1.5">
+              <h3 className="text-sm font-bold text-text-primary">Grup C: Heavy Cloud</h3>
+              <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">Gemini & OCR</span>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Konversi kompleks (Word, Excel, PowerPoint, PDF/A) serta terjemahan multimodal Gemini AI dan OCR multi-bahasa dengan antrean paralel terisolasi.
             </p>
           </div>
         </div>
       </section>
 
       {/* EDITORIAL SECTION 2: PANDUAN STANDAR DOKUMEN DIGITAL */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#12161F]/40 rounded-3xl my-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-border-subtle bg-elevated/40 rounded-2xl my-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold mb-3">
-              <BookOpen size={14} />
-              <span>Pusat Pengetahuan & Panduan</span>
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-elevated text-text-secondary text-xs font-semibold mb-2 border border-border-subtle">
+              <BookOpen size={13} />
+              <span>Pusat Pengetahuan & Standar</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-text-primary tracking-tight">
               Panduan Memahami Standar Dokumen Digital & PDF
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-              Pelajari wawasan esensial seputar optimasi, pengarsipan jangka panjang, dan keamanan dokumen digital modern.
+            <p className="text-xs text-text-secondary mt-1">
+              Wawasan esensial seputar kompresi, pengarsipan jangka panjang ISO, dan kepatuhan UU PDP.
             </p>
           </div>
 
-          <div className="space-y-6 text-sm text-slate-700 dark:text-slate-300">
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">1</span>
+          <div className="space-y-4 text-xs text-text-secondary">
+            <div className="p-5 rounded-xl bg-surface border border-border-subtle space-y-1.5 shadow-2xs">
+              <h3 className="font-bold text-sm text-text-primary flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-accent-primary/10 text-accent-primary flex items-center justify-center text-[10px] font-bold">1</span>
                 <span>Kapan Anda Harus Menggunakan Format PDF/A?</span>
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
-                PDF/A (ISO 19005) adalah varian format PDF yang distandarisasi khusus untuk pengarsipan jangka panjang dokumen elektronik. Berbeda dengan PDF standar, PDF/A mewajibkan seluruh font disematkan (*embedded font*), menonaktifkan kode skrip eksternal, dan melarang enkripsi kata sandi. Format ini sangat wajib digunakan untuk dokumen hukum, rekam medis, skripsi perguruan tinggi, serta laporan keuangan perpajakan agar dapat dibuka dengan tampilan persis sama hingga puluhan tahun mendatang.
+              <p className="leading-relaxed pl-7 text-text-secondary">
+                PDF/A (ISO 19005) adalah varian khusus untuk pengarsipan jangka panjang dokumen elektronik. PDF/A mewajibkan seluruh font disematkan (*embedded font*), melarang kode skrip eksternal, dan menonaktifkan enkripsi kata sandi agar dokumen hukum, skripsi, dan laporan keuangan tetap dapat dibuka persis sama hingga puluhan tahun mendatang.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">2</span>
-                <span>Bagaimana Algoritma Kompresi Bekerja Tanpa Merusak Ketajaman Teks?</span>
+            <div className="p-5 rounded-xl bg-surface border border-border-subtle space-y-1.5 shadow-2xs">
+              <h3 className="font-bold text-sm text-text-primary flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-accent-primary/10 text-accent-primary flex items-center justify-center text-[10px] font-bold">2</span>
+                <span>Kompresi Presisi Tanpa Merusak Ketajaman Teks Vektor</span>
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
-                PDF tersusun atas dua komponen utama: data vektor (teks, bentuk garis, kurva font) dan data raster (gambar atau foto). Mesin kompresi PDF Toolbox Pro tidak pernah mengorbankan ketajaman teks vektor. Pengurangan ukuran dicapai dengan menghapus metadata tidak penting, membersihkan objek biner yatim (*dead objects*), dan mengompresi gambar raster dengan rasio DPI optimal yang tetap tajam saat dicetak maupun dibaca di layar retina.
+              <p className="leading-relaxed pl-7 text-text-secondary">
+                PDF tersusun atas data vektor (teks, garis, font) dan data raster (foto/gambar). Mesin kompresi kami tidak pernah mengorbankan ketajaman teks vektor. Pengurangan ukuran dilakukan dengan membersihkan metadata berlebih, mengeliminasi objek yatim, dan mengoptimalkan DPI gambar raster agar tetap lolos validasi portal SSCASN/BKN.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 space-y-2">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">3</span>
-                <span>Keabsahan Hukum Tanda Tangan Digital Menurut Regulasi</span>
+            <div className="p-5 rounded-xl bg-surface border border-border-subtle space-y-1.5 shadow-2xs">
+              <h3 className="font-bold text-sm text-text-primary flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-accent-primary/10 text-accent-primary flex items-center justify-center text-[10px] font-bold">3</span>
+                <span>Jaminan True Binary Redaction UU PDP No. 27/2022</span>
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-8">
-                Di era digital, membubuhkan tanda tangan secara elektronik pada kontrak kerja, surat perjanjian, atau invoice memiliki kekuatan pembuktian hukum yang sah sesuai Undang-Undang Informasi dan Transaksi Elektronik (UU ITE). Menggunakan alat tanda tangan digital memangkas kebiasaan mencetak kertas (*paperless*), menghemat biaya tinta, dan mempercepat alur persetujuan bisnis hingga 90%.
+              <p className="leading-relaxed pl-7 text-text-secondary">
+                Berbeda dari alat biasa yang hanya menaruh kotak hitam visual (teks aslinya masih dapat disalin), fitur Redact PDF kami menghancurkan aliran data biner teks sensitif (NIK, NPWP, nomor rekening) secara fisik dari berkas PDF sehingga aman dari kebocoran data.
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* EDITORIAL SECTION 3: TABEL PERBANDINGAN TIER */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-200 dark:border-slate-800">
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Perbandingan Transparan Fitur & Kapasitas Akun
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2">
-            Pilih opsi yang paling sesuai dengan intensitas kebutuhan dokumen harian Anda.
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm border-collapse bg-white dark:bg-[#161A22] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-[#1E222B] border-b border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-bold">
-                <th className="p-4 sm:p-5">Fitur & Parameter</th>
-                <th className="p-4 sm:p-5">Tamu (Tanpa Akun)</th>
-                <th className="p-4 sm:p-5 text-blue-600 dark:text-blue-400">Akun Gratis (Google)</th>
-                <th className="p-4 sm:p-5 text-amber-600 dark:text-amber-400">24-Hour Flash Pass</th>
-                <th className="p-4 sm:p-5 text-purple-600 dark:text-purple-400">Monthly / Annual Pro</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
-              <tr>
-                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Batas Kuota Operasi Harian</td>
-                <td className="p-4">3 tugas / hari</td>
-                <td className="p-4 font-bold text-blue-600 dark:text-blue-400">10 tugas / hari</td>
-                <td className="p-4 font-bold text-amber-600 dark:text-amber-400">Tanpa Batas (24 Jam)</td>
-                <td className="p-4 font-bold text-purple-600 dark:text-purple-400">Tanpa Batas</td>
-              </tr>
-              <tr>
-                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Maksimal Ukuran File</td>
-                <td className="p-4">20 MB</td>
-                <td className="p-4">50 MB</td>
-                <td className="p-4">100 MB</td>
-                <td className="p-4 font-bold text-purple-600 dark:text-purple-400">250 MB – 500 MB</td>
-              </tr>
-              <tr>
-                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Batch Processing (Banyak File)</td>
-                <td className="p-4">Hingga 3 file</td>
-                <td className="p-4">Hingga 10 file</td>
-                <td className="p-4">Hingga 20 file</td>
-                <td className="p-4">Hingga 50 file serentak</td>
-              </tr>
-              <tr>
-                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Prioritas Antrean Server</td>
-                <td className="p-4">Standar</td>
-                <td className="p-4">Standar</td>
-                <td className="p-4">Jalur Cepat (High)</td>
-                <td className="p-4">Jalur VIP Prioritas Utama</td>
-              </tr>
-              <tr>
-                <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">Keamanan & Penghapusan Otomatis</td>
-                <td className="p-4">60 Menit</td>
-                <td className="p-4">60 Menit</td>
-                <td className="p-4">Tersedia hingga 24 Jam</td>
-                <td className="p-4">Tersedia hingga 24 Jam</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </section>
     </div>
