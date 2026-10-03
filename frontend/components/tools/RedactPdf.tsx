@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
+import CloudExportButtons from '../common/CloudExportButtons';
 import PdfPreview from './PdfPreview';
 import { 
   ShieldCheck, 
@@ -378,23 +379,29 @@ const RedactPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-              <a
-                href={downloadUrl}
-                download={downloadName}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[46px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <Download size={18} />
-                <span>Unduh PDF Bersih</span>
-              </a>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[46px] rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white dark:bg-[#161A22] text-emerald-800 dark:text-emerald-200 font-semibold text-xs sm:text-sm hover:bg-emerald-100/50 dark:hover:bg-slate-800 transition-all cursor-pointer"
-              >
-                <RefreshCw size={16} />
-                <span>Sensor Dokumen Lain</span>
-              </button>
+            <div className="flex flex-col items-stretch sm:items-end gap-3 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+                <a
+                  href={downloadUrl}
+                  download={downloadName}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[46px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Download size={18} />
+                  <span>Unduh PDF Bersih</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[46px] rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white dark:bg-[#161A22] text-emerald-800 dark:text-emerald-200 font-semibold text-xs sm:text-sm hover:bg-emerald-100/50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <RefreshCw size={16} />
+                  <span>Sensor Dokumen Lain</span>
+                </button>
+              </div>
+              {/* Ekspor ke Cloud Storage (Google Drive & Dropbox) */}
+              <div className="w-full">
+                <CloudExportButtons fileUrl={downloadUrl} fileName={downloadName} />
+              </div>
             </div>
           </div>
 

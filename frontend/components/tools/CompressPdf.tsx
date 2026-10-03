@@ -4,6 +4,7 @@ import { UploadIcon, DownloadIcon, CheckCircleIcon, FilePdfIcon, TrashIcon, Comp
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import FileUploader from '../common/FileUploader';
+import CloudExportButtons from '../common/CloudExportButtons';
 import PdfPreview from './PdfPreview';
 import { 
   OFFICIAL_PRESET_CATEGORIES, 
@@ -178,6 +179,15 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <DownloadIcon className="w-5 h-5" />
             Unduh PDF Hasil Kompres
           </a>
+
+          {/* Ekspor ke Cloud Storage (Google Drive & Dropbox) */}
+          <div className="w-full max-w-sm">
+            <CloudExportButtons 
+              fileUrl={resultUrl} 
+              fileName={`compressed-${file?.name || 'document.pdf'}`} 
+            />
+          </div>
+
           <button 
             onClick={() => {
               setResultUrl(null);

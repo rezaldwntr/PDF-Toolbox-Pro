@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
+import CloudExportButtons from '../common/CloudExportButtons';
 import { 
   extractPagesToPdf, 
   splitDocumentToParts, 
@@ -282,6 +283,15 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
             {outputFileType === 'zip' ? <ZipIcon className="w-6 h-6"/> : <DownloadIcon className="w-6 h-6"/>}
             Unduh Hasil ({outputFileType.toUpperCase()})
           </a>
+
+          {/* Ekspor ke Cloud Storage (Google Drive & Dropbox) */}
+          <div className="w-full max-w-sm">
+            <CloudExportButtons 
+              fileUrl={outputUrl} 
+              fileName={`split-${file?.name.replace('.pdf', '') || 'document'}.${outputFileType}`} 
+            />
+          </div>
+
           <button onClick={() => setOutputUrl(null)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium">Pisahkan Bagian Lain</button>
         </div>
       </ToolContainer>

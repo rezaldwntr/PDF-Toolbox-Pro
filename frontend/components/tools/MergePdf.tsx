@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
+import CloudExportButtons from '../common/CloudExportButtons';
 import { mergeDocuments, CLIENT_PDF_MAX_SIZE_BYTES } from '../../lib/pdfWorker';
 
 import { BACKEND_URL } from '../../config';
@@ -266,6 +267,10 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
           >
             Unduh PDF Gabungan
           </a>
+
+          {/* Cloud Export Actions (Google Drive & Dropbox) */}
+          <CloudExportButtons fileUrl={mergedPdfUrl} fileName={`merged-${Date.now()}.pdf`} />
+
           <button
             onClick={reset}
             className="font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-all duration-200 py-2.5 px-4 rounded-lg min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98]"
