@@ -17,18 +17,18 @@ const OfflineStatusBanner: React.FC<OfflineStatusBannerProps> = ({ isOnline }) =
   }
 
   return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs sm:text-sm py-2 px-4 shadow-md sticky top-16 z-30 transition-all duration-200">
+    <div className="bg-amber-500/10 dark:bg-amber-950/30 border-y border-amber-500/30 text-text-primary text-xs sm:text-sm py-2.5 px-4 shadow-xs sticky top-16 z-30 transition-all duration-200">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
         <div className="flex items-center gap-2">
-          <WifiOff size={16} className="shrink-0 animate-pulse" />
-          <span>
-            <strong>Mode Offline Aktif:</strong> Anda sedang tanpa koneksi internet. Alat peramban (Gabungkan & Pisahkan PDF) tetap dapat digunakan secara instan.
+          <WifiOff size={16} className="shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
+          <span className="text-xs sm:text-sm">
+            <strong className="text-amber-700 dark:text-amber-300">Mode Luring Aktif:</strong> Perkakas Grup A (Tanda Tangan, Anotasi, Atur Halaman) tetap berfungsi 100% tanpa internet.
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           {isPro ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white font-bold text-[11px]">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
               <ShieldCheck size={13} />
               <span>Pro Offline Shield Aktif</span>
             </span>
@@ -36,9 +36,9 @@ const OfflineStatusBanner: React.FC<OfflineStatusBannerProps> = ({ isOnline }) =
             <button
               type="button"
               onClick={() => openPaywall('offline_unlimited')}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-orange-700 font-extrabold text-[11px] hover:bg-orange-50 active:scale-95 transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-accent-primary text-white font-extrabold text-[11px] hover:bg-accent-hover active:scale-95 transition-all shadow-xs cursor-pointer"
             >
-              <Zap size={12} className="fill-current text-amber-500" />
+              <Zap size={12} className="fill-current text-white" />
               <span>Upgrade Pro (Offline Tanpa Batas)</span>
             </button>
           )}

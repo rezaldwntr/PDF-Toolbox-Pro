@@ -34,11 +34,7 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Status Interaksi Drag & Resize
   const [isDraggingBox, setIsDraggingBox] = useState<boolean>(false);
   const [activeHandle, setActiveHandle] = useState<string | null>(null);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number; box: CropBox }>({
-    x: 0,
-    y: 0,
-    box: { x: 0, y: 0, width: 0, height: 0 },
-  });
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; box: CropBox }>({ x: 0, y: 0, box: { x: 0, y: 0, width: 0, height: 0 } });
 
   // State Pemrosesan & Hasil
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -422,16 +418,11 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             cropBox={cropBox}
             setCropBox={setCropBox}
             canvasDimensions={canvasDimensions}
-            aspectRatio={aspectRatio}
-            applyAspectRatio={applyAspectRatio}
-            applyQuickMargin={applyQuickMargin}
-            handleResetCrop={handleResetCrop}
-            pageSelection={pageSelection}
-            setPageSelection={setPageSelection}
-            customPages={customPages}
-            setCustomPages={setCustomPages}
-            currentPage={currentPage}
-            totalPages={totalPages}
+            aspectRatio={aspectRatio} applyAspectRatio={applyAspectRatio}
+            applyQuickMargin={applyQuickMargin} handleResetCrop={handleResetCrop}
+            pageSelection={pageSelection} setPageSelection={setPageSelection}
+            customPages={customPages} setCustomPages={setCustomPages}
+            currentPage={currentPage} totalPages={totalPages}
           />
         ) : undefined
       }

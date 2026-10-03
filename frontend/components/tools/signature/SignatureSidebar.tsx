@@ -1,37 +1,17 @@
 import React, { useState, useRef } from 'react';
 import { PenTool, Type, Upload, Trash2, Plus, Eraser, Sparkles } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
+import {
+  SignatureItem,
+  SignatureMode,
+  TypeFont,
+  SIGNATURE_COLORS,
+  PEN_WIDTHS,
+  TYPE_FONTS,
+} from './SignatureTypes';
+import { SavedSignaturesGallery } from './SavedSignaturesGallery';
 
-export interface SignatureItem {
-  id: string;
-  name: string;
-  dataUrl: string; // Base64 PNG
-  width: number;
-  height: number;
-  mode: 'draw' | 'type' | 'upload';
-}
-
-export type SignatureMode = 'draw' | 'type' | 'upload';
-export type TypeFont = 'Caveat' | 'Dancing Script' | 'Great Vibes' | 'Pacifico';
-
-const SIGNATURE_COLORS = [
-  { label: 'Hitam', hex: '#000000' },
-  { label: 'Biru Resmi', hex: '#1E40AF' },
-  { label: 'Merah', hex: '#DC2626' },
-];
-
-const PEN_WIDTHS = [
-  { label: 'Tipis', size: 2 },
-  { label: 'Normal', size: 4 },
-  { label: 'Tebal', size: 6 },
-];
-
-const TYPE_FONTS: { id: TypeFont; label: string; fontFamily: string }[] = [
-  { id: 'Dancing Script', label: 'Dancing Script (Elegan)', fontFamily: '"Dancing Script", cursive' },
-  { id: 'Great Vibes', label: 'Great Vibes (Formal Klasik)', fontFamily: '"Great Vibes", cursive' },
-  { id: 'Caveat', label: 'Caveat (Tangan Modern)', fontFamily: '"Caveat", cursive' },
-  { id: 'Pacifico', label: 'Pacifico (Tegas & Tebal)', fontFamily: '"Pacifico", cursive' },
-];
+export type { SignatureItem, SignatureMode, TypeFont };
 
 interface SignatureSidebarProps {
   signatures: SignatureItem[];
@@ -471,74 +451,14 @@ export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
       </div>
 
       {/* Gallery of Saved Signatures */}
-      {signatures.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl shadow-sm transition-colors space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Galeri Tanda Tangan Anda</h4>
-            <span className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
-              {signatures.length}
-            </span>
-          </div>
-
-          {/* Target Page Selector Dropdown */}
-          <div className="flex items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Target Lembar:</span>
-            <select
-              value={targetPageSelection}
-              onChange={e => {
-                const val = e.target.value;
-                onTargetPageChange(val === 'all' ? 'all' : Number(val));
-              }}
-              className="text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
-            >
-              {Array.from({ length: pageCount }).map((_, i) => (
-                <option key={i} value={i}>Halaman {i + 1}</option>
-              ))}
-              {pageCount > 1 && (
-                <option value="all">Semua Halaman (Paraf / Stempel)</option>
-              )}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
-            {signatures.map(sig => (
-              <div
-                key={sig.id}
-                className="group flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:border-blue-400 transition-colors"
-              >
-                <button
-                  onClick={() => onPlaceSignature(sig, targetPageSelection)}
-                  className="flex-1 flex items-center gap-3 text-left overflow-hidden"
-                >
-                  <div className="w-16 h-10 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center shrink-0">
-                    <img src={sig.dataUrl} alt={sig.name} className="max-w-full max-h-full object-contain" />
-                  </div>
-                  <div className="truncate">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{sig.name}</p>
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
-                      <Plus className="w-3 h-3" />
-                      {targetPageSelection === 'all'
-                        ? 'Taruh di Semua Halaman'
-                        : `Taruh di Halaman ${Number(targetPageSelection) + 1}`}
-                    </span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => onDeleteSignature(sig.id)}
-                  title="Hapus dari Galeri"
-                  className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 italic text-center">
-            Tip: Anda juga bisa mengklik langsung pada lembar halaman di kanvas untuk menempelkan tanda tangan.
-          </p>
-        </div>
-      )}
+      <SavedSignaturesGallery
+        signatures={signatures}
+        pageCount={pageCount}
+        targetPageSelection={targetPageSelection}
+        onTargetPageChange={onTargetPageChange}
+        onPlaceSignature={onPlaceSignature}
+        onDeleteSignature={onDeleteSignature}
+      />
     </div>
   );
 };

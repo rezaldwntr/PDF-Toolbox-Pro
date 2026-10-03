@@ -56,6 +56,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useOnlinePresence } from './lib/presence';
 import { usePwa } from './lib/pwa';
 import OfflineStatusBanner from './components/common/OfflineStatusBanner';
+import PwaInstallBanner from './components/common/PwaInstallBanner';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -246,6 +247,9 @@ function AppContent() {
 
       {/* Footer with Security & Trust Badges */}
       <Footer onSelectView={setCurrentView} />
+
+      {/* Subtle Bottom PWA Install Banner (Design Bible Section 10.2) */}
+      <PwaInstallBanner />
 
       {/* Global Modals (rendered at root level for z-index isolation, lazy loaded) */}
       <Suspense fallback={null}>

@@ -1,6 +1,6 @@
 // frontend/components/common/CloudExportButtons.tsx
 import React, { useState } from 'react';
-import { ExternalLink, Check, Cloud } from 'lucide-react';
+import { ExternalLink, Check, Cloud, ShieldCheck } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { saveFileToGoogleDrive, saveFileToDropbox } from '../../lib/cloudStorage';
 
@@ -60,13 +60,13 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
 
   return (
     <div className={`flex flex-col items-center gap-3 w-full max-w-md ${className}`}>
-      <div className="flex items-center gap-2 w-full text-slate-400 dark:text-slate-500 text-xs font-semibold my-1">
-        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
+      <div className="flex items-center gap-2 w-full text-text-secondary text-xs font-semibold my-1">
+        <div className="h-px bg-border-subtle flex-1" />
         <span className="flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-          <Cloud size={13} />
+          <Cloud size={13} className="text-accent-primary" />
           <span>Simpan Langsung ke Cloud</span>
         </span>
-        <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
+        <div className="h-px bg-border-subtle flex-1" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
@@ -75,10 +75,10 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
           type="button"
           onClick={handleSaveToGoogleDrive}
           disabled={isSavingGDrive || isSavingDropbox}
-          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-border-subtle hover:border-accent-primary bg-surface text-text-primary font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           {isSavingGDrive ? (
-            <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg className="animate-spin h-4 w-4 text-accent-primary" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
           ) : (
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.5 12c0-.8-.1-1.6-.2-2.3H12v4.5h5.9c-.3 1.4-1.1 2.6-2.3 3.4v2.8h3.7c2.2-2 3.2-5 3.2-8.4z"/>
@@ -95,10 +95,10 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
           type="button"
           onClick={handleSaveToDropbox}
           disabled={isSavingGDrive || isSavingDropbox}
-          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-border-subtle hover:border-accent-primary bg-surface text-text-primary font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           {isSavingDropbox ? (
-            <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg className="animate-spin h-4 w-4 text-accent-primary" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
           ) : (
             <svg className="w-4 h-4 shrink-0 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 3.5L0 8.25l6 4.75 6-4.75L6 3.5zm12 0l-6 4.75 6 4.75 6-4.75-6-4.75zM0 17.75l6 4.75 6-4.75-6-4.75-6 4.75zm24 0l-6-4.75-6 4.75 6 4.75 6-4.75zM12 18.5l-6-4.75-6 4.75L6 23.25l6-4.75 6 4.75 6-4.75-6-4.75-6 4.75z"/>
@@ -108,12 +108,18 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
         </button>
       </div>
 
+      {/* Indikator Privasi Token Cloud (Design Bible Section 10.1) */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-elevated border border-border-subtle text-[11px] text-text-secondary text-center leading-tight">
+        <ShieldCheck size={13} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <span>Pemrosesan In-Memory Client-Side, Berkas & Token Tidak Menyentuh Server Backend</span>
+      </div>
+
       {gDriveLink && (
         <a
           href={gDriveLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:underline mt-1"
         >
           <span>Buka di Google Drive</span>
           <ExternalLink size={12} />
