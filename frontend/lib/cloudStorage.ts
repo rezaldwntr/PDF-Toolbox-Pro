@@ -43,23 +43,13 @@ export async function fetchUrlToFile(url: string, fileName: string, mimeType = '
   return new File([blob], fileName, { type: mimeType });
 }
 
-/** Membuat mock file contoh PDF untuk mode Sandbox / Demo jika API key belum dikonfigurasi */
-export async function createDemoCloudFile(cloudName: string): Promise<File> {
-  const dummyPdfContent = `%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000097 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n185\n%%EOF`;
-  const blob = new Blob([dummyPdfContent], { type: 'application/pdf' });
-  const filename = `berkas_${cloudName.toLowerCase()}_demo.pdf`;
-  return new File([blob], filename, { type: 'application/pdf' });
-}
-
 /**
  * Membuka Google Picker API untuk memilih berkas PDF dari Google Drive.
  * Jika kredensial belum ada, mengembalikan berkas demo ramah pengujian.
  */
 export async function pickFileFromGoogleDrive(): Promise<File> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
-    // Mode Sandbox / Pengujian Cepat
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    return createDemoCloudFile('GoogleDrive');
+    throw new Error('Google Drive belum terhubung: Kredensial VITE_GOOGLE_CLIENT_ID dan VITE_GOOGLE_API_KEY belum dikonfigurasi di Environment Variables.');
   }
 
   // 1. Muat Google API dan GIS
@@ -110,9 +100,7 @@ export async function pickFileFromGoogleDrive(): Promise<File> {
  */
 export async function pickFileFromDropbox(): Promise<File> {
   if (!DROPBOX_APP_KEY) {
-    // Mode Sandbox / Pengujian Cepat
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    return createDemoCloudFile('Dropbox');
+    throw new Error('Dropbox belum terhubung: Kredensial VITE_DROPBOX_APP_KEY belum dikonfigurasi di Environment Variables.');
   }
 
   await loadExternalScript('https://www.dropbox.com/static/api/2/dropins.js', 'dropboxjs');
@@ -148,13 +136,7 @@ export async function saveFileToGoogleDrive(
   fileName: string
 ): Promise<{ success: boolean; message: string; viewUrl?: string }> {
   if (!GOOGLE_CLIENT_ID) {
-    // Mode Sandbox: simulasi sukses
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    return {
-      success: true,
-      message: `(Mode Simulasi) Berkas ${fileName} berhasil disimpan ke Google Drive.`,
-      viewUrl: 'https://drive.google.com/',
-    };
+    throw new Error('Google Drive belum terhubung: Kredensial VITE_GOOGLE_CLIENT_ID belum dikonfigurasi di Environment Variables.');
   }
 
   await loadExternalScript('https://accounts.google.com/gsi/client', 'gis-client-script');
@@ -205,11 +187,7 @@ export async function saveFileToDropbox(
   fileName: string
 ): Promise<{ success: boolean; message: string }> {
   if (!DROPBOX_APP_KEY) {
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    return {
-      success: true,
-      message: `(Mode Simulasi) Berkas ${fileName} berhasil disimpan ke Dropbox.`,
-    };
+    throw new Error('Dropbox belum terhubung: Kredensial VITE_DROPBOX_APP_KEY belum dikonfigurasi di Environment Variables.');
   }
 
   await loadExternalScript('https://www.dropbox.com/static/api/2/dropins.js', 'dropboxjs');
