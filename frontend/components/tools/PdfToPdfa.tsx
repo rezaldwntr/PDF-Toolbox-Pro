@@ -1,23 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ToolContainer from '../common/ToolContainer';
 import FileUploader from '../common/FileUploader';
+import ProcessingStepper from '../common/ProcessingStepper';
+import DownloadResultCard from '../common/DownloadResultCard';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { BACKEND_URL } from '../../config';
 import {
   FileCheck,
-  Download,
-  RefreshCw,
-  FileText,
   ShieldCheck,
-  CheckCircle2,
-  Sparkles,
-  Info,
-  Archive,
-  Layers,
-  FileCode,
   Award,
+  Archive,
   BookOpen,
+  FileCode,
+  RotateCcw,
 } from 'lucide-react';
 import { formatFileSize } from '../../lib/formatters';
 import { triggerFileDownload } from '../../lib/download';
@@ -44,15 +40,15 @@ const STANDARDS: StandardOption[] = [
     badge: 'Disarankan',
     tag: 'Standar Modern',
     desc: 'Format pengarsipan paling seimbang dan direkomendasikan untuk sebagian besar kebutuhan dokumen saat ini.',
-    features: ['Mendukung transparansi grafis', 'Kompresi efisien JPEG 2000', 'Font OpenType mandiri (embedded)']
+    features: ['Mendukung transparansi grafis', 'Kompresi efisien JPEG 2000', 'Font OpenType mandiri (embedded)'],
   },
   {
     part: 1,
     name: 'PDF/A-1',
     iso: 'ISO 19005-1:2005',
     tag: 'Kompatibilitas Legasi',
-    desc: 'Standar generasi pertama berbasis PDF 1.4 untuk kompatibilitas mutlak dengan sistem arsip pemerintah lama.',
-    features: ['Kompatibilitas pembaca tertinggi', 'Standar resmi lembaga arsip negara', 'Meratakan transparansi visual']
+    desc: 'Standar generasi pertama berbasis PDF 1.4 untuk kompatibilitas mutlak dengan sistem arsip lama.',
+    features: ['Kompatibilitas pembaca tertinggi', 'Standar resmi arsip negara', 'Meratakan transparansi visual'],
   },
   {
     part: 3,
@@ -60,8 +56,8 @@ const STANDARDS: StandardOption[] = [
     iso: 'ISO 19005-3:2012',
     tag: 'Dukungan Lampiran',
     desc: 'Mengizinkan penyertaan lampiran berkas terstruktur (seperti faktur XML / ZUGFeRD) di dalam arsip.',
-    features: ['Dukungan lampiran berkas biner/XML', 'Ideal untuk e-Faktur & kontrak digital', 'Integritas arsip terjamin']
-  }
+    features: ['Dukungan lampiran berkas biner/XML', 'Ideal untuk e-Faktur & kontrak digital', 'Integritas arsip terjamin'],
+  },
 ];
 
 const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -75,13 +71,24 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // State Pemrosesan & Hasil
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [processingStep, setProcessingStep] = useState<number>(1);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultSize, setResultSize] = useState<number | null>(null);
 
   const { addToast } = useToast();
   const { consumeQuota, checkQuotaBeforeAction } = useQuota();
 
-  // 1. Tangani pemilihan file PDF
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && file && !isProcessing && !resultUrl) {
+        e.preventDefault();
+        handleConvertPdfa();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [file, isProcessing, resultUrl, selectedPart, conformance]);
+
   const handlePdfSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const selected = files[0];
@@ -95,18 +102,14 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultSize(null);
     setPageCount(0);
 
-    // Baca versi PDF dari header berkas (%PDF-x.x)
     try {
       const headerSlice = await selected.slice(0, 30).text();
       const versionMatch = headerSlice.match(/%PDF-(\d\.\d)/);
-      if (versionMatch) {
-        setPdfVersion(versionMatch[1]);
-      }
+      if (versionMatch) setPdfVersion(versionMatch[1]);
     } catch {
       setPdfVersion('1.7');
     }
 
-    // Baca jumlah halaman dengan getPdfPageCount
     try {
       const buffer = await selected.arrayBuffer();
       const pages = await getPdfPageCount(buffer);
@@ -116,13 +119,11 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  // 2. Eksekusi Konversi PDF/A (POST /tools/convert-pdfa)
   const handleConvertPdfa = async () => {
-    if (!file) return;
-
-    if (!checkQuotaBeforeAction()) return;
+    if (!file || !checkQuotaBeforeAction()) return;
 
     setIsProcessing(true);
+    setProcessingStep(1);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -130,6 +131,7 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     formData.append('conformance', conformance);
 
     try {
+      setProcessingStep(2);
       const response = await fetch(`${BACKEND_URL}/tools/convert-pdfa`, {
         method: 'POST',
         body: formData,
@@ -140,58 +142,201 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         try {
           const errJson = await response.json();
           if (errJson.detail) errDetail = errJson.detail;
-        } catch {
-          // json parse fallback
-        }
+        } catch {}
         addToast(errDetail, 'error');
         setIsProcessing(false);
         return;
       }
 
+      setProcessingStep(3);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       setResultUrl(url);
       setResultSize(blob.size);
-
-      // Konsumsi kuota pemakaian
       consumeQuota();
-
       addToast(`Dokumen berhasil dikonversi ke PDF/A-${selectedPart}${conformance}!`, 'success');
     } catch (error: any) {
-      console.error('Error convert PDF/A:', error);
       addToast(error.message || 'Terjadi kesalahan jaringan saat konversi berkas.', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 3. Unduh berkas hasil konversi
   const handleDownload = () => {
     if (!resultUrl || !file) return;
     const base = file.name.replace(/\.pdf$/i, '');
     triggerFileDownload(resultUrl, `pdfa-${selectedPart}${conformance}-${base}.pdf`);
   };
 
-  // 4. Reset state
   const handleReset = () => {
-    if (resultUrl) {
-      URL.revokeObjectURL(resultUrl);
-    }
+    if (resultUrl) URL.revokeObjectURL(resultUrl);
     setFile(null);
     setResultUrl(null);
     setResultSize(null);
     setPageCount(0);
   };
 
+  const currentStandard = STANDARDS.find((s) => s.part === selectedPart)!;
+
   return (
     <ToolContainer
       title="PDF ke PDF/A"
       description="Konversi dokumen PDF ke format arsip standar ISO 19005 untuk retensi jangka panjang yang diakui secara hukum."
       onBack={onBack}
+      canvasSlot={
+        file ? (
+          <div className="h-full flex flex-col items-center justify-center p-6 bg-canvas">
+            <div className="w-full max-w-lg bg-surface rounded-2xl border border-border-subtle p-8 shadow-sm text-center relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+
+              <div className="w-20 h-20 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center mx-auto mb-5 shadow-xs">
+                <Award className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
+              </div>
+
+              <h3 className="text-base font-bold text-text-primary mb-1 truncate px-4" title={file.name}>
+                {file.name}
+              </h3>
+              <p className="text-xs text-text-secondary mb-6">
+                {formatFileSize(file.size)} • PDF v{pdfVersion}
+                {pageCount > 0 ? ` • ${pageCount} Halaman` : ''}
+              </p>
+
+              {/* Target Standard Badge */}
+              <div className="p-4 rounded-xl bg-canvas border border-border-subtle text-left mb-6 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-text-primary">
+                    Target: PDF/A-{selectedPart}{conformance.toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-accent-primary/10 text-accent-primary">
+                    {currentStandard.iso}
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {currentStandard.desc}
+                </p>
+                <div className="pt-2 border-t border-border-subtle flex flex-wrap gap-1.5">
+                  {currentStandard.features.map((feat, i) => (
+                    <span
+                      key={i}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-surface border border-border-subtle text-text-secondary"
+                    >
+                      ✓ {feat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border-subtle flex items-center justify-between text-xs">
+                <button
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Ganti Dokumen
+                </button>
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Kepatuhan Standar ISO
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : undefined
+      }
+      inspectorSlot={
+        file ? (
+          <div className="p-5 space-y-6">
+            <div>
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">
+                Standar ISO PDF/A
+              </h3>
+              <p className="text-xs text-text-secondary">
+                Pilih versi standar ISO untuk masa retensi arsip.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {STANDARDS.map((std) => {
+                const isSelected = selectedPart === std.part;
+                return (
+                  <div
+                    key={std.part}
+                    onClick={() => setSelectedPart(std.part)}
+                    className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-accent-primary bg-accent-primary/5 shadow-xs'
+                        : 'border-border-subtle bg-canvas hover:border-text-muted'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-text-primary">{std.name}</span>
+                      {std.badge && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary">
+                          {std.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-mono text-text-muted mb-1">{std.iso}</p>
+                    <p className="text-[11px] text-text-secondary leading-snug">{std.tag}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tingkat Kepatuhan */}
+            <div className="pt-2 border-t border-border-subtle space-y-3">
+              <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block">
+                Tingkat Kepatuhan (Conformance)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConformance('b')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    conformance === 'b'
+                      ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
+                      : 'border-border-subtle bg-canvas text-text-secondary'
+                  }`}
+                >
+                  <div className="text-xs font-bold">Level B (Basic)</div>
+                  <div className="text-[10px] text-text-muted mt-0.5">Integritas visual rendering</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConformance('a')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    conformance === 'a'
+                      ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
+                      : 'border-border-subtle bg-canvas text-text-secondary'
+                  }`}
+                >
+                  <div className="text-xs font-bold">Level A (Accessible)</div>
+                  <div className="text-[10px] text-text-muted mt-0.5">Tagged structure & skrin pembaca</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : undefined
+      }
+      floatingBarSlot={
+        file ? (
+          <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
+              <Award className="w-4 h-4 text-accent-primary" />
+              <span>Standar: PDF/A-{selectedPart}{conformance.toUpperCase()} ({currentStandard.iso})</span>
+            </div>
+            <button
+              onClick={() => handleConvertPdfa()}
+              disabled={isProcessing}
+              className="w-full sm:w-auto px-6 py-2.5 min-h-[44px] bg-accent-primary hover:bg-accent-hover disabled:bg-canvas disabled:text-text-muted text-accent-contrast font-bold text-sm rounded-xl transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2"
+            >
+              <FileCheck className="w-4 h-4" />
+              <span>Konversi ke PDF/A-{selectedPart}{conformance.toUpperCase()}</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-accent-contrast/20 rounded text-[10px]">↵</kbd>
+            </button>
+          </div>
+        ) : undefined
+      }
     >
-      {/* =================================================================== */}
-      {/* LANGKAH 1: UNGGAH DOKUMEN                                          */}
-      {/* =================================================================== */}
+      {/* Upload Phase */}
       {!file && (
         <div className="max-w-2xl mx-auto space-y-6">
           <FileUploader
@@ -199,311 +344,69 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             accept={{ 'application/pdf': ['.pdf'] }}
             maxFiles={1}
             title="Pilih Berkas PDF untuk Dikonversi ke PDF/A"
-            subtitle="Seret berkas PDF ke sini atau klik untuk memilih dokumen dari komputer"
+            subtitle="Seret berkas PDF ke sini atau klik untuk memilih dokumen dari perangkat"
           />
 
-          {/* Keunggulan Standar ISO */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-4">
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+            <div className="p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center gap-3">
               <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
                 <Award className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Standar ISO 19005</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Kepatuhan hukum & audit</p>
+                <h4 className="text-xs font-semibold text-text-primary">Standar ISO 19005</h4>
+                <p className="text-[11px] text-text-muted">Kepatuhan hukum & audit</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
+            <div className="p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center gap-3">
               <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
                 <Archive className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Arsip Abadi</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Font embedded mandiri</p>
+                <h4 className="text-xs font-semibold text-text-primary">Arsip Abadi</h4>
+                <p className="text-[11px] text-text-muted">Font embedded mandiri</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 shadow-xs">
+            <div className="p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Integritas Dokumen</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">100% identik di masa depan</p>
+                <h4 className="text-xs font-semibold text-text-primary">Integritas Dokumen</h4>
+                <p className="text-[11px] text-text-muted">100% identik di masa depan</p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* =================================================================== */}
-      {/* LANGKAH 2: PENGATURAN STANDAR PDF/A & TINGKAT KEPATUHAN           */}
-      {/* =================================================================== */}
-      {file && !resultUrl && (
-        <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-          {/* Ringkasan Berkas */}
-          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-3.5 truncate">
-              <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/60">
-                <FileCheck className="w-5 h-5" />
-              </div>
-              <div className="truncate">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                  {file.name}
-                </h4>
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  <span>{formatFileSize(file.size)}</span>
-                  <span>•</span>
-                  <span>Versi PDF {pdfVersion}</span>
-                  {pageCount > 0 && (
-                    <>
-                      <span>•</span>
-                      <span>{pageCount} Halaman</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={handleReset}
-              title="Ganti berkas"
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Form Pemilihan Standar ISO PDF/A */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm space-y-6">
-            
-            {/* Bagian 1: Pilih Standar ISO */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                  1. Pilih Standar ISO PDF/A
-                </label>
-                <span className="text-[11px] text-slate-400">Berdasarkan tahun spesifikasi</span>
-              </div>
-
-              <div className="space-y-3">
-                {STANDARDS.map(std => {
-                  const isSelected = selectedPart === std.part;
-                  return (
-                    <div
-                      key={std.part}
-                      onClick={() => setSelectedPart(std.part)}
-                      className={`p-4 rounded-xl border-2 transition-all cursor-pointer relative ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-extrabold text-slate-900 dark:text-white">
-                              {std.name}
-                            </span>
-                            <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                              ({std.iso})
-                            </span>
-                            {std.badge && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-xs">
-                                ⭐ {std.badge}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {std.desc}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {std.features.map((feat, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md"
-                              >
-                                ✓ {feat}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                          isSelected
-                            ? 'border-indigo-600 bg-indigo-600 text-white'
-                            : 'border-slate-300 dark:border-slate-600'
-                        }`}>
-                          {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bagian 2: Conformance Level (B vs A) */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                  2. Tingkat Kepatuhan (Conformance Level)
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label
-                  onClick={() => setConformance('b')}
-                  className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                    conformance === 'b'
-                      ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      Level B (Basic Conformance)
-                    </span>
-                    <input
-                      type="radio"
-                      name="conformance"
-                      value="b"
-                      checked={conformance === 'b'}
-                      onChange={() => setConformance('b')}
-                      className="text-indigo-600 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Menjamin tampilan visual dokumen akan tetap 100% sama saat dibuka di masa depan di perangkat apa pun.
-                  </p>
-                </label>
-
-                <label
-                  onClick={() => setConformance('a')}
-                  className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                    conformance === 'a'
-                      ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      Level A (Accessible / Tagged)
-                    </span>
-                    <input
-                      type="radio"
-                      name="conformance"
-                      value="a"
-                      checked={conformance === 'a'}
-                      onChange={() => setConformance('a')}
-                      className="text-indigo-600 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Kepatuhan penuh visual ditambah penandaan hierarki konten untuk pembaca layar (screen reader tuna netra).
-                  </p>
-                </label>
-              </div>
-            </div>
-
-            {/* Edukasi & Catatan ISO Archival */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400">
-              <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-                  Informasi Standar ISO PDF/A:
-                </span>
-                <p className="text-[11px] leading-relaxed">
-                  Dokumen akan disematkan metadata identifikasi XMP resmi (<code className="font-mono text-indigo-600 dark:text-indigo-400">pdfaid:part="{selectedPart}"</code>, <code className="font-mono text-indigo-600 dark:text-indigo-400">pdfaid:conformance="{conformance.toUpperCase()}"</code>) dan font diselaraskan agar dokumen bersifat mandiri tanpa ketergantungan software pembaca.
-                </p>
-              </div>
-            </div>
-
-            {/* Tombol Eksekusi Konversi */}
-            <button
-              type="button"
-              onClick={handleConvertPdfa}
-              disabled={isProcessing}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-indigo-500/25 shadow-md active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Mengonversi Dokumen ke PDF/A-{selectedPart}{conformance}...</span>
-                </>
-              ) : (
-                <>
-                  <FileCheck className="w-4 h-4" />
-                  <span>Konversi ke PDF/A-{selectedPart}{conformance} Sekarang</span>
-                </>
-              )}
-            </button>
-          </div>
+      {/* Processing State */}
+      {isProcessing && (
+        <div className="max-w-md mx-auto py-12">
+          <ProcessingStepper
+            currentStep={processingStep}
+            steps={[
+              { label: 'Menghilangkan Skrip Dinamis & Standarisasi Warna sRGB' },
+              { label: 'Menyematkan (Embedding) Semua Font Dokumen' },
+              { label: 'Menyuntikkan Metadata XMP Kepatuhan ISO 19005' },
+            ]}
+          />
         </div>
       )}
 
-      {/* =================================================================== */}
-      {/* LANGKAH 3: UNDUH HASIL KONVERSI PDF/A                              */}
-      {/* =================================================================== */}
+      {/* Result State */}
       {resultUrl && file && (
-        <div className="max-w-xl mx-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 sm:p-8 text-center space-y-6 shadow-sm animate-fade-in">
-          {/* Ikon Sertifikat Sukses */}
-          <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto border-2 border-indigo-200 dark:border-indigo-800">
-            <Award className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Tersertifikasi Standar ISO
-            </span>
-            <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
-              Dokumen Berhasil Dikonversi ke PDF/A-{selectedPart}{conformance}
-            </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-              Berkas Anda kini memenuhi standar pengarsipan digital internasional dan siap disimpan untuk jangka panjang dengan keandalan visual absolut.
-            </p>
-          </div>
-
-          {/* Rincian Hasil */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 text-left space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 dark:text-slate-400">Nama Berkas:</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[220px]">
-                pdfa-{selectedPart}{conformance}-{file.name}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 dark:text-slate-400">Standar ISO:</span>
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                ISO 19005-{selectedPart} (PDF/A-{selectedPart}{conformance})
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 dark:text-slate-400">Ukuran Berkas:</span>
-              <span className="font-mono text-slate-700 dark:text-slate-300">
-                {resultSize ? formatFileSize(resultSize) : formatFileSize(file.size)}
-              </span>
-            </div>
-          </div>
-
-          {/* Tombol Unduh & Reset */}
-          <div className="space-y-3 pt-2">
-            <button
-              onClick={handleDownload}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-indigo-500/25 shadow-md active:scale-[0.99]"
-            >
-              <Download className="w-4 h-4" />
-              <span>Unduh Berkas PDF/A</span>
-            </button>
-
-            <button
-              onClick={handleReset}
-              className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Konversi Berkas Lain</span>
-            </button>
-          </div>
+        <div className="max-w-lg mx-auto py-8">
+          <DownloadResultCard
+            fileName={`pdfa-${selectedPart}${conformance}-${file.name.replace(/\.pdf$/i, '')}.pdf`}
+            originalSize={file.size}
+            resultSize={resultSize || file.size}
+            onDownload={handleDownload}
+            onReset={handleReset}
+            resetLabel="Konversi Berkas Lain"
+            successTitle="Konversi PDF/A Berhasil!"
+            successDescription={`Dokumen Anda kini mematuhi standar arsip ${currentStandard.iso} Level ${conformance.toUpperCase()}.`}
+            resultUrl={resultUrl}
+          />
         </div>
       )}
     </ToolContainer>
