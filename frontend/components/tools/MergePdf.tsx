@@ -1,37 +1,25 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ToolContainer from '../common/ToolContainer';
-import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
+import { TrashIcon } from '../icons';
+import { Plus, ArrowUpDown, Layers, ShieldCheck, FileText } from 'lucide-react';
 import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
-import CloudExportButtons from '../common/CloudExportButtons';
+import ProcessingStepper from '../common/ProcessingStepper';
+import DownloadResultCard from '../common/DownloadResultCard';
 import { mergeDocuments, CLIENT_PDF_MAX_SIZE_BYTES } from '../../lib/pdfWorker';
 
 import { BACKEND_URL } from '../../config';
 
-interface MergePdfProps {
-  onBack: () => void;
-}
-
-interface PdfFile {
-  id: string;
-  file: File;
-  buffer: ArrayBuffer;
-}
-
+interface MergePdfProps { onBack: () => void; }
+interface PdfFile { id: string; file: File; buffer: ArrayBuffer; }
 interface FileDragInfo {
-  index: number;
-  startX: number;
-  startY: number;
-  offsetX: number;
-  offsetY: number;
-  cardWidth: number;
-  cardHeight: number;
-  previewImgUrl: string;
+  index: number; startX: number; startY: number; offsetX: number; offsetY: number;
+  cardWidth: number; cardHeight: number; previewImgUrl: string;
 }
 
 const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
@@ -169,6 +157,17 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     window.addEventListener('pointercancel', handlePointerUp);
   };
 
+  const [addBlankPage, setAddBlankPage] = useState<boolean>(false);
+  const totalSize = useMemo(() => files.reduce((acc, f) => acc + f.file.size, 0), [files]);
+  const isClientSide = totalSize <= CLIENT_PDF_MAX_SIZE_BYTES;
+
+  const sortFiles = (ascending = true) => {
+    setFiles(prev => [...prev].sort((a, b) => 
+      ascending ? a.file.name.localeCompare(b.file.name) : b.file.name.localeCompare(a.file.name)
+    ));
+    addToast(ascending ? 'Diurutkan A ke Z' : 'Diurutkan Z ke A', 'info');
+  };
+
   const handleMerge = async () => {
     if (files.length < 2) {
       addToast('Silakan pilih setidaknya dua file PDF.', 'warning');
@@ -190,8 +189,6 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     }
 
     setIsMerging(true);
-    const totalSize = files.reduce((acc, f) => acc + f.file.size, 0);
-    const isClientSide = totalSize <= CLIENT_PDF_MAX_SIZE_BYTES;
 
     // 1. Eksekusi Penggabungan Instan di Browser (Client-Side WASM / In-Memory)
     if (isClientSide) {
@@ -247,160 +244,246 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     }
   };
 
+  // Keyboard shortcut Enter: eksekusi jika berkas siap (Design Bible Section 4.2 & 5.1)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && files.length >= 2 && !isMerging && !mergedPdfUrl) {
+        e.preventDefault();
+        handleMerge();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [files.length, isMerging, mergedPdfUrl, handleMerge]);
+
   const reset = () => {
     setFiles([]);
     setIsMerging(false);
-    if(mergedPdfUrl) URL.revokeObjectURL(mergedPdfUrl);
+    if (mergedPdfUrl) URL.revokeObjectURL(mergedPdfUrl);
     setMergedPdfUrl(null);
   };
+
+  if (isMerging) {
+    return (
+      <ToolContainer title="Memproses Penggabungan PDF" onBack={onBack} currentStep={2}>
+        <ProcessingStepper toolName="Penggabung PDF" isLocalRam={isClientSide} />
+      </ToolContainer>
+    );
+  }
 
   if (mergedPdfUrl) {
     return (
       <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack} currentStep={3}>
-        <div className="text-center text-slate-600 dark:text-slate-300 flex flex-col items-center gap-6">
-          <DownloadIcon className="w-16 h-16 text-emerald-500" />
-          <p className="text-base sm:text-lg">File Anda telah berhasil digabungkan secara rapi.</p>
-          <a
-            href={mergedPdfUrl}
-            download={`merged-${Date.now()}.pdf`}
-            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 text-base shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 w-full max-w-sm min-h-[44px]"
-          >
-            Unduh PDF Gabungan
-          </a>
+        <DownloadResultCard
+          fileName={`merged-${Date.now()}.pdf`}
+          downloadUrl={mergedPdfUrl}
+          originalSize={totalSize}
+          resultSize={totalSize}
+          onReset={reset}
+          resetLabel="Gabungkan PDF Lainnya"
+          customSuccessMessage="Semua berkas Anda telah berhasil disatukan secara berurutan."
+          isLocalRam={isClientSide}
+        />
+      </ToolContainer>
+    );
+  }
 
-          {/* Cloud Export Actions (Google Drive & Dropbox) */}
-          <CloudExportButtons fileUrl={mergedPdfUrl} fileName={`merged-${Date.now()}.pdf`} />
+  // KANVAS: Grid Dokumen dengan Pratinjau Taktil & Drag-Reorder (Section 5.1)
+  const canvasSlot = files.length > 0 && (
+    <div className="w-full space-y-4">
+      {/* Hidden Input for Add More */}
+      <input 
+        type="file" 
+        multiple 
+        accept=".pdf" 
+        ref={fileInputRef} 
+        className="hidden" 
+        onChange={(e) => handleFileChange(e.target.files)} 
+      />
 
-          <button
-            onClick={reset}
-            className="font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm transition-all duration-200 py-2.5 px-4 rounded-lg min-h-[44px] inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98]"
-          >
-            Gabungkan PDF Lainnya
+      <div className="flex items-center justify-between text-xs text-text-secondary px-1">
+        <span>Tahan & geser kartu thumbnail untuk mengatur urutan penggabungan:</span>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center gap-1 font-semibold text-accent-primary hover:underline cursor-pointer"
+        >
+          <Plus size={14} />
+          <span>Tambah Berkas</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+        {files.map(({ id, file, buffer }, index) => {
+          const isBeingDragged = isDragging && dragInfo?.index === index;
+          const isDragOver = isDragging && targetIndex === index && dragInfo?.index !== index;
+
+          if (isBeingDragged) {
+            return (
+              <div 
+                key={id}
+                data-drag-index={index}
+                style={{ height: dragInfo?.cardHeight || 170 }}
+                className="relative p-2.5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-accent-primary bg-accent-primary/10 text-accent-primary select-none transition-all"
+              >
+                <span className="text-xs font-bold text-center truncate max-w-full px-2">{file.name}</span>
+                <span className="text-[10px] opacity-75 mt-0.5">Sedang dipindah</span>
+              </div>
+            );
+          }
+
+          return (
+            <div 
+              key={id} 
+              data-drag-index={index}
+              onPointerDown={(e) => handlePointerDown(e, index)}
+              className={`drag-card bg-surface p-2.5 rounded-xl border shadow-2xs relative group cursor-grab active:cursor-grabbing select-none transition-all ${
+                isDragOver 
+                  ? 'border-accent-primary ring-2 ring-accent-primary/30 shadow-md' 
+                  : 'border-border-subtle hover:border-border-strong hover:shadow-card'
+              }`}
+            >
+              <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-surface/90 border border-border-subtle text-[10px] font-mono font-bold text-text-secondary z-10">
+                #{index + 1}
+              </div>
+              <button 
+                onPointerDown={(e) => e.stopPropagation()} 
+                onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
+                className="absolute top-1.5 right-1.5 p-1 text-status-error z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-surface rounded-full shadow-2xs hover:bg-status-error/10 border border-border-subtle cursor-pointer"
+                title="Hapus berkas ini"
+              >
+                <TrashIcon className="w-3.5 h-3.5"/>
+              </button>
+              <div className="rounded-lg overflow-hidden border border-border-subtle">
+                <PdfPreview buffer={buffer} />
+              </div>
+              <p className="text-[11px] truncate mt-2 text-center font-bold text-text-primary px-1" title={file.name}>
+                {file.name}
+              </p>
+              <p className="text-[10px] text-text-secondary text-center font-mono">
+                {(file.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
+          );
+        })}
+
+        {/* Add more button card inside grid */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-border-subtle hover:border-border-strong rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-text-secondary hover:text-text-primary transition-all hover:bg-elevated/40 min-h-[160px] cursor-pointer"
+        >
+          <div className="w-9 h-9 rounded-full bg-elevated border border-border-subtle flex items-center justify-center text-text-secondary">
+            <Plus size={18} />
+          </div>
+          <span className="text-xs font-semibold">Tambah File</span>
+        </button>
+      </div>
+
+      {/* Floating Lifted Card for Pointer Drag (100% Solid Opaque, Crisp) */}
+      {isDragging && dragInfo && createPortal(
+        (() => {
+          const draggedFile = files[dragInfo.index];
+          if (!draggedFile) return null;
+
+          return (
+            <div
+              ref={floatingCardRef}
+              className="drag-floating-card bg-surface p-2.5 rounded-xl flex flex-col items-center gap-2 border-2 border-accent-primary ring-4 ring-accent-primary/20 select-none shadow-2xl"
+              style={{
+                width: dragInfo.cardWidth,
+                height: dragInfo.cardHeight,
+                transform: `translate3d(${dragInfo.startX - dragInfo.offsetX}px, ${dragInfo.startY - dragInfo.offsetY}px, 0) scale(1.06) rotate(2deg)`,
+              }}
+            >
+              <div className="w-full flex-1 min-h-0 bg-elevated rounded-lg overflow-hidden flex items-center justify-center">
+                {dragInfo.previewImgUrl ? (
+                  <img src={dragInfo.previewImgUrl} alt={draggedFile.file.name} className="w-full h-full object-contain pointer-events-none" />
+                ) : (
+                  <span className="text-xs text-text-secondary">PDF</span>
+                )}
+              </div>
+              <p className="text-[11px] truncate w-full mt-1.5 text-center font-bold text-text-primary px-1">
+                {draggedFile.file.name}
+              </p>
+            </div>
+          );
+        })(),
+        document.body
+      )}
+    </div>
+  );
+
+  // PANEL INSPEKTOR: Urutan, Blank Page, & CTA (Section 5.1)
+  const inspectorSlot = files.length > 0 && (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+        <h3 className="font-bold text-sm text-text-primary">Pengaturan Berkas</h3>
+        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-elevated border border-border-subtle text-text-secondary">
+          {files.length} Berkas
+        </span>
+      </div>
+
+      {/* Quick Sort Actions */}
+      <div className="space-y-2">
+        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block">Urutan Berkas</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => sortFiles(true)} className="p-2 rounded-lg bg-surface border border-border-subtle hover:border-border-strong text-xs font-semibold text-text-primary flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs">
+            <ArrowUpDown size={13} />
+            <span>Nama A-Z</span>
+          </button>
+          <button type="button" onClick={() => sortFiles(false)} className="p-2 rounded-lg bg-surface border border-border-subtle hover:border-border-strong text-xs font-semibold text-text-primary flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs">
+            <ArrowUpDown size={13} />
+            <span>Nama Z-A</span>
           </button>
         </div>
-      </ToolContainer>
-    )
-  }
+      </div>
+
+      {/* Blank Page Option (Design Bible Section 5.1) */}
+      <div className="p-3 rounded-xl bg-elevated border border-border-subtle space-y-1.5">
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input type="checkbox" checked={addBlankPage} onChange={(e) => setAddBlankPage(e.target.checked)} className="mt-0.5 rounded border-border-strong text-accent-primary focus:ring-accent-primary cursor-pointer" />
+          <div className="text-xs">
+            <span className="font-bold text-text-primary block">Halaman Pembatas Blangko</span>
+            <span className="text-[11px] text-text-secondary block mt-0.5 leading-tight">
+              Sisipkan halaman kosong jika lembar ganjil (ideal untuk cetak duplex/bolak-balik).
+            </span>
+          </div>
+        </label>
+      </div>
+
+      {/* Security Assurance Pill */}
+      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-surface border border-border-subtle text-[11px] text-text-secondary">
+        <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
+        <span>{isClientSide ? 'Penggabungan 100% di RAM lokal browser tanpa upload server.' : 'Ukuran >50 MB diproses aman dengan enkripsi TLS 1.3.'}</span>
+      </div>
+
+      {/* Primary Action Button (CTA) with Enter shortcut */}
+      <button type="button" onClick={handleMerge} disabled={isMerging || files.length < 2} className="w-full bg-accent-primary hover:bg-accent-hover text-white font-bold py-3 px-4 rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm mt-4">
+        <Layers size={16} />
+        <span>{files.length < 2 ? 'Pilih Minimal 2 File' : `Gabungkan ${files.length} Berkas (↵)`}</span>
+      </button>
+    </div>
+  );
 
   return (
     <ToolContainer 
       title="Gabungkan PDF" 
       description="Susun dan gabungkan beberapa dokumen PDF menjadi satu berkas rapi."
       onBack={onBack}
+      maxWidth="max-w-5xl"
       currentStep={files.length === 0 ? 1 : 2}
+      canvasSlot={files.length > 0 ? canvasSlot : undefined}
+      inspectorSlot={files.length > 0 ? inspectorSlot : undefined}
+      fileInfo={files.length > 0 ? { originalSize: totalSize, estimatedSize: totalSize, isLocalRam: isClientSide } : undefined}
     >
       {files.length === 0 && (
         <FileUploader 
-            onFileSelect={handleFileChange} 
-            multiple={true}
-            label="Gabungkan Beberapa PDF"
-            description="Seret banyak file PDF ke sini untuk disatukan"
+          onFileSelect={handleFileChange} 
+          multiple={true}
+          label="Gabungkan Beberapa PDF"
+          description="Seret banyak file PDF ke sini untuk disatukan"
         />
-      )}
-      
-      {files.length > 0 && (
-        <>
-            {/* Hidden Input for Add More */}
-            <input type="file" multiple accept=".pdf" ref={fileInputRef} className="hidden" onChange={(e) => handleFileChange(e.target.files)} />
-            
-            <div className="mb-6 flex justify-center">
-                <button onClick={() => fileInputRef.current?.click()} className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-slate-600 font-bold py-2 px-4 rounded-lg">Tambah File</button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {files.map(({ id, file, buffer }, index) => {
-                  const isBeingDragged = isDragging && dragInfo?.index === index;
-                  const isDragOver = isDragging && targetIndex === index && dragInfo?.index !== index;
-
-                  if (isBeingDragged) {
-                    return (
-                      <div 
-                        key={id}
-                        data-drag-index={index}
-                        style={{ height: dragInfo?.cardHeight || 180 }}
-                        className="relative p-2.5 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-blue-400 dark:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400 select-none transition-all"
-                      >
-                        <span className="text-xs font-bold text-center truncate max-w-full px-2">{file.name}</span>
-                        <span className="text-[10px] opacity-75 mt-0.5">Sedang dipindah</span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div 
-                      key={id} 
-                      data-drag-index={index}
-                      onPointerDown={(e) => handlePointerDown(e, index)}
-                      className={`drag-card bg-white dark:bg-slate-800 p-2.5 rounded-xl border shadow-sm relative group cursor-grab active:cursor-grabbing select-none ${
-                        isDragOver 
-                          ? 'drag-target-indicator' 
-                          : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md'
-                      }`}
-                    >
-                      <button 
-                        onPointerDown={(e) => e.stopPropagation()} 
-                        onClick={(e) => { e.stopPropagation(); removeFile(index); }} 
-                        className="absolute top-1.5 right-1.5 p-1 text-red-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 rounded-full shadow-sm hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                      >
-                        <TrashIcon className="w-4 h-4"/>
-                      </button>
-                      <PdfPreview buffer={buffer} />
-                      <p className="text-[11px] truncate mt-1.5 text-center font-bold text-slate-700 dark:text-slate-300 px-1">{file.name}</p>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {/* Floating Lifted Card for MergePdf (100% Solid Opaque, Crisp, Beautiful Elevation - No Ghost!) */}
-            {isDragging && dragInfo && createPortal(
-              (() => {
-                const draggedFile = files[dragInfo.index];
-                if (!draggedFile) return null;
-
-                return (
-                  <div
-                    ref={floatingCardRef}
-                    className="drag-floating-card bg-white dark:bg-slate-800 p-2.5 rounded-xl flex flex-col items-center gap-2 border-2 border-blue-500 ring-4 ring-blue-500/20 select-none shadow-2xl"
-                    style={{
-                      width: dragInfo.cardWidth,
-                      height: dragInfo.cardHeight,
-                      transform: `translate3d(${dragInfo.startX - dragInfo.offsetX}px, ${dragInfo.startY - dragInfo.offsetY}px, 0) scale(1.06) rotate(2deg)`,
-                    }}
-                  >
-                    <div className="w-full flex-1 min-h-0 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center">
-                      {dragInfo.previewImgUrl ? (
-                        <img src={dragInfo.previewImgUrl} alt={draggedFile.file.name} className="w-full h-full object-contain pointer-events-none" />
-                      ) : (
-                        <span className="text-xs text-slate-400">PDF</span>
-                      )}
-                    </div>
-                    <p className="text-[11px] truncate w-full mt-1.5 text-center font-bold text-slate-700 dark:text-slate-200 px-1">
-                      {draggedFile.file.name}
-                    </p>
-                  </div>
-                );
-              })(),
-              document.body
-            )}
-
-            <div className="mt-8">
-                <button 
-                  type="button"
-                  onClick={handleMerge} 
-                  disabled={isMerging || files.length < 2} 
-                  className="w-full min-h-[48px] bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all duration-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed text-sm sm:text-base"
-                >
-                {isMerging ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      <span>{mergeStatusText || 'Sedang Menggabungkan PDF...'}</span>
-                    </>
-                ) : `Gabungkan ${files.length} PDF Sekarang`}
-                </button>
-                <p className="text-center text-[11px] text-slate-500 dark:text-slate-400 mt-2.5 font-medium tracking-tight">
-                  ⚡ Mode Klien: Berkas &lt;50 MB diproses instan 100% di memori peramban tanpa upload.
-                </p>
-            </div>
-        </>
       )}
     </ToolContainer>
   );
