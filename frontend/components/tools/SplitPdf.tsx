@@ -4,6 +4,7 @@ import ToolContainer from '../common/ToolContainer';
 import { UploadIcon, DownloadIcon, TrashIcon, FilePdfIcon, CheckCircleIcon, ZipIcon } from '../icons';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
 import { 
   extractPagesToPdf, 
@@ -79,7 +80,8 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToast();
-  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal, openPaywall } = useQuota();
+  const { isPro } = useAuth();
 
   const resetState = () => {
     setFile(null);
@@ -157,8 +159,18 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const handleProcess = async () => {
     if (!file) return;
 
-    if (!checkQuotaBeforeAction()) {
-      return;
+    // PWA Offline Hybrid Tier Gating:
+    // Tamu & Free saat offline dibatasi 10 MB per berkas. Pro = Unlimited Offline.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (!isPro && file.size > 10 * 1024 * 1024) {
+        addToast('Batas Berkas Offline Gratis (Maks 10 MB). Upgrade ke Pro untuk pemrosesan offline tanpa batas!', 'warning');
+        openPaywall('offline_large_file');
+        return;
+      }
+    } else {
+      if (!checkQuotaBeforeAction()) {
+        return;
+      }
     }
 
     const selectedPages = pagePreviews.filter((p) => p.selected).map((p) => p.pageNumber);

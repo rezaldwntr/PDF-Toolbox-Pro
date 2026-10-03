@@ -3,7 +3,8 @@ import { View } from '../types';
 import { useQuota } from '../contexts/QuotaContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Zap, ShieldCheck, X, Sun, Moon, LogOut, Crown, User } from 'lucide-react';
+import { Zap, ShieldCheck, X, Sun, Moon, LogOut, Crown, User, Download, WifiOff } from 'lucide-react';
+import { usePwa } from '../lib/pwa';
 
 interface HeaderProps {
   currentView: View;
@@ -35,6 +36,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEnvModal, setShowEnvModal] = React.useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = React.useState<boolean>(false);
+  const { isOnline, isInstallable, isInstalled, promptInstall } = usePwa();
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'rezaldewantara@gmail.com';
   const tierBadge = user ? TIER_BADGE[user.tier] ?? TIER_BADGE.free : null;
@@ -113,6 +115,27 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* PWA Install Button (Jika browser mendukung dan belum diinstall) */}
+            {isInstallable && !isInstalled && (
+              <button
+                type="button"
+                onClick={promptInstall}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-all duration-200 active:scale-95 cursor-pointer shadow-xs"
+                title="Pasang aplikasi PDF Toolbox Pro di perangkat Anda"
+              >
+                <Download size={14} className="stroke-[2.5]" />
+                <span>Pasang App</span>
+              </button>
+            )}
+
+            {/* Offline Status Pill (Saat koneksi internet terputus) */}
+            {!isOnline && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                <WifiOff size={13} className="animate-pulse" />
+                <span>Offline</span>
+              </div>
+            )}
+
             {/* Quota / Environment Badge */}
             {isPreview ? (
               <button

@@ -53,6 +53,8 @@ import { QuotaProvider, useQuota } from './contexts/QuotaContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useOnlinePresence } from './lib/presence';
+import { usePwa } from './lib/pwa';
+import OfflineStatusBanner from './components/common/OfflineStatusBanner';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -92,6 +94,7 @@ function AppContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { user, userTier } = useAuth();
   const { setActiveTool } = useQuota();
+  const { isOnline } = usePwa();
   const presence = useOnlinePresence(user, userTier);
 
   // Trigger celebration modal when user tier was upgraded
@@ -227,6 +230,9 @@ function AppContent() {
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F1218] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       {/* Top Sticky Header with Brand, Navigation & Auth */}
       <Header currentView={currentView} onSelectView={setCurrentView} />
+
+      {/* Offline Status Warning & Pro Offline Shield Banner */}
+      <OfflineStatusBanner isOnline={isOnline} />
 
       {/* Main Hub & Spoke Content with Suspense Lazy Loading */}
       <main className="flex-1 w-full">

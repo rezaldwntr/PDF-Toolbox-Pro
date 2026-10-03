@@ -6,6 +6,7 @@ import { UploadIcon, TrashIcon, DownloadIcon } from '../icons';
 import PdfPreview from './PdfPreview';
 import { useToast } from '../../contexts/ToastContext';
 import { useQuota } from '../../contexts/QuotaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import FileUploader from '../common/FileUploader';
 import { mergeDocuments, CLIENT_PDF_MAX_SIZE_BYTES } from '../../lib/pdfWorker';
 
@@ -68,7 +69,8 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
-  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal } = useQuota();
+  const { quota, consumeQuota, checkQuotaBeforeAction, setShowLimitModal, openPaywall } = useQuota();
+  const { isPro } = useAuth();
 
   // --- Tactile Pointer-Based Drag and Drop Handlers (Zero OS Ghosting) ---
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
@@ -172,8 +174,18 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       return;
     }
 
-    if (!checkQuotaBeforeAction()) {
-      return;
+    // PWA Offline Hybrid Tier Gating:
+    // Tamu & Free saat offline dibatasi 10 MB per berkas. Pro = Unlimited Offline.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (!isPro && files.some((f) => f.file.size > 10 * 1024 * 1024)) {
+        addToast('Batas Berkas Offline Gratis (Maks 10 MB). Upgrade ke Pro untuk pemrosesan offline tanpa batas!', 'warning');
+        openPaywall('offline_large_file');
+        return;
+      }
+    } else {
+      if (!checkQuotaBeforeAction()) {
+        return;
+      }
     }
 
     setIsMerging(true);
