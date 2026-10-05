@@ -316,8 +316,9 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Atur Halaman PDF"
       description="Urutkan kembali, putar, gandakan, atau hapus halaman PDF dengan antarmuka seret-dan-lepas interaktif."
       onBack={onBack}
+      currentStep={filesWithBuffer.length === 0 ? 1 : (outputUrl ? 3 : 2)}
       canvasSlot={
-        pages.length > 0 ? (
+        pages.length > 0 && !isProcessing && !outputUrl ? (
           <div className="h-full flex flex-col p-6 bg-canvas overflow-y-auto">
             {/* Visual Grid of Pages */}
             <div className="flex flex-wrap items-start justify-center gap-4 py-4">
@@ -453,7 +454,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        pages.length > 0 ? (
+        pages.length > 0 && !isProcessing && !outputUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">
@@ -547,7 +548,7 @@ const OrganizePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        pages.length > 0 ? (
+        pages.length > 0 && !isProcessing && !outputUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Layers className="w-4 h-4 text-accent-primary" />

@@ -259,10 +259,10 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('x_ratio', relX.toFixed(5));
-      formData.append('y_ratio', relY.toFixed(5));
-      formData.append('width_ratio', relW.toFixed(5));
-      formData.append('height_ratio', relH.toFixed(5));
+      formData.append('crop_x', relX.toFixed(5));
+      formData.append('crop_y', relY.toFixed(5));
+      formData.append('crop_width', relW.toFixed(5));
+      formData.append('crop_height', relH.toFixed(5));
       formData.append('page_selection', pageSelection);
       if (pageSelection === 'current') formData.append('current_page', currentPage.toString());
       if (pageSelection === 'custom' && customPages.trim()) formData.append('custom_pages', customPages.trim());
@@ -314,8 +314,9 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Pangkas PDF (Crop Area)"
       description="Potong margin, sesuaikan rasio aspek, atau isolasi bagian tertentu dari dokumen PDF Anda secara visual."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="flex items-center justify-between w-full max-w-lg mb-4">
@@ -413,7 +414,7 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <CropInspector
             cropBox={cropBox}
             setCropBox={setCropBox}
@@ -427,7 +428,7 @@ const CropPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Crop className="w-4 h-4 text-accent-primary" />

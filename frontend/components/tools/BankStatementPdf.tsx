@@ -160,8 +160,9 @@ const BankStatementPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Rekening Koran PDF ke Excel"
       description="Ekstrak mutasi rekening bank nasional & syariah ke format tabel Excel (.xlsx) atau CSV secara rapi dan akurat."
       onBack={onBack}
+      currentStep={!file ? 1 : (downloadUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="w-full max-w-xl p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center justify-between shadow-xs mb-4">
@@ -197,7 +198,7 @@ const BankStatementPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -276,7 +277,7 @@ const BankStatementPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <FileSpreadsheet className="w-4 h-4 text-accent-primary" />

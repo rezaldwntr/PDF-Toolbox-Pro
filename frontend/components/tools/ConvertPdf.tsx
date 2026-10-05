@@ -235,8 +235,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       title={config.title}
       description={`Konversi dokumen PDF Anda ke format ${mode.toUpperCase()} dengan format presisi tinggi dan struktur rapi.`}
       onBack={onBack}
+      currentStep={!fileWithBuffer ? 1 : (outputUrl ? 3 : 2)}
       canvasSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="w-full max-w-xl p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center justify-between shadow-xs mb-4">
@@ -272,7 +273,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
         ) : undefined
       }
       inspectorSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -516,7 +517,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
         ) : undefined
       }
       floatingBarSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <IconComponent className="w-4 h-4 text-accent-primary" />

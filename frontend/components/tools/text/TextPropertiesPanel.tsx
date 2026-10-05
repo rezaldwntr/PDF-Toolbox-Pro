@@ -34,6 +34,7 @@ interface TextPropertiesPanelProps {
   updateTextBox: (id: string, updates: Partial<TextBox>) => void;
   duplicateTextBox: (id: string) => void;
   deleteTextBox: (id: string) => void;
+  onAddTextBox?: () => void;
 }
 
 export const TextPropertiesPanel: React.FC<TextPropertiesPanelProps> = ({
@@ -41,6 +42,7 @@ export const TextPropertiesPanel: React.FC<TextPropertiesPanelProps> = ({
   updateTextBox,
   duplicateTextBox,
   deleteTextBox,
+  onAddTextBox,
 }) => {
   return (
     <div className="lg:col-span-1">
@@ -287,9 +289,17 @@ export const TextPropertiesPanel: React.FC<TextPropertiesPanelProps> = ({
             <Type className="w-6 h-6" />
           </div>
           <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Belum Ada Teks Dipilih</p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-[180px]">
-            Klik salah satu teks di kanvas untuk mengedit properti atau klik tombol <strong>Tambah Teks</strong>.
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-[200px] mb-3">
+            Klik teks di kanvas atau tekan tombol di bawah untuk menambah kotak teks baru.
           </p>
+          {onAddTextBox && (
+            <button
+              onClick={onAddTextBox}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <Type className="w-3.5 h-3.5" /> Tambah Kotak Teks
+            </button>
+          )}
         </div>
       )}
     </div>

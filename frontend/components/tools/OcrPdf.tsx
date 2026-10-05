@@ -214,8 +214,9 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="OCR PDF (Searchable PDF)"
       description="Kenali teks dari dokumen pindaian (scan) atau foto untuk menghasilkan Searchable PDF yang dapat dicari dan disalin."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-center p-6 bg-canvas">
             <div className="w-full max-w-lg bg-surface rounded-2xl border border-border-subtle p-8 shadow-sm text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
@@ -265,7 +266,7 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">
@@ -362,7 +363,7 @@ const OcrPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Languages className="w-4 h-4 text-accent-primary" />

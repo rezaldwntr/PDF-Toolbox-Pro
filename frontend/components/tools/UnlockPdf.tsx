@@ -181,8 +181,9 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Buka Kunci PDF"
       description="Hapus proteksi kata sandi dan batasan keamanan dari dokumen PDF Anda secara instan dan aman."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-center p-6 bg-canvas">
             {/* Visual Canvas Paper Preview */}
             <div className="w-full max-w-lg bg-surface rounded-2xl border border-border-subtle p-8 shadow-sm text-center relative overflow-hidden">
@@ -242,7 +243,7 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">
@@ -321,7 +322,7 @@ const UnlockPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <KeyRound className="w-4 h-4 text-accent-primary" />

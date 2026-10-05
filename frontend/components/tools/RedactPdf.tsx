@@ -186,8 +186,9 @@ const RedactPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Sensor Data Sensitif (Auto-Redact PII)"
       description="Sensor permanen (True Binary Redaction) data NIK, KK, Paspor, SIM, NPWP, Rekening, HP, & Email sesuai UU No. 27 Tahun 2022 (UU PDP)."
       onBack={onBack}
+      currentStep={!file ? 1 : (downloadUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Security Banner */}
             <div className="w-full max-w-xl p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center justify-between shadow-xs mb-4">
@@ -223,7 +224,7 @@ const RedactPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -368,7 +369,7 @@ const RedactPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !downloadUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <ShieldCheck className="w-4 h-4 text-accent-primary" />

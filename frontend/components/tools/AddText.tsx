@@ -257,8 +257,9 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Tambahkan Teks ke PDF"
       description="Ketik dan tempatkan teks bebas, catatan, atau anotasi langsung ke lembar PDF dengan kontrol tipografi penuh."
       onBack={onBack}
+      currentStep={!fileWithBuffer ? 1 : (outputUrl ? 3 : 2)}
       canvasSlot={
-        fileWithBuffer && currentPage ? (
+        fileWithBuffer && currentPage && !isProcessing && !outputUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="flex items-center justify-between w-full max-w-xl mb-3">
@@ -282,6 +283,14 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Add Text Action */}
+              <button
+                onClick={() => addTextBox(activePageIndex)}
+                className="flex items-center gap-1.5 bg-accent-primary hover:bg-accent-hover text-accent-contrast text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+              >
+                <Type className="w-3.5 h-3.5" /> Tambah Kotak Teks
+              </button>
 
               {/* Zoom Controls */}
               <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
@@ -408,23 +417,18 @@ const AddText: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <TextPropertiesPanel
             selectedBox={selectedBox || null}
-            onUpdateBox={(updates) => {
-              if (selectedBoxId) updateTextBox(selectedBoxId, updates);
-            }}
+            updateTextBox={(id, updates) => updateTextBox(id, updates)}
+            duplicateTextBox={(id) => duplicateTextBox(id)}
+            deleteTextBox={(id) => deleteTextBox(id)}
             onAddTextBox={() => addTextBox(activePageIndex)}
-            onDeleteBox={() => {
-              if (selectedBoxId) deleteTextBox(selectedBoxId);
-            }}
-            activePageIndex={activePageIndex}
-            totalPages={pagePreviews.length}
           />
         ) : undefined
       }
       floatingBarSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Type className="w-4 h-4 text-accent-primary" />

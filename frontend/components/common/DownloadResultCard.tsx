@@ -4,11 +4,15 @@ import CloudExportButtons from './CloudExportButtons';
 
 interface DownloadResultCardProps {
   fileName: string;
-  downloadUrl: string;
+  downloadUrl?: string;
+  resultUrl?: string;
+  onDownload?: () => void;
   originalSize?: number;
   resultSize?: number;
   onReset: () => void;
   resetLabel?: string;
+  successTitle?: string;
+  successDescription?: string;
   customSuccessMessage?: string;
   isLocalRam?: boolean;
 }
@@ -16,13 +20,21 @@ interface DownloadResultCardProps {
 const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   fileName,
   downloadUrl,
+  resultUrl,
+  onDownload,
   originalSize,
   resultSize,
   onReset,
   resetLabel = 'Proses Berkas Lain',
-  customSuccessMessage = 'Dokumen Anda berhasil diproses dengan presisi.',
+  successTitle,
+  successDescription,
+  customSuccessMessage,
   isLocalRam = false,
 }) => {
+  const effectiveUrl = downloadUrl || resultUrl || '';
+  const effectiveTitle = successTitle || 'Pemrosesan Berhasil!';
+  const effectiveMessage = successDescription || customSuccessMessage || 'Dokumen Anda berhasil diproses dengan presisi.';
+
   // Countdown Timer 60 menit (3600 detik) sesuai Section 7.2
   const [secondsRemaining, setSecondsRemaining] = useState(3600);
 
@@ -54,10 +66,10 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
       </div>
 
       <h3 className="text-lg sm:text-xl font-extrabold text-text-primary tracking-tight mb-1">
-        Pemrosesan Berhasil!
+        {effectiveTitle}
       </h3>
       <p className="text-xs sm:text-sm text-text-secondary mb-6">
-        {customSuccessMessage}
+        {effectiveMessage}
       </p>
 
       {/* Informasi Perbandingan Ukuran Berkas (Section 7.2) */}
@@ -99,17 +111,29 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
 
       {/* Primary Action Button: Unduh Berkas */}
       <div className="space-y-3 mb-6">
-        <a
-          href={downloadUrl}
-          download={fileName}
-          className="w-full bg-accent-primary hover:bg-accent-hover text-white font-bold py-3.5 px-6 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm"
-        >
-          <Download size={16} />
-          <span>Unduh Berkas PDF Sekarang</span>
-        </a>
+        {effectiveUrl ? (
+          <a
+            href={effectiveUrl}
+            download={fileName}
+            onClick={onDownload}
+            className="w-full bg-accent-primary hover:bg-accent-hover text-accent-contrast font-bold py-3.5 px-6 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm"
+          >
+            <Download size={16} />
+            <span>Unduh Berkas PDF Sekarang</span>
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={onDownload}
+            className="w-full bg-accent-primary hover:bg-accent-hover text-accent-contrast font-bold py-3.5 px-6 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm"
+          >
+            <Download size={16} />
+            <span>Unduh Berkas PDF Sekarang</span>
+          </button>
+        )}
 
         {/* Ekspor ke Cloud Storage (Google Drive & Dropbox) */}
-        <CloudExportButtons fileUrl={downloadUrl} fileName={fileName} />
+        {effectiveUrl && <CloudExportButtons fileUrl={effectiveUrl} fileName={fileName} />}
       </div>
 
       {/* Countdown Timer Kedaluwarsa Berkas (Section 7.2) */}

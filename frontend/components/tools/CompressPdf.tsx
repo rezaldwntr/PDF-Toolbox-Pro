@@ -136,6 +136,26 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  // Shortcut keyboard Enter: jalankan kompresi jika berkas siap (Design Bible Section 4.2)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && file && !isProcessing && !resultUrl) {
+        e.preventDefault();
+        handleCompress();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [file, isProcessing, resultUrl, handleCompress]);
+
+  const estimatedSize = useMemo(() => {
+    if (!file) return undefined;
+    if (compressionType === 'target') return targetSizeKb * 1024;
+    if (compressionType === 'extreme') return Math.round(file.size * 0.25);
+    if (compressionType === 'recommended') return Math.round(file.size * 0.55);
+    return Math.round(file.size * 0.8);
+  }, [file, compressionType, targetSizeKb]);
+
   if (isProcessing) {
     return (
       <ToolContainer title="Memproses Kompresi PDF" onBack={onBack} currentStep={2}>
@@ -163,26 +183,6 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </ToolContainer>
     );
   }
-
-  // Shortcut keyboard Enter: jalankan kompresi jika berkas siap (Design Bible Section 4.2)
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && file && !isProcessing && !resultUrl) {
-        e.preventDefault();
-        handleCompress();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [file, isProcessing, resultUrl, handleCompress]);
-
-  const estimatedSize = useMemo(() => {
-    if (!file) return undefined;
-    if (compressionType === 'target') return targetSizeKb * 1024;
-    if (compressionType === 'extreme') return Math.round(file.size * 0.25);
-    if (compressionType === 'recommended') return Math.round(file.size * 0.55);
-    return Math.round(file.size * 0.8);
-  }, [file, compressionType, targetSizeKb]);
 
   // KANVAS DOKUMEN: Pratinjau Kertas Realistis & Info Berkas (Section 4.1)
   const canvasSlot = file && (

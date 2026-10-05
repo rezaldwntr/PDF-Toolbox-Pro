@@ -56,6 +56,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [placedSignatures, setPlacedSignatures] = useState<PlacedSignature[]>([]);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
+  const [targetPageSelection, setTargetPageSelection] = useState<'all' | number>(1);
 
   // Navigasi & Zoom
   const [activePageIndex, setActivePageIndex] = useState(0);
@@ -344,8 +345,9 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Tanda Tangan & e-Meterai PDF"
       description="Bubuhkan tanda tangan basah, digital, ketikan, atau panduan e-Meterai resmi ke dokumen PDF Anda secara presisi."
       onBack={onBack}
+      currentStep={!fileWithBuffer ? 1 : (outputUrl ? 3 : 2)}
       canvasSlot={
-        fileWithBuffer && currentPage ? (
+        fileWithBuffer && currentPage && !isProcessing && !outputUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="flex items-center justify-between w-full max-w-xl mb-3">
@@ -491,22 +493,40 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <SignatureSidebar
             signatures={signatures}
-            setSignatures={setSignatures}
-            placedSignatures={placedSignatures}
-            setPlacedSignatures={setPlacedSignatures}
-            activePageIndex={activePageIndex}
-            setActivePageIndex={setActivePageIndex}
-            pagePreviews={pagePreviews}
-            onPlaceSignature={(sig) => placeSignatureOnPage(sig, activePageIndex)}
-            onPlaceAllPages={placeOnAllPages}
+            pageCount={pagePreviews.length}
+            targetPageSelection={targetPageSelection}
+            onTargetPageChange={setTargetPageSelection}
+            onAddAndPlaceSignature={(sig, target) => {
+              setSignatures((prev) => [...prev, sig]);
+              if (target === 'all') {
+                placeOnAllPages(sig);
+              } else {
+                placeSignatureOnPage(sig, typeof target === 'number' ? target - 1 : activePageIndex);
+              }
+            }}
+            onPlaceSignature={(sig, target) => {
+              if (target === 'all') {
+                placeOnAllPages(sig);
+              } else {
+                placeSignatureOnPage(sig, typeof target === 'number' ? target - 1 : activePageIndex);
+              }
+            }}
+            onDeleteSignature={(sigId) => {
+              setSignatures((prev) => prev.filter((s) => s.id !== sigId));
+              setPlacedSignatures((prev) => prev.filter((p) => p.signatureId !== sigId));
+              setSelectedPlacedId((prev) => {
+                const isSelectedDeleted = placedSignatures.some((p) => p.id === prev && p.signatureId === sigId);
+                return isSelectedDeleted ? null : prev;
+              });
+            }}
           />
         ) : undefined
       }
       floatingBarSlot={
-        fileWithBuffer ? (
+        fileWithBuffer && !isProcessing && !outputUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <FileSignature className="w-4 h-4 text-accent-primary" />

@@ -57,7 +57,8 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
   const [fixedStep, setFixedStep] = useState<number>(2);
   
   const { addToast } = useToast();
-  const { consumeQuota, checkQuotaBeforeAction } = useQuota();
+  const { consumeQuota, checkQuotaBeforeAction, openPaywall } = useQuota();
+  const { isPro } = useAuth();
 
   const resetState = () => {
     setFile(null); setPagePreviews([]); setOutputUrl(null);

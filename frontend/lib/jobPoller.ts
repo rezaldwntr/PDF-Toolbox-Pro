@@ -40,6 +40,8 @@ export async function pollJobUntilDone(options: PollJobOptions): Promise<JobResu
   } = options;
 
   const startTime = Date.now();
+  let notFoundRetries = 0;
+  const MAX_NOT_FOUND_RETRIES = 25;
 
   while (true) {
     if (signal?.aborted) {
@@ -52,9 +54,17 @@ export async function pollJobUntilDone(options: PollJobOptions): Promise<JobResu
 
     const statusRes = await fetch(`${backendUrl}/jobs/${jobId}`, { signal });
     if (!statusRes.ok) {
+      if (statusRes.status === 404 && notFoundRetries < MAX_NOT_FOUND_RETRIES) {
+        notFoundRetries++;
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+        continue;
+      }
       const errJson = await statusRes.json().catch(() => ({}));
       throw new Error(errJson.detail || `Gagal memeriksa status tugas (${statusRes.status})`);
     }
+
+    // Reset notFoundRetries jika berhasil mendapat respon 200 OK
+    notFoundRetries = 0;
 
     const jobData = await statusRes.json();
     const { status, progress, message, filename, sample, error } = jobData;

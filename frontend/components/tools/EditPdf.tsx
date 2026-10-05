@@ -203,6 +203,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('edit_mode', editMode);
     formData.append('mode', editMode);
 
     if (editMode === 'find_replace') {
@@ -264,8 +265,9 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Edit Teks PDF"
       description="Cari & ganti kata atau kalimat secara massal, serta sunting blok teks langsung pada dokumen PDF Anda."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
             <div className="flex items-center justify-between w-full max-w-lg mb-4">
@@ -342,7 +344,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <EditInspector
             editMode={editMode}
             setEditMode={setEditMode}
@@ -369,7 +371,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Edit3 className="w-4 h-4 text-accent-primary" />

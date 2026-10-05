@@ -93,9 +93,14 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     formData.append('file', file);
     formData.append('source_lang', sourceLang);
     formData.append('target_lang', targetLang);
+    formData.append('page_selection', pageScope);
     formData.append('page_scope', pageScope);
     if (pageScope === 'current') formData.append('current_page', String(activePage));
-    if (pageScope === 'custom' && customRange.trim()) formData.append('custom_range', customRange.trim());
+    if (pageScope === 'custom' && customRange.trim()) {
+      formData.append('custom_pages', customRange.trim());
+      formData.append('custom_range', customRange.trim());
+    }
+    formData.append('output_format', outputMode);
     formData.append('output_mode', outputMode);
 
     try {
@@ -169,8 +174,9 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Terjemahkan PDF"
       description="Terjemahkan dokumen PDF ke berbagai bahasa dunia dengan kecerdasan Gemini AI tanpa merusak tata letak asli."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-center p-6 bg-canvas">
             <div className="w-full max-w-lg bg-surface rounded-2xl border border-border-subtle p-8 shadow-sm text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500" />
@@ -220,7 +226,7 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <TranslateInspector
             sourceLang={sourceLang}
             setSourceLang={setSourceLang}
@@ -238,7 +244,7 @@ const TranslatePdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Languages className="w-4 h-4 text-accent-primary" />

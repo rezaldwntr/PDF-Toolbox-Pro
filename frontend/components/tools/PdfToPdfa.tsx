@@ -183,8 +183,9 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="PDF ke PDF/A"
       description="Konversi dokumen PDF ke format arsip standar ISO 19005 untuk retensi jangka panjang yang diakui secara hukum."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-center p-6 bg-canvas">
             <div className="w-full max-w-lg bg-surface rounded-2xl border border-border-subtle p-8 shadow-sm text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
@@ -242,7 +243,7 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-5 space-y-6">
             <div>
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">
@@ -317,7 +318,7 @@ const PdfToPdfa: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Award className="w-4 h-4 text-accent-primary" />

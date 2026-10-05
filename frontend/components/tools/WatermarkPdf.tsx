@@ -261,8 +261,9 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       title="Cap Air PDF"
       description="Tambahkan watermark teks atau logo dengan presisi tinggi ke setiap halaman dokumen PDF Anda."
       onBack={onBack}
+      currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
       canvasSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar: Page Pagination */}
             <div className="flex items-center justify-between w-full max-w-lg mb-4">
@@ -373,7 +374,7 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       inspectorSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <WatermarkInspector
             config={config}
             setConfig={setConfig}
@@ -384,7 +385,7 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         ) : undefined
       }
       floatingBarSlot={
-        file ? (
+        file && !isProcessing && !resultUrl ? (
           <div className="p-4 bg-surface border-t border-border-subtle flex items-center justify-between">
             <div className="hidden sm:flex items-center gap-2 text-xs text-text-secondary">
               <Stamp className="w-4 h-4 text-accent-primary" />
