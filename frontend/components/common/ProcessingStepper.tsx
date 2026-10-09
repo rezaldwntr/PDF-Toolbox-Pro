@@ -16,7 +16,7 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
   const [progress, setProgress] = useState(15);
 
   useEffect(() => {
-    // Simulasi tahapan progres mikro-interaksi taktil sesuai Section 7.1
+    // Simulasi tahapan progres mikro-interaksi taktil
     const t1 = setTimeout(() => {
       setCurrentStage(2);
       setProgress(55);
@@ -52,17 +52,17 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-surface rounded-2xl border border-border-subtle shadow-card animate-fade-in text-center select-none">
+    <div className="w-full max-w-md mx-auto p-7 bg-surface rounded-3xl border border-border-subtle shadow-paper animate-fade-in text-center select-none">
       
       {/* Icon & Tool Name */}
-      <div className="w-12 h-12 rounded-xl bg-accent-primary/10 text-accent-primary border border-accent-primary/20 flex items-center justify-center mx-auto mb-3.5">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="w-14 h-14 rounded-full bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/20 flex items-center justify-center mx-auto mb-4 shadow-xs">
+        <Loader2 className="w-6 h-6 animate-spin stroke-[2.2]" />
       </div>
 
-      <h3 className="text-base font-bold text-text-primary tracking-tight mb-1">
+      <h3 className="font-serif text-lg sm:text-xl font-bold text-text-primary tracking-tight mb-1.5">
         Memproses {toolName}...
       </h3>
-      <p className="text-xs text-text-secondary mb-5">
+      <p className="text-xs text-text-secondary mb-5 leading-relaxed">
         {isLocalRam 
           ? 'Pemrosesan aman 100% di memori browser Anda.' 
           : 'Data terlindungi enkripsi TLS 1.3 dan auto-wipe 60 menit.'}
@@ -71,13 +71,13 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
       {/* Progress Bar Persentase */}
       <div className="w-full bg-elevated rounded-full h-2 mb-6 overflow-hidden border border-border-subtle p-0.5">
         <div 
-          className="bg-accent-primary h-full rounded-full transition-all duration-700 ease-out"
+          className="bg-[#9B4819] h-full rounded-full transition-all duration-700 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      {/* 3 Tahap Eksekusi (Section 7.1) */}
-      <div className="space-y-3.5 text-left mb-6">
+      {/* 3 Tahap Eksekusi */}
+      <div className="space-y-3 text-left mb-6">
         {stages.map((st) => {
           const isDone = currentStage > st.step;
           const isActive = currentStage === st.step;
@@ -85,21 +85,21 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
           return (
             <div 
               key={st.step}
-              className={`p-3 rounded-xl border transition-all flex items-start gap-3 ${
+              className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 ${
                 isActive
-                  ? 'border-accent-primary/50 bg-accent-primary/5 shadow-2xs'
+                  ? 'border-[#9B4819]/40 bg-[#9B4819]/5 shadow-2xs'
                   : isDone
-                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  ? 'border-[#314028]/30 bg-[#314028]/5'
                   : 'border-border-subtle bg-surface/50 opacity-50'
               }`}
             >
               <div className="mt-0.5 shrink-0">
                 {isDone ? (
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-[#314028] text-white flex items-center justify-center">
                     <Check size={12} strokeWidth={3} />
                   </div>
                 ) : isActive ? (
-                  <div className="w-5 h-5 rounded-full bg-accent-primary text-white flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-[#9B4819] text-white flex items-center justify-center">
                     <Loader2 size={12} className="animate-spin" />
                   </div>
                 ) : (
@@ -110,7 +110,7 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className={`text-xs font-bold leading-tight ${isActive ? 'text-accent-primary' : isDone ? 'text-text-primary' : 'text-text-secondary'}`}>
+                <p className={`text-xs font-semibold leading-tight ${isActive ? 'text-[#9B4819]' : isDone ? 'text-text-primary' : 'text-text-secondary'}`}>
                   {st.title}
                 </p>
                 <p className="text-[11px] text-text-secondary mt-0.5 truncate">
@@ -123,15 +123,15 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
       </div>
 
       {/* Security Guarantee Pill */}
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-secondary font-medium pt-3 border-t border-border-subtle">
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-text-secondary font-medium pt-3.5 border-t border-border-subtle">
         {isLocalRam ? (
           <>
-            <Cpu size={12} className="text-emerald-500" />
+            <Cpu size={12} className="text-[#314028]" />
             <span>RAM Lokal WebAssembly • Zero Log Guarantee</span>
           </>
         ) : (
           <>
-            <ShieldCheck size={12} className="text-emerald-500" />
+            <ShieldCheck size={12} className="text-[#314028]" />
             <span>Kepatuhan UU PDP No. 27/2022 • TLS 1.3 Active</span>
           </>
         )}

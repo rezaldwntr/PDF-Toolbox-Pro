@@ -109,35 +109,30 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
       <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur-md border-b border-border-subtle transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-15 flex items-center justify-between">
           
-          {/* Left Section: Logo geometris taktil 45° + Breadcrumb */}
+          {/* Left Section: Logo Segel Lilin Terracotta Monogram PT + Breadcrumb */}
           <div className="flex items-center gap-3">
             <div
               onClick={() => onSelectView(View.HOME_TAB)}
-              className="flex items-center gap-2.5 cursor-pointer group select-none"
+              className="flex items-center gap-3 cursor-pointer group select-none"
             >
-              {/* Ikon dokumen lipatan 45° presisi taktil */}
-              <div className="w-8 h-8 rounded-lg bg-accent-primary text-white flex items-center justify-center shadow-xs group-hover:bg-accent-hover transition-colors shrink-0">
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="9" y1="13" x2="15" y2="13"/>
-                  <line x1="9" y1="17" x2="13" y2="17"/>
-                </svg>
+              {/* Segel Lilin Terracotta Monogram PT */}
+              <div className="w-9 h-9 rounded-full bg-[#9B4819] text-white flex items-center justify-center shadow-md ring-4 ring-[#9B4819]/15 group-hover:scale-105 group-hover:bg-[#7E3812] transition-all duration-300 shrink-0">
+                <span className="font-serif italic font-bold text-sm tracking-tighter">PT</span>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base tracking-tight text-text-primary">PDF Toolbox</span>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/20">
+              <div className="flex items-center gap-2">
+                <span className="font-serif font-bold text-lg tracking-tight text-text-primary">PDF Toolbox</span>
+                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/20">
                   Pro
                 </span>
               </div>
             </div>
 
-            {/* Chip Breadcrumb aktif (Section 2.1) */}
+            {/* Chip Breadcrumb aktif */}
             <div className="hidden xl:flex items-center gap-1.5 text-xs text-text-secondary select-none pl-3 border-l border-border-subtle">
               <span className="text-text-secondary/70 font-medium">{breadcrumb.group}</span>
               <span className="text-text-secondary/40">/</span>
-              <span className="px-2 py-0.5 rounded-md bg-elevated text-text-primary font-semibold text-[11px] border border-border-subtle">
+              <span className="px-2.5 py-0.5 rounded-full bg-elevated text-text-primary font-medium text-[11px] border border-border-subtle">
                 {breadcrumb.name}
               </span>
             </div>
@@ -148,46 +143,46 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             <button
               type="button"
               onClick={() => setIsCommandBarOpen(true)}
-              className="flex items-center justify-between w-56 lg:w-68 px-3 py-1.5 rounded-lg bg-elevated border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all text-xs cursor-pointer group shadow-2xs"
+              className="flex items-center justify-between w-56 lg:w-64 px-3.5 py-1.5 rounded-full bg-elevated/80 border border-border-subtle hover:border-[#9B4819]/40 text-text-secondary hover:text-text-primary transition-all text-xs cursor-pointer group shadow-2xs hover:shadow-paper"
               title="Cari perkakas atau ketik perintah (⌘K / Ctrl+K)"
             >
               <div className="flex items-center gap-2 overflow-hidden">
-                <Search size={14} className="text-text-secondary group-hover:text-accent-primary shrink-0 transition-colors" />
+                <Search size={14} className="text-text-secondary group-hover:text-[#9B4819] shrink-0 transition-colors" />
                 <span className="truncate text-xs font-normal">Cari perkakas...</span>
               </div>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-surface border border-border-subtle text-text-secondary shrink-0 font-medium">
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-surface border border-border-subtle text-text-secondary shrink-0 font-medium">
                 <span>⌘</span>K
               </kbd>
             </button>
 
             {/* Navigasi Utama */}
-            <nav className="flex items-center gap-0.5">
+            <nav className="flex items-center gap-1">
               <button
                 onClick={() => onSelectView(View.HOME_TAB)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
                   currentView === View.HOME_TAB
-                    ? 'text-accent-primary bg-accent-primary/10 font-bold'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated'
+                    ? 'text-white bg-[#9B4819] font-medium shadow-xs'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
                 }`}
               >
                 Beranda
               </button>
               <button
                 onClick={() => onSelectView(View.TOOLS_TAB)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
                   currentView === View.TOOLS_TAB
-                    ? 'text-accent-primary bg-accent-primary/10 font-bold'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated'
+                    ? 'text-white bg-[#9B4819] font-medium shadow-xs'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
                 }`}
               >
                 Semua Alat
               </button>
               <button
                 onClick={() => setShowPricingModal(true)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
                   currentView === View.PRICING
-                    ? 'text-accent-primary bg-accent-primary/10 font-bold'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated'
+                    ? 'text-white bg-[#9B4819] font-medium shadow-xs'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
                 }`}
               >
                 Harga
@@ -215,17 +210,17 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               <button
                 type="button"
                 onClick={promptInstall}
-                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-bold text-accent-primary bg-accent-primary/10 hover:bg-accent-primary/20 border border-accent-primary/30 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full text-xs font-medium text-[#9B4819] bg-[#9B4819]/10 hover:bg-[#9B4819]/20 border border-[#9B4819]/30 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
                 title="Pasang aplikasi PDF Toolbox Pro di perangkat Anda"
               >
-                <Download size={13} className="stroke-[2.5]" />
+                <Download size={13} className="stroke-[2.2]" />
                 <span>Pasang App</span>
               </button>
             )}
 
             {/* Offline Status Pill */}
             {!isOnline && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                 <WifiOff size={13} className="animate-pulse" />
                 <span>Offline</span>
               </div>
@@ -235,25 +230,25 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             {isPreview ? (
               <button
                 onClick={() => setShowEnvModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20 shadow-2xs active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20 shadow-2xs active:scale-95"
                 title="Vercel Preview — Kuota bebas tanpa batas"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600 dark:bg-purple-400"></span>
                 </span>
-                <span className="font-bold text-[11px]">Preview</span>
+                <span className="font-semibold text-[11px]">Preview</span>
                 <span className="px-1 rounded bg-purple-200/70 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 font-mono text-[10px] font-bold">∞</span>
               </button>
             ) : isPro ? (
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${tierBadge?.cls}`}>
-                <Zap size={12} className="fill-current" />
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${tierBadge?.cls}`}>
+                <Zap size={12} className="fill-current text-[#9B4819]" />
                 <span className="text-[11px] font-bold">{tierBadge?.label ?? 'PRO'}</span>
               </div>
             ) : (
               <div
                 onClick={() => (quota !== null && quota <= 0) ? openPaywall('quota_exhausted') : setShowPricingModal(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
                   quota === null || quota > 1
                     ? 'bg-elevated text-text-primary border-border-subtle hover:border-border-strong'
                     : quota === 1
@@ -262,8 +257,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
                 }`}
                 title="Kuota harian berkas gratis"
               >
-                <Zap size={12} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-accent-primary'} />
-                <span className="text-[11px] font-bold">
+                <Zap size={12} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-[#9B4819]'} />
+                <span className="text-[11px] font-medium">
                   {quota === null
                     ? '∞ Unlimited'
                     : quota > 1
@@ -279,12 +274,12 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Beralih ke mode terang' : 'Beralih ke mode gelap'}
-              className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-surface border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
+              className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full bg-surface border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
             >
               {theme === 'dark' ? (
-                <Sun size={16} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
+                <Sun size={15} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
               ) : (
-                <Moon size={16} className="text-text-secondary transition-transform rotate-0 hover:-rotate-12" />
+                <Moon size={15} className="text-text-secondary transition-transform rotate-0 hover:-rotate-12" />
               )}
             </button>
 
@@ -295,7 +290,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[38px] rounded-lg text-xs font-bold bg-accent-primary hover:bg-accent-hover text-white shadow-2xs transition-all duration-200 active:scale-95 cursor-pointer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-xs hover:shadow-paper transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 Masuk
               </button>
@@ -304,16 +299,16 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
                 <button
                   type="button"
                   onClick={() => setShowUserMenu(v => !v)}
-                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 min-h-[38px] rounded-lg bg-surface border border-border-subtle hover:border-border-strong transition-all duration-200 active:scale-98 cursor-pointer shadow-2xs"
+                  className="flex items-center gap-2 pl-1.5 pr-3 py-1 min-h-[36px] rounded-full bg-surface border border-border-subtle hover:border-[#9B4819]/40 transition-all duration-200 active:scale-98 cursor-pointer shadow-2xs"
                 >
                   {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.fullName ?? 'User'} className="w-6 h-6 rounded-full object-cover border border-accent-primary/40" />
+                    <img src={user.avatarUrl} alt={user.fullName ?? 'User'} className="w-6 h-6 rounded-full object-cover border border-[#9B4819]/40" />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-accent-primary flex items-center justify-center text-white text-[10px] font-bold">
+                    <div className="w-6 h-6 rounded-full bg-[#9B4819] flex items-center justify-center text-white text-[10px] font-bold">
                       {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
                     </div>
                   )}
-                  <span className="hidden sm:inline text-xs font-semibold text-text-primary max-w-[85px] truncate">
+                  <span className="hidden sm:inline text-xs font-medium text-text-primary max-w-[85px] truncate">
                     {user?.fullName?.split(' ')[0] ?? 'User'}
                   </span>
                 </button>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, CheckCircle2, Clock, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Download, CheckCircle2, Clock, RotateCcw } from 'lucide-react';
 import CloudExportButtons from './CloudExportButtons';
 
 interface DownloadResultCardProps {
@@ -33,9 +33,9 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
 }) => {
   const effectiveUrl = downloadUrl || resultUrl || '';
   const effectiveTitle = successTitle || 'Pemrosesan Berhasil!';
-  const effectiveMessage = successDescription || customSuccessMessage || 'Dokumen Anda berhasil diproses dengan presisi.';
+  const effectiveMessage = successDescription || customSuccessMessage || 'Dokumen Anda berhasil diproses dengan presisi tinggi.';
 
-  // Countdown Timer 60 menit (3600 detik) sesuai Section 7.2
+  // Countdown Timer 60 menit (3600 detik)
   const [secondsRemaining, setSecondsRemaining] = useState(3600);
 
   useEffect(() => {
@@ -58,23 +58,23 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     : 0;
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-surface rounded-2xl border border-border-subtle p-6 sm:p-8 shadow-card animate-fade-in text-center select-none">
+    <div className="w-full max-w-lg mx-auto bg-surface rounded-3xl border border-border-subtle p-7 sm:p-9 shadow-paper animate-fade-in text-center select-none">
       
-      {/* Icon Sukses Taktil */}
-      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-        <CheckCircle2 size={32} />
+      {/* Icon Sukses Segel Forest Green */}
+      <div className="w-16 h-16 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/20 flex items-center justify-center mx-auto mb-4 shadow-xs">
+        <CheckCircle2 size={34} className="stroke-[2.2]" />
       </div>
 
-      <h3 className="text-lg sm:text-xl font-extrabold text-text-primary tracking-tight mb-1">
+      <h3 className="font-serif text-xl sm:text-2xl font-bold text-text-primary tracking-tight mb-1.5">
         {effectiveTitle}
       </h3>
-      <p className="text-xs sm:text-sm text-text-secondary mb-6">
+      <p className="text-xs sm:text-sm text-text-secondary mb-6 leading-relaxed">
         {effectiveMessage}
       </p>
 
-      {/* Informasi Perbandingan Ukuran Berkas (Section 7.2) */}
+      {/* Informasi Perbandingan Ukuran Berkas */}
       {originalSize && resultSize ? (
-        <div className="bg-elevated p-4 rounded-xl border border-border-subtle flex items-center justify-around mb-6 font-mono text-xs shadow-2xs">
+        <div className="bg-elevated p-4 rounded-2xl border border-border-subtle flex items-center justify-around mb-6 font-mono text-xs shadow-2xs">
           <div className="text-center">
             <span className="text-[10px] text-text-secondary block font-sans">Ukuran Awal</span>
             <span className="text-xs sm:text-sm font-bold text-text-primary">
@@ -86,7 +86,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
 
           <div className="text-center">
             <span className="text-[10px] text-text-secondary block font-sans">Ukuran Akhir</span>
-            <span className="text-xs sm:text-sm font-bold text-accent-primary">
+            <span className="text-xs sm:text-sm font-bold text-[#9B4819]">
               {newKb >= 1024 ? `${(newKb / 1024).toFixed(2)} MB` : `${newKb.toFixed(1)} KB`}
             </span>
           </div>
@@ -96,7 +96,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
               <div className="h-6 w-px bg-border-strong" />
               <div className="text-center">
                 <span className="text-[10px] text-text-secondary block font-sans">Penyusutan</span>
-                <span className="text-xs sm:text-sm font-bold text-emerald-500">
+                <span className="text-xs sm:text-sm font-bold text-[#314028] dark:text-emerald-400">
                   -{savedPercent}%
                 </span>
               </div>
@@ -105,7 +105,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
         </div>
       ) : (
         <div className="bg-elevated p-3 rounded-xl border border-border-subtle mb-6 text-xs text-text-secondary truncate">
-          Berkas: <strong className="text-text-primary">{fileName}</strong>
+          Berkas: <strong className="text-text-primary font-mono">{fileName}</strong>
         </div>
       )}
 
@@ -116,7 +116,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
             href={effectiveUrl}
             download={fileName}
             onClick={onDownload}
-            className="w-full bg-accent-primary hover:bg-accent-hover text-accent-contrast font-bold py-3.5 px-6 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm"
+            className="w-full bg-[#9B4819] hover:bg-[#7E3812] text-white font-medium py-3.5 px-6 rounded-full shadow-md hover:shadow-paper transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-xs sm:text-sm"
           >
             <Download size={16} />
             <span>Unduh Berkas PDF Sekarang</span>
@@ -125,7 +125,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
           <button
             type="button"
             onClick={onDownload}
-            className="w-full bg-accent-primary hover:bg-accent-hover text-accent-contrast font-bold py-3.5 px-6 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-sm"
+            className="w-full bg-[#9B4819] hover:bg-[#7E3812] text-white font-medium py-3.5 px-6 rounded-full shadow-md hover:shadow-paper transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-xs sm:text-sm"
           >
             <Download size={16} />
             <span>Unduh Berkas PDF Sekarang</span>
@@ -136,10 +136,10 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
         {effectiveUrl && <CloudExportButtons fileUrl={effectiveUrl} fileName={fileName} />}
       </div>
 
-      {/* Countdown Timer Kedaluwarsa Berkas (Section 7.2) */}
+      {/* Countdown Timer Kedaluwarsa Berkas */}
       {!isLocalRam && (
-        <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-lg bg-elevated border border-border-subtle text-[11px] text-text-secondary font-mono mb-5 select-none">
-          <Clock size={13} className="text-amber-500 shrink-0" />
+        <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-full bg-elevated border border-border-subtle text-[11px] text-text-secondary font-mono mb-5 select-none">
+          <Clock size={13} className="text-[#9B4819] shrink-0" />
           <span>
             Demi keamanan data, berkas dihapus otomatis dalam{' '}
             <strong className="text-text-primary">{formatCountdown(secondsRemaining)}</strong>
@@ -151,7 +151,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
       <button
         type="button"
         onClick={onReset}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-accent-primary transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-[#9B4819] transition-colors cursor-pointer"
       >
         <RotateCcw size={13} />
         <span>{resetLabel}</span>

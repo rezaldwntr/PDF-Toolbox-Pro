@@ -109,12 +109,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       onDrop={handleDrop}
       className={`
         google-anno-skip relative group cursor-pointer flex flex-col items-center justify-center
-        p-10 md:p-14 rounded-[2rem] border-2 border-dashed transition-all duration-300 ease-out
-        min-h-[320px] w-full overflow-hidden
+        p-8 sm:p-12 rounded-t-[48px] sm:rounded-t-[80px] rounded-b-3xl border-2 border-dashed transition-all duration-300 ease-out
+        min-h-[300px] w-full overflow-hidden select-none
         ${
           isDragOver
-            ? "border-blue-500 bg-blue-50/80 dark:bg-blue-900/20 scale-[1.02] shadow-xl shadow-blue-500/10"
-            : "border-gray-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50"
+            ? "border-[#9B4819] bg-surface scale-[1.01] shadow-paper-float ring-4 ring-[#9B4819]/10"
+            : "border-[#9B4819]/35 hover:border-[#9B4819] bg-surface/90 hover:bg-surface shadow-paper hover:shadow-paper-float"
         }
       `}
     >
@@ -127,37 +127,37 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         onChange={(e) => validateAndSelect(e.target.files)}
       />
 
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-blue-50/30 to-transparent dark:via-blue-900/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
+      {/* Segel Lilin Arch Dropzone Icon */}
       <div
         className={`
-          relative mb-6 p-5 rounded-2xl transition-all duration-300 shadow-sm
+          relative mb-5 p-4 rounded-full transition-all duration-300 shadow-xs
           ${
             isDragOver
-              ? "bg-blue-600 text-white rotate-6 scale-110 shadow-blue-500/30"
-              : "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 group-hover:scale-110 group-hover:-rotate-3 shadow-gray-200 dark:shadow-none"
+              ? "bg-[#9B4819] text-white scale-110 shadow-lg ring-4 ring-[#9B4819]/20"
+              : "bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/25 group-hover:scale-105"
           }
         `}
       >
-        <UploadIcon className="w-10 h-10" />
+        <UploadIcon className="w-8 h-8" />
       </div>
 
-      <h3 className="relative text-xl md:text-2xl font-bold text-slate-800 dark:text-white mb-2 text-center">
+      <h3 className="relative font-serif text-xl sm:text-2xl font-bold text-text-primary mb-1.5 text-center tracking-tight">
         {label}
       </h3>
-      <p className="relative text-slate-500 dark:text-slate-400 text-center max-w-xs mb-4 text-sm leading-relaxed">
+      <p className="relative text-text-secondary text-center max-w-sm mb-4 text-xs sm:text-sm leading-relaxed">
         {description}
       </p>
-      <p className="relative text-[11px] text-slate-400 dark:text-slate-500 mb-4">
-        Batas ukuran:{" "}
-        <span className="font-semibold text-slate-500 dark:text-slate-400">
+      <p className="relative text-[11px] text-text-secondary mb-5">
+        Batas ukuran berkas:{" "}
+        <span className="font-semibold text-text-primary font-mono">
           {maxFileSizeMB} MB
         </span>{" "}
-        untuk tier Anda saat ini
+        untuk tier akun Anda
       </p>
+
       <button
         type="button"
-        className="relative px-8 py-3.5 rounded-xl font-bold text-sm bg-blue-600 text-white shadow-lg shadow-blue-600/20 group-hover:bg-blue-700 transition-all cursor-pointer min-h-[44px]"
+        className="relative px-7 py-3 rounded-full font-serif font-bold text-xs sm:text-sm bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-md hover:shadow-paper transition-all cursor-pointer min-h-[42px] active:scale-95"
       >
         Pilih File {multiple && "(Multi)"}
       </button>
@@ -165,15 +165,15 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       {/* Baris Tombol Cloud Storage (Google Drive & Dropbox) */}
       <div 
         onClick={(e) => e.stopPropagation()} 
-        className="relative mt-6 pt-5 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col items-center gap-2.5 w-full max-w-xs"
+        className="relative mt-6 pt-5 border-t border-border-subtle flex flex-col items-center gap-2.5 w-full max-w-xs"
       >
-        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-          atau impor langsung dari:
+        <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
+          atau impor langsung dari cloud:
         </span>
         
         {isLoadingCloud ? (
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 py-1">
-            <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#9B4819] py-1">
+            <svg className="animate-spin h-4 w-4 text-[#9B4819]" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             <span>{cloudMsg}</span>
           </div>
         ) : (
@@ -181,7 +181,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             <button
               type="button"
               onClick={handlePickGoogleDrive}
-              className="flex-1 min-h-[40px] px-3 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex-1 min-h-[38px] px-3.5 py-1.5 rounded-full bg-surface hover:bg-elevated border border-border-subtle text-text-primary font-medium text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Pilih dokumen PDF dari Google Drive Anda"
             >
               <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
@@ -196,7 +196,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             <button
               type="button"
               onClick={handlePickDropbox}
-              className="flex-1 min-h-[40px] px-3 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex-1 min-h-[38px] px-3.5 py-1.5 rounded-full bg-surface hover:bg-elevated border border-border-subtle text-text-primary font-medium text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Pilih dokumen PDF dari Dropbox Anda"
             >
               <svg className="w-3.5 h-3.5 shrink-0 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
