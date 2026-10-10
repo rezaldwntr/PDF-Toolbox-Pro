@@ -218,58 +218,58 @@ curl_close($ch);
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 mb-3 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-[#9B4819] dark:hover:text-[#E06D3B] mb-3 transition-colors cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Kembali ke Halaman Utama</span>
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <div className="w-12 h-12 rounded-2xl bg-[#9B4819] text-white flex items-center justify-center shadow-paper">
               <Terminal size={24} />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
                 B2B Micro-API Developer Hub
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-sm text-text-secondary mt-0.5">
                 Infrastruktur otomasi manipulasi PDF berbiaya rendah untuk Startup, UMKM, dan Pengembang Perangkat Lunak.
               </p>
             </div>
           </div>
         </div>
 
-        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border border-[#314028]/25 font-mono">
           <Server size={14} />
           <span>v8.5 Production API</span>
         </span>
       </div>
 
       {/* Bagian 1: Manajemen Kunci API */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm mb-10 transition-all">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+      <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper mb-10 transition-all">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border-subtle/80">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Key size={18} className="text-blue-600 dark:text-blue-400" />
+            <h2 className="font-serif text-lg sm:text-xl font-bold text-text-primary flex items-center gap-2">
+              <Key size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
               <span>Kunci API Developer Anda</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Gunakan kunci rahasia ini di header HTTP <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-mono text-[11px]">X-API-Key</code> pada setiap pemanggilan endpoint.
+            <p className="text-xs text-text-secondary mt-1">
+              Gunakan kunci rahasia ini di header HTTP <code className="px-1.5 py-0.5 rounded bg-elevated border border-border-subtle text-[#9B4819] dark:text-[#E06D3B] font-mono text-[11px]">X-API-Key</code> pada setiap pemanggilan endpoint.
             </p>
           </div>
 
           {apiKeyData && (
             <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wider">Saldo Kredit</span>
-                <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
+              <div className="px-4 py-2 rounded-2xl bg-canvas border border-border-subtle text-right">
+                <span className="text-[10px] uppercase font-bold text-text-muted block tracking-wider">Saldo Kredit</span>
+                <span className="text-xl font-bold text-[#9B4819] dark:text-[#E06D3B] font-mono">
                   {apiKeyData.credits_remaining}
                 </span>
-                <span className="text-xs text-slate-400"> / {apiKeyData.credits_total}</span>
+                <span className="text-xs text-text-muted"> / {apiKeyData.credits_total}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setTopUpModalOpen(true)}
-                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold text-xs shadow-paper active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Zap size={14} className="fill-current text-amber-300" />
                 <span>Top Up Kredit</span>
@@ -281,14 +281,14 @@ curl_close($ch);
         <div className="mt-6">
           {apiKeyData ? (
             <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative flex-1 w-full bg-slate-50 dark:bg-slate-800/80 rounded-2xl px-4 py-3 border border-slate-200 dark:border-slate-700 font-mono text-sm text-slate-800 dark:text-slate-200 flex items-center justify-between">
+              <div className="relative flex-1 w-full bg-canvas rounded-2xl px-4 py-3 border border-border-subtle font-mono text-sm text-text-primary flex items-center justify-between">
                 <span>
                   {showKey ? apiKeyData.api_key : `${apiKeyData.api_key.slice(0, 14)}••••••••••••••••••••••••`}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                   title={showKey ? 'Sembunyikan' : 'Tampilkan Kunci'}
                 >
                   {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -298,25 +298,25 @@ curl_close($ch);
               <button
                 type="button"
                 onClick={handleCopyKey}
-                className="w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-2xl bg-elevated hover:bg-border-subtle border border-border-strong text-text-primary font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
               >
-                {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                {copied ? <Check size={16} className="text-[#314028] dark:text-[#34D399]" /> : <Copy size={16} />}
                 <span>{copied ? 'Tersalin!' : 'Salin Kunci'}</span>
               </button>
             </div>
           ) : (
-            <div className="text-center py-8 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            <div className="text-center py-8 px-4 bg-canvas/50 rounded-2xl border border-dashed border-border-strong/60">
+              <p className="text-sm font-semibold text-text-primary mb-2">
                 Anda belum memiliki Kunci API Developer yang aktif.
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+              <p className="text-xs text-text-secondary mb-5">
                 Dapatkan 100 kredit gratis otomatis di lingkungan Sandbox untuk mulai menguji integrasi di localhost atau Postman.
               </p>
               <button
                 type="button"
                 onClick={() => handleGenerateKey('sandbox', 'prepaid')}
                 disabled={isGenerating}
-                className="min-h-[44px] px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs shadow-lg shadow-blue-500/25 transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="min-h-[44px] px-6 py-2.5 rounded-xl bg-[#9B4819] hover:bg-[#7E3812] active:scale-95 text-white font-bold text-xs shadow-paper transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Sparkles size={16} />
                 <span>{isGenerating ? 'Menerbitkan Kunci...' : 'Terbitkan Kunci API Gratis (100 Request)'}</span>
@@ -329,22 +329,22 @@ curl_close($ch);
       {/* Bagian 2: Skema Harga API Ganda (Kredit vs Langganan) */}
       <div className="mb-14">
         <div className="text-center max-w-2xl mx-auto mb-8">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
             Pilihan Skema Biaya Fleksibel
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5">
+          <p className="text-xs sm:text-sm text-text-secondary mt-1.5 font-sans">
             Pilih sistem kredit prabayar tanpa komitmen, atau langganan bulanan hemat hingga 70% untuk produksi rutin.
           </p>
 
           {/* Tab Selector */}
-          <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mt-6">
+          <div className="inline-flex p-1 rounded-2xl bg-elevated border border-border-subtle mt-6">
             <button
               type="button"
               onClick={() => setPricingTab('prepaid')}
               className={`px-5 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] cursor-pointer ${
                 pricingTab === 'prepaid'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-surface text-[#9B4819] dark:text-[#E06D3B] shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Kredit Prabayar (Pay-As-You-Go)
@@ -354,8 +354,8 @@ curl_close($ch);
               onClick={() => setPricingTab('subscription')}
               className={`px-5 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] cursor-pointer ${
                 pricingTab === 'subscription'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-surface text-[#9B4819] dark:text-[#E06D3B] shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Langganan Bulanan (Hemat s.d 70%)
@@ -374,35 +374,35 @@ curl_close($ch);
             ].map((pkg) => (
               <div
                 key={pkg.id}
-                className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-blue-500 dark:hover:border-blue-500 transition-all flex flex-col justify-between relative group"
+                className="bg-surface rounded-3xl p-6 border border-border-subtle shadow-paper hover:border-[#9B4819]/60 hover:shadow-paper-float transition-all flex flex-col justify-between relative group"
               >
                 {pkg.badge && (
-                  <span className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-blue-600 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-sm">
+                  <span className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-[#9B4819] text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs">
                     {pkg.badge}
                   </span>
                 )}
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">{pkg.name}</h3>
+                  <h3 className="font-serif font-bold text-text-primary text-base">{pkg.name}</h3>
                   <div className="mt-3">
-                    <span className="text-2xl font-extrabold text-slate-900 dark:text-white">{pkg.price}</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">Sekali bayar (aktif 365 hari)</span>
+                    <span className="font-serif text-2xl sm:text-3xl font-bold text-text-primary">{pkg.price}</span>
+                    <span className="text-xs text-text-muted block mt-0.5">Sekali bayar (aktif 365 hari)</span>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="mt-5 pt-4 border-t border-border-subtle/80 space-y-2.5 text-xs text-text-secondary">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span><strong>{pkg.credits}</strong> Request Panggilan</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Hanya <strong>{pkg.unit}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Batas Berkas: <strong>{pkg.max}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Kecepatan: {pkg.rps}</span>
                     </div>
                   </div>
@@ -414,7 +414,11 @@ curl_close($ch);
                     setSelectedPackage(pkg.id);
                     setTopUpModalOpen(true);
                   }}
-                  className="mt-6 w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-blue-600 dark:bg-slate-800 dark:hover:bg-blue-600 text-slate-800 hover:text-white dark:text-slate-200 dark:hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  className={`mt-6 w-full min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 ${
+                    pkg.badge
+                      ? 'bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper'
+                      : 'bg-elevated hover:bg-[#9B4819] text-text-primary hover:text-white border border-border-subtle hover:border-[#9B4819]'
+                  }`}
                 >
                   <span>Beli Paket</span>
                   <ChevronRight size={14} />
@@ -432,40 +436,40 @@ curl_close($ch);
             ].map((sub) => (
               <div
                 key={sub.id}
-                className="bg-white dark:bg-slate-900 rounded-3xl p-6 border-2 border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 shadow-md flex flex-col justify-between relative group"
+                className="bg-surface rounded-3xl p-6 border border-border-subtle hover:border-[#9B4819]/60 shadow-paper hover:shadow-paper-float transition-all flex flex-col justify-between relative group"
               >
                 {sub.badge && (
-                  <span className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-blue-600 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-sm">
+                  <span className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-[#9B4819] text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs">
                     {sub.badge}
                   </span>
                 )}
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">{sub.name}</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                    <h3 className="font-serif font-bold text-text-primary text-base">{sub.name}</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border border-[#314028]/25">
                       {sub.save}
                     </span>
                   </div>
                   <div className="mt-3">
-                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{sub.price}</span>
-                    <span className="text-xs text-slate-400">{sub.period}</span>
+                    <span className="font-serif text-3xl font-bold text-text-primary">{sub.price}</span>
+                    <span className="text-xs text-text-muted">{sub.period}</span>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="mt-5 pt-4 border-t border-border-subtle/80 space-y-2.5 text-xs text-text-secondary">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-blue-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span><strong>{sub.credits}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-blue-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Hanya <strong>{sub.unit}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-blue-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Batas Berkas: <strong>{sub.max}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-blue-500 shrink-0" />
+                      <CheckCircle2 size={15} className="text-[#314028] dark:text-[#34D399] shrink-0" />
                       <span>Dukungan: {sub.extra}</span>
                     </div>
                   </div>
@@ -477,7 +481,11 @@ curl_close($ch);
                     setSelectedPackage(sub.id);
                     setTopUpModalOpen(true);
                   }}
-                  className="mt-6 w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  className={`mt-6 w-full min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 ${
+                    sub.badge
+                      ? 'bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper'
+                      : 'bg-elevated hover:bg-[#9B4819] hover:text-white text-text-primary border border-border-subtle'
+                  }`}
                 >
                   <span>Langganan Sekarang</span>
                   <ChevronRight size={14} />
@@ -489,14 +497,14 @@ curl_close($ch);
       </div>
 
       {/* Bagian 3: Dokumentasi Cepat & Contoh Kode Multibahasa */}
-      <div className="bg-slate-900 text-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="bg-[#181818] text-[#F2EFE9] rounded-3xl p-6 sm:p-8 shadow-paper border border-[#2D2D2D]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#2D2D2D]">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Code2 size={18} className="text-blue-400" />
+            <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+              <Code2 size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
               <span>Contoh Kode Integrasi API</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-[#A8A49A] mt-1">
               Pilih endpoint dan bahasa pemrograman untuk menyalin kode siap pakai ke aplikasi Anda.
             </p>
           </div>
@@ -505,7 +513,7 @@ curl_close($ch);
           <select
             value={selectedEndpoint}
             onChange={(e) => setSelectedEndpoint(e.target.value)}
-            className="bg-slate-800 text-white text-xs font-semibold rounded-xl px-3 py-2 border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-[#242424] text-[#F2EFE9] text-xs font-semibold rounded-xl px-3 py-2 border border-[#3A3A3A] outline-none focus:ring-2 focus:ring-[#9B4819] cursor-pointer"
           >
             <option value="compress">Kompres PDF (/tools/compress-pdf)</option>
             <option value="redact">Sensor NIK / UU PDP (/tools/redact-pdf)</option>
@@ -523,8 +531,8 @@ curl_close($ch);
               onClick={() => setSelectedLang(lang)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedLang === lang
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-[#9B4819] text-white shadow-xs'
+                  : 'text-[#A8A49A] hover:text-white hover:bg-white/10'
               }`}
             >
               {lang === 'curl' ? 'cURL' : lang === 'python' ? 'Python' : lang === 'node' ? 'Node.js' : 'PHP'}
@@ -533,8 +541,8 @@ curl_close($ch);
         </div>
 
         {/* Code Block */}
-        <div className="mt-4 relative bg-slate-950 rounded-2xl p-4 sm:p-5 border border-slate-800 font-mono text-xs overflow-x-auto">
-          <pre className="text-emerald-400 leading-relaxed">
+        <div className="mt-4 relative bg-[#121212] rounded-2xl p-4 sm:p-5 border border-[#242424] font-mono text-xs overflow-x-auto">
+          <pre className="text-[#34D399] leading-relaxed">
             <code>{getCodeSnippet()}</code>
           </pre>
           <button
@@ -543,7 +551,7 @@ curl_close($ch);
               navigator.clipboard.writeText(getCodeSnippet());
               addToast('Contoh kode disalin!', 'success');
             }}
-            className="absolute top-3 right-3 p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+            className="absolute top-3 right-3 p-2 rounded-xl bg-[#242424] hover:bg-[#2D2D2D] text-[#A8A49A] hover:text-white transition-colors cursor-pointer border border-[#3A3A3A]"
             title="Salin Kode"
           >
             <Copy size={14} />
@@ -553,18 +561,18 @@ curl_close($ch);
 
       {/* Modal Konfirmasi Top-Up / Pembelian */}
       {topUpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-surface rounded-3xl max-w-md w-full p-6 border border-border-subtle shadow-paper-float">
+            <h3 className="font-serif text-lg font-bold text-text-primary mb-2">
               Konfirmasi Top-Up Kredit API
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-xs text-text-secondary mb-4">
               Kredit akan langsung ditambahkan ke kunci API Anda secara instan setelah pembayaran terkonfirmasi.
             </p>
 
-            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 mb-6 border border-slate-200 dark:border-slate-700">
-              <span className="text-[11px] text-slate-400 block uppercase font-bold">Paket yang Dipilih</span>
-              <span className="text-base font-extrabold text-blue-600 dark:text-blue-400 capitalize">
+            <div className="bg-canvas rounded-2xl p-4 mb-6 border border-border-subtle">
+              <span className="text-[11px] text-text-muted block uppercase font-bold">Paket yang Dipilih</span>
+              <span className="text-base font-serif font-bold text-[#9B4819] dark:text-[#E06D3B] capitalize">
                 {selectedPackage.replace('_', ' ')}
               </span>
             </div>
@@ -573,14 +581,14 @@ curl_close($ch);
               <button
                 type="button"
                 onClick={() => setTopUpModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer min-h-[44px]"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-text-secondary hover:bg-elevated transition-all cursor-pointer min-h-[44px]"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleTopUpConfirm}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper active:scale-95 transition-all cursor-pointer min-h-[44px]"
               >
                 Konfirmasi Pembayaran
               </button>

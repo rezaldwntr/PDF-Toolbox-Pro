@@ -109,11 +109,13 @@ function AppContent() {
     }
   }, [user?.id, user?.tier, user?.lastNotifiedTier]);
 
-  // Hash route support (#admin)
+  // Hash route support (#admin & #developer-api)
   useEffect(() => {
     const handleHash = () => {
       if (window.location.hash === '#admin') {
         setCurrentView(View.ADMIN_DASHBOARD);
+      } else if (window.location.hash === '#developer-api' || window.location.hash === '#dev') {
+        setCurrentView(View.DEVELOPER_API);
       }
     };
     handleHash();
@@ -127,7 +129,11 @@ function AppContent() {
       if (window.location.hash !== '#admin') {
         window.location.hash = 'admin';
       }
-    } else if (window.location.hash === '#admin') {
+    } else if (currentView === View.DEVELOPER_API) {
+      if (window.location.hash !== '#developer-api') {
+        window.location.hash = 'developer-api';
+      }
+    } else if (window.location.hash === '#admin' || window.location.hash === '#developer-api') {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }, [currentView]);

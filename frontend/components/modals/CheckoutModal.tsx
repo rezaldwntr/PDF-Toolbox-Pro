@@ -153,30 +153,30 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
       : null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
-          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-950/60 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-blue-500/20 text-blue-600 dark:text-blue-400">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
+        <div className="bg-surface rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-paper-float border border-border-subtle space-y-4">
+          <div className="w-16 h-16 bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/20 rounded-2xl flex items-center justify-center mx-auto shadow-paper">
             <Shield size={32} />
           </div>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Paket Aktif Anda Lebih Tinggi</h3>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-left">
-            Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{user?.email}</span>) saat ini memiliki paket <span className="font-bold text-slate-900 dark:text-white">{currentConfig.label}</span> yang masih aktif{expiryFormatted ? ` hingga ${expiryFormatted}` : ''}.
+          <h3 className="font-serif text-xl font-bold text-text-primary">Paket Aktif Anda Lebih Tinggi</h3>
+          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed text-left font-sans">
+            Akun Anda (<span className="font-semibold text-[#9B4819] dark:text-[#E06D3B]">{user?.email}</span>) saat ini memiliki paket <span className="font-bold text-text-primary">{currentConfig.label}</span> yang masih aktif{expiryFormatted ? ` hingga ${expiryFormatted}` : ''}.
           </p>
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl text-left text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+          <div className="bg-canvas p-3.5 rounded-2xl text-left text-xs text-text-secondary border border-border-subtle space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-[#314028] dark:text-[#34D399]">
               <Check size={14} /> Semua Fitur Sudah Termasuk
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] leading-relaxed text-text-muted">
               Semua fasilitas dari paket <strong>{plan.name}</strong> sudah otomatis aktif di akun Anda dengan batas ukuran berkas hingga <strong>{currentConfig.maxFileSizeMB} MB</strong> dan antrean prioritas utama.
             </p>
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium pt-1">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium pt-1">
               Pembelian paket ini dinonaktifkan agar akun Anda tidak mengalami penurunan spesifikasi (downgrade).
             </p>
           </div>
           <div className="pt-2">
             <button
               onClick={closeCheckout}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all active:scale-95 cursor-pointer"
+              className="w-full py-3.5 bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold text-sm rounded-xl shadow-paper transition-all active:scale-95 cursor-pointer"
             >
               Kembali ke Aplikasi
             </button>
@@ -263,41 +263,41 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   // Layar Pembayaran Berhasil / Teraktivasi
   if (isPaid) {
     return (
-      <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-emerald-500/20">
-            <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+      <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
+        <div className="bg-surface rounded-3xl max-w-md w-full p-6 sm:p-8 text-center shadow-paper-float border border-border-subtle space-y-4">
+          <div className="w-16 h-16 bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border border-[#314028]/20 rounded-2xl flex items-center justify-center mx-auto shadow-paper">
+            <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Pembayaran Berhasil!</h3>
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Selamat! Akun Anda (<span className="font-semibold text-blue-600 dark:text-blue-400">{user?.email}</span>) kini telah resmi aktif dengan paket <span className="font-bold text-slate-900 dark:text-white">{plan.name}</span>.
+          <h3 className="font-serif text-2xl font-bold text-text-primary">Pembayaran Berhasil!</h3>
+          <p className="text-sm text-text-secondary leading-relaxed font-sans">
+            Selamat! Akun Anda (<span className="font-semibold text-[#9B4819] dark:text-[#E06D3B]">{user?.email}</span>) kini telah resmi aktif dengan paket <span className="font-bold text-text-primary">{plan.name}</span>.
           </p>
 
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl text-left text-xs space-y-2 border border-slate-100 dark:border-slate-700">
+          <div className="bg-canvas p-4 rounded-2xl text-left text-xs space-y-2 border border-border-subtle">
             <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Paket:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{plan.name}</span>
+              <span className="text-text-muted">Paket:</span>
+              <span className="font-bold text-text-primary">{plan.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Nominal:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{displayPriceStr}</span>
+              <span className="text-text-muted">Nominal:</span>
+              <span className="font-bold text-[#314028] dark:text-[#34D399]">{displayPriceStr}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Status:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <span className="text-text-muted">Status:</span>
+              <span className="font-bold text-[#314028] dark:text-[#34D399] flex items-center gap-1">
                 <Check size={13} /> Aktif & Terverifikasi Instan
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Gateway:</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-300">PT Midtrans Resmi BI</span>
+              <span className="text-text-muted">Gateway:</span>
+              <span className="font-semibold text-text-secondary">PT Midtrans Resmi BI</span>
             </div>
           </div>
 
           <div className="pt-2">
             <button 
               onClick={closeCheckout} 
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
+              className="w-full py-3.5 bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold text-sm rounded-xl transition-all shadow-paper active:scale-95 cursor-pointer"
             >
               Mulai Gunakan Fitur Pro ✨
             </button>
@@ -308,45 +308,45 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
   }
 
   return (
-    <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-[#1E222B] rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden max-h-[94vh] flex flex-col">
+    <div className="google-anno-skip fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
+      <div className="bg-surface rounded-3xl max-w-lg w-full shadow-paper-float border border-border-subtle relative overflow-hidden max-h-[94vh] flex flex-col">
         
         {/* Header Modal */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-border-subtle/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
+            <div className="w-9 h-9 rounded-xl bg-[#9B4819]/10 border border-[#9B4819]/20 flex items-center justify-center text-[#9B4819] dark:text-[#E06D3B] font-bold">
               <CreditCard size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white leading-none">{plan.name}</h3>
+                <h3 className="font-serif text-base font-bold text-text-primary leading-none">{plan.name}</h3>
                 {effPrice?.isPromo ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="line-through text-[11px] text-slate-400 font-normal">
+                    <span className="line-through text-[11px] text-text-muted font-normal">
                       {formatRupiah(effPrice.originalPrice)}
                     </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/25">
                       Promo {displayPriceStr} (-{effPrice.discountPercent}%)
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border border-[#314028]/25">
                     {plan.price}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pembayaran Resmi Didukung Midtrans (Berizin Bank Indonesia)</p>
+              <p className="text-[11px] text-text-secondary mt-0.5">Pembayaran Resmi Didukung Midtrans (Berizin Bank Indonesia)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg">
+            <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
               <Timer size={13} />
               <span className="text-xs font-bold font-mono">{timerStr}</span>
             </div>
             <button 
               type="button"
               onClick={closeCheckout} 
-              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 active:scale-[0.95] cursor-pointer"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-text-secondary hover:text-text-primary hover:bg-elevated transition-all duration-200 active:scale-[0.95] cursor-pointer"
               aria-label="Tutup Modal"
             >
               <X size={18} />
@@ -359,17 +359,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
 
           {/* Alert Login jika pengguna masih Guest */}
           {isGuest && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-start gap-2.5">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-start gap-2.5">
               <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-bold text-amber-900 dark:text-amber-300">Anda Belum Masuk Akun</p>
-                <p className="text-[11px] text-amber-800 dark:text-amber-400/90 leading-relaxed mb-1.5">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Anda Belum Masuk Akun</p>
+                <p className="text-[11px] text-text-secondary leading-relaxed mb-1.5">
                   Masuk dengan Google agar status langganan otomatis aktif di akun Anda secara permanen.
                 </p>
                 <button
                   type="button"
                   onClick={signInWithGoogle}
-                  className="px-3.5 py-2 min-h-[38px] bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white font-bold text-xs rounded-lg shadow-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 min-h-[38px] bg-[#9B4819] hover:bg-[#7E3812] active:scale-[0.98] text-white font-bold text-xs rounded-lg shadow-paper transition-all duration-200 flex items-center gap-1.5 cursor-pointer"
                 >
                   Masuk dengan Google Sekarang →
                 </button>
@@ -379,11 +379,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
 
           {/* Banner Perpanjangan jika memperpanjang paket yang sama */}
           {isExtension && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 rounded-xl flex items-center gap-2.5 text-xs text-blue-900 dark:text-blue-300">
-              <Sparkles size={16} className="text-amber-500 shrink-0" />
+            <div className="p-3 bg-[#9B4819]/10 border border-[#9B4819]/25 rounded-xl flex items-center gap-2.5 text-xs text-[#9B4819] dark:text-[#E06D3B]">
+              <Sparkles size={16} className="shrink-0" />
               <div>
                 <p className="font-bold">Perpanjangan Paket (+Masa Aktif)</p>
-                <p className="text-[11px] text-blue-800 dark:text-blue-400/90 leading-relaxed">
+                <p className="text-[11px] text-text-secondary leading-relaxed">
                   Durasi baru akan ditambahkan langsung dari sisa masa aktif akun Anda saat ini (Stacking).
                 </p>
               </div>
@@ -392,20 +392,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
 
           {/* Error Message jika ada */}
           {errorMessage && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-xl text-xs flex items-center gap-2 border border-rose-200 dark:border-rose-900/40">
+            <div className="p-3 bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs flex items-center gap-2 border border-rose-500/25">
               <AlertCircle size={15} className="shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* Ringkasan Paket Card */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
+          <div className="bg-canvas p-4 rounded-2xl border border-border-subtle flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">Paket Dipilih</span>
-              <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{plan.name}</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
+              <span className="text-[10px] font-bold text-[#9B4819] dark:text-[#E06D3B] tracking-wide uppercase">Paket Dipilih</span>
+              <h4 className="font-serif text-base font-bold text-text-primary">{plan.name}</h4>
+              <p className="text-xs text-text-secondary">{plan.desc}</p>
               {effPrice?.isPromo && effPrice.bannerText && (
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
                   {effPrice.bannerText}
                 </span>
               )}
@@ -413,50 +413,50 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             <div className="text-right">
               {effPrice?.isPromo ? (
                 <div>
-                  <span className="line-through text-xs text-slate-400 block">
+                  <span className="line-through text-xs text-text-muted block">
                     {formatRupiah(effPrice.originalPrice)}
                   </span>
-                  <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{displayPriceStr}</span>
+                  <span className="font-serif text-xl font-bold text-rose-600 dark:text-rose-400">{displayPriceStr}</span>
                 </div>
               ) : (
-                <span className="text-xl font-extrabold text-slate-900 dark:text-white">{plan.price}</span>
+                <span className="font-serif text-xl font-bold text-text-primary">{plan.price}</span>
               )}
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">{plan.priceNote}</p>
+              <p className="text-[10px] text-text-muted">{plan.priceNote}</p>
             </div>
           </div>
 
           {/* Saluran Pembayaran Midtrans yang Didukung */}
-          <div className="bg-slate-50 dark:bg-[#151820] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Zap size={14} className="text-amber-500" />
+          <div className="bg-canvas border border-border-subtle rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+              <Zap size={14} className="text-[#9B4819] dark:text-[#E06D3B]" />
               <span>Metode Pembayaran Instan Midtrans:</span>
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <div className="p-2.5 bg-surface rounded-xl border border-border-subtle shadow-2xs">
                 <div className="text-base mb-0.5">📱</div>
-                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">QRIS Dinamis</div>
-                <div className="text-[9px] text-slate-400">Semua m-Banking</div>
+                <div className="font-bold text-[11px] text-text-primary">QRIS Dinamis</div>
+                <div className="text-[9px] text-text-muted">Semua m-Banking</div>
               </div>
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <div className="p-2.5 bg-surface rounded-xl border border-border-subtle shadow-2xs">
                 <div className="text-base mb-0.5">💚</div>
-                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">GoPay</div>
-                <div className="text-[9px] text-slate-400">Instan 1-Klik</div>
+                <div className="font-bold text-[11px] text-text-primary">GoPay</div>
+                <div className="text-[9px] text-text-muted">Instan 1-Klik</div>
               </div>
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <div className="p-2.5 bg-surface rounded-xl border border-border-subtle shadow-2xs">
                 <div className="text-base mb-0.5">🧡</div>
-                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">ShopeePay</div>
-                <div className="text-[9px] text-slate-400">Aplikasi Shopee</div>
+                <div className="font-bold text-[11px] text-text-primary">ShopeePay</div>
+                <div className="text-[9px] text-text-muted">Aplikasi Shopee</div>
               </div>
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <div className="p-2.5 bg-surface rounded-xl border border-border-subtle shadow-2xs">
                 <div className="text-base mb-0.5">🏦</div>
-                <div className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Virtual Account</div>
-                <div className="text-[9px] text-slate-400">BCA, Mandiri, BRI, BNI</div>
+                <div className="font-bold text-[11px] text-text-primary">Virtual Account</div>
+                <div className="text-[9px] text-text-muted">BCA, Mandiri, BRI, BNI</div>
               </div>
             </div>
 
-            <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+            <div className="p-2.5 bg-[#314028]/10 rounded-xl border border-[#314028]/25 text-[11px] text-[#314028] dark:text-[#34D399] flex items-center gap-2">
+              <CheckCircle2 size={14} className="shrink-0" />
               <span>Akun langsung aktif otomatis dalam 1 detik setelah pembayaran berhasil.</span>
             </div>
           </div>
@@ -466,7 +466,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
             type="button"
             onClick={handlePayWithMidtrans}
             disabled={isLoadingSnap}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-98 flex items-center justify-center gap-2.5 text-sm disabled:opacity-60 cursor-pointer"
+            className="w-full py-4 bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold rounded-xl transition-all shadow-paper active:scale-98 flex items-center justify-center gap-2.5 text-sm disabled:opacity-60 cursor-pointer"
           >
             {isLoadingSnap ? (
               <>
@@ -482,7 +482,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
           </button>
 
           {/* Trust Footer & Contact Admin */}
-          <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 space-y-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
+          <div className="border-t border-border-subtle/70 pt-3 space-y-2 text-center text-[11px] text-text-muted">
             <p>
               Dengan membayar, Anda menyetujui{' '}
               {onSelectView ? (
@@ -492,7 +492,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                     closeCheckout();
                     onSelectView(View.TERMS);
                   }}
-                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium cursor-pointer"
+                  className="text-[#9B4819] dark:text-[#E06D3B] underline hover:opacity-85 font-medium cursor-pointer"
                 >
                   Syarat & Ketentuan
                 </button>
@@ -507,7 +507,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
                     closeCheckout();
                     onSelectView(View.PRIVACY);
                   }}
-                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium cursor-pointer"
+                  className="text-[#9B4819] dark:text-[#E06D3B] underline hover:opacity-85 font-medium cursor-pointer"
                 >
                   Kebijakan Privasi
                 </button>
@@ -516,25 +516,24 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ onSelectView }) => {
               )}
               .
             </p>
-            <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-center gap-1.5 text-text-secondary">
               <span>Bantuan aktivasi pembayaran:</span>
-              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{ADMIN_EMAIL}</span>
+              <span className="font-mono font-bold text-text-primary">{ADMIN_EMAIL}</span>
               <button
                 type="button"
                 onClick={copyAdminEmail}
-                className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200 active:scale-[0.95] cursor-pointer"
+                className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center hover:bg-elevated rounded-lg transition-all duration-200 active:scale-[0.95] cursor-pointer"
                 title="Salin Email Admin"
                 aria-label="Salin Email Admin"
               >
-                {copiedEmail ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                {copiedEmail ? <Check size={14} className="text-[#314028] dark:text-[#34D399]" /> : <Copy size={14} />}
               </button>
             </div>
             <div className="flex items-center justify-center gap-1 text-[10px]">
-              <Shield size={12} className="text-emerald-500" />
+              <Shield size={12} className="text-[#314028] dark:text-[#34D399]" />
               <span>Didukung PT Midtrans (Berizin Bank Indonesia) · Transaksi Enkripsi 256-bit</span>
             </div>
           </div>
-
         </div>
       </div>
     </div>

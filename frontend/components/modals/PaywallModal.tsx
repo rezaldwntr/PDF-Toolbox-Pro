@@ -10,7 +10,7 @@ const MONTHLY_PLAN: UserTier = 'monthly';
 const variantConfig = {
   quota_exhausted: {
     icon: <Zap className="w-7 h-7" />,
-    iconBg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
+    iconBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20',
     title: 'Kuota Harian Habis',
     subtitle: (tier: string, maxQ: number | null) =>
       tier === 'guest'
@@ -19,14 +19,14 @@ const variantConfig = {
   },
   file_too_large: {
     icon: <FileWarning className="w-7 h-7" />,
-    iconBg: 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
+    iconBg: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20',
     title: 'Berkas Terlalu Besar',
     subtitle: (tier: string, maxQ: number | null, maxMB?: number) =>
       `Batas ukuran berkas untuk tier ${tier === 'guest' ? 'Tamu' : 'Anda'} adalah ${maxMB ?? 20} MB. Upgrade untuk berkas hingga 500 MB.`,
   },
   pro_feature: {
     icon: <Lock className="w-7 h-7" />,
-    iconBg: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    iconBg: 'bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/20',
     title: 'Fitur Pro',
     subtitle: () => 'Fitur ini tersedia untuk pengguna berbayar. Upgrade ke Flash Pass atau Monthly Pro untuk akses penuh.',
   },
@@ -59,42 +59,43 @@ const PaywallModal: React.FC = () => {
   };
 
   return (
-    <div className="google-anno-skip fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-[#1E222B] rounded-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
+    <div className="google-anno-skip fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
+      <div className="bg-surface rounded-3xl max-w-md w-full p-6 shadow-paper-float border border-border-subtle relative">
         <button
           onClick={closePaywall}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Tutup Modal"
+          className="absolute top-4 right-4 p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-elevated transition-colors cursor-pointer"
         >
           <X size={18} />
         </button>
 
         {/* Icon + Title */}
         <div className="flex items-start gap-4 mb-5">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${cfg.iconBg}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${cfg.iconBg}`}>
             {cfg.icon}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{cfg.title}</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{subtitle}</p>
+            <h3 className="font-serif text-xl font-bold text-text-primary">{cfg.title}</h3>
+            <p className="text-sm text-text-secondary mt-1 leading-relaxed font-sans">{subtitle}</p>
           </div>
         </div>
 
         {/* CTA Utama: Flash Pass */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-4 mb-3 text-white">
+        <div className="bg-gradient-to-br from-[#9B4819] via-[#853C12] to-[#6E2F0B] rounded-2xl p-4 mb-3 text-white shadow-paper">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-xs font-semibold text-blue-200 uppercase tracking-wide">⚡ Solusi Tercepat</p>
-              <p className="text-lg font-extrabold">24-Hour Flash Pass</p>
-              <p className="text-xs text-blue-200">Akses penuh tanpa batas selama 24 jam</p>
+              <p className="text-xs font-semibold text-amber-200 uppercase tracking-wide">⚡ Solusi Tercepat</p>
+              <p className="font-serif text-lg font-bold">24-Hour Flash Pass</p>
+              <p className="text-xs text-white/85">Akses penuh tanpa batas selama 24 jam</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-extrabold">Rp5.000</p>
-              <p className="text-xs text-blue-200">sekali bayar</p>
+              <p className="font-serif text-2xl font-bold">Rp5.000</p>
+              <p className="text-xs text-amber-200">sekali bayar</p>
             </div>
           </div>
           <button
             onClick={handleFlashPass}
-            className="w-full py-2.5 bg-white text-blue-700 font-bold text-sm rounded-lg hover:bg-blue-50 transition-colors active:scale-98"
+            className="w-full py-2.5 bg-white text-[#9B4819] font-bold text-sm rounded-xl hover:bg-[#F4F1E8] transition-colors active:scale-98 cursor-pointer shadow-xs"
           >
             Bayar via QRIS / GoPay / OVO →
           </button>
@@ -104,7 +105,7 @@ const PaywallModal: React.FC = () => {
         {isGuest && paywallVariant === 'quota_exhausted' && (
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl font-semibold text-sm text-slate-700 dark:text-slate-200 bg-white dark:bg-[#161A22] border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all mb-2"
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl font-semibold text-sm text-text-primary bg-surface border border-border-subtle hover:bg-elevated shadow-xs transition-all mb-2 cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -119,7 +120,7 @@ const PaywallModal: React.FC = () => {
         {/* Link ke pricing full */}
         <button
           onClick={handleMonthly}
-          className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 py-1.5 transition-colors font-medium"
+          className="w-full text-xs text-text-secondary hover:text-[#9B4819] dark:hover:text-[#E06D3B] py-1.5 transition-colors font-medium cursor-pointer"
         >
           Lihat semua paket & harga →
         </button>
