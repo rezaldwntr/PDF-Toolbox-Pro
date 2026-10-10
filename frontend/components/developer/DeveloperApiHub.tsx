@@ -21,7 +21,8 @@ import {
   CreditCard,
   Shield,
   AlertCircle,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -159,10 +160,29 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
   const [selectedPackage, setSelectedPackage] = useState<string>('starter');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [lastPaymentUrl, setLastPaymentUrl] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<any>(null);
 
   const userId = user?.id || 'guest_dev_preview';
+
+  // Tutup modal dan reset status pemrosesan
+  const handleCloseModal = useCallback(() => {
+    setIsProcessingPayment(false);
+    setPaymentError(null);
+    setTopUpModalOpen(false);
+  }, []);
+
+  // Keyboard shortcut ESC untuk menutup modal konfirmasi top-up
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && topUpModalOpen) {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [topUpModalOpen, handleCloseModal]);
 
   // Muat kunci API pengguna dari backend
   const fetchKey = useCallback(async () => {
@@ -279,8 +299,13 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
       }
 
       const data = await res.json();
+      if (data.redirect_url) {
+        setLastPaymentUrl(data.redirect_url);
+      }
 
-      if ((window as any).snap && data.token && data.token !== 'DEMO-SNAP-TOKEN') {
+      const hasSnap = typeof (window as any).snap !== 'undefined' && typeof (window as any).snap.pay === 'function';
+
+      if (hasSnap && data.token && data.token !== 'DEMO-SNAP-TOKEN') {
         (window as any).snap.pay(data.token, {
           onSuccess: async (result: any) => {
             console.log('Top-up Midtrans Snap Success:', result);
@@ -291,6 +316,7 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
           },
           onPending: (result: any) => {
             console.log('Top-up Midtrans Snap Pending:', result);
+            setIsProcessingPayment(false);
             addToast('Menunggu pembayaran diselesaikan...', 'info');
             if (data.order_id) {
               startPollingPayment(data.order_id);
@@ -322,6 +348,7 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
       console.error('Payment error:', err);
       setPaymentError(err.message || 'Gagal memproses pembayaran top-up.');
       addToast(err.message || 'Gagal memproses pembayaran.', 'error');
+    } finally {
       setIsProcessingPayment(false);
     }
   };
@@ -764,15 +791,24 @@ curl_close($ch);
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
-            <div className="bg-surface rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-border-subtle shadow-paper-float relative">
-              {/* Close Button */}
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCloseModal();
+              }
+            }}
+          >
+            <div 
+              className="bg-surface rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-border-subtle shadow-paper-float relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button (Selalu dapat diklik) */}
               <button
                 type="button"
-                onClick={() => !isProcessingPayment && setTopUpModalOpen(false)}
-                disabled={isProcessingPayment}
-                className="absolute top-5 right-5 p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-elevated transition-colors cursor-pointer disabled:opacity-40"
-                title="Tutup"
+                onClick={handleCloseModal}
+                className="absolute top-5 right-5 p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-elevated transition-colors cursor-pointer"
+                title="Tutup (Esc)"
               >
                 <X size={18} />
               </button>
@@ -873,9 +909,8 @@ curl_close($ch);
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setTopUpModalOpen(false)}
-                  disabled={isProcessingPayment}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-text-secondary hover:bg-elevated transition-all cursor-pointer min-h-[44px] disabled:opacity-40"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-text-secondary hover:bg-elevated hover:text-text-primary transition-all cursor-pointer min-h-[44px]"
                 >
                   Batal
                 </button>
@@ -898,6 +933,21 @@ curl_close($ch);
                   )}
                 </button>
               </div>
+
+              {/* Tautan Cadangan jika Popup Terblokir */}
+              {lastPaymentUrl && (
+                <div className="mt-3.5 pt-3 border-t border-border-subtle/60 text-center">
+                  <a
+                    href={lastPaymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#9B4819] dark:text-[#E06D3B] hover:underline font-semibold inline-flex items-center gap-1.5"
+                  >
+                    <span>Jendela pembayaran tidak muncul? Buka langsung di sini</span>
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         );
