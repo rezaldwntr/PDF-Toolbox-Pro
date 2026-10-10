@@ -18,6 +18,13 @@ from app.core.config import (
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
     SUBSCRIPTION_PLANS,
+    API_PREPAID_PLANS,
+    API_SUBSCRIPTION_PLANS,
+)
+from app.core.api_auth import (
+    top_up_api_credits,
+    get_user_api_keys,
+    create_api_key_record,
 )
 from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier, get_active_promo_price
 from app.utils.payment_utils import generate_order_id, parse_order_id
@@ -27,25 +34,53 @@ router = APIRouter(prefix="/payment", tags=["Payment & Subscription"])
 
 
 class CreateSnapTokenRequest(BaseModel):
-    plan_id: str  # "flash", "monthly", "annual"
+    plan_id: str  # "flash", "monthly", "annual", or API plan: "starter", "growth", "business", "scale", "dev_starter", etc.
     user_id: str
     user_email: str
     user_name: Optional[str] = None
+    api_key: Optional[str] = None
 
 
 @router.post("/create-snap-token")
 async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: BackgroundTasks):
     """
     Membuat transaksi Snap Midtrans dan mengembalikan token pembayaran.
-    Mendukung QRIS, GoPay, ShopeePay, dan Virtual Account bank.
-    Mengecek apakah ada harga promo aktif untuk plan/user ini.
+    Mendukung paket langganan web (Flash, Monthly, Annual) dan paket kredit B2B Micro-API.
+    Mendukung QRIS Dinamis, GoPay, ShopeePay, dan Virtual Account bank.
     """
-    plan = SUBSCRIPTION_PLANS.get(req.plan_id.lower())
-    if not plan:
-        raise HTTPException(status_code=400, detail=f"Paket tidak valid: {req.plan_id}")
+    plan_key = req.plan_id.lower()
+    is_api_plan = False
 
-    base_price = int(plan["price"])
-    effective_price = await get_active_promo_price(req.plan_id, req.user_email, base_price)
+    if plan_key in API_PREPAID_PLANS:
+        api_info = API_PREPAID_PLANS[plan_key]
+        plan = {
+            "id": api_info["id"],
+            "name": f"Kredit API {api_info['name']}",
+            "price": api_info["price_idr"],
+            "category": "Developer API",
+            "credits": api_info["credits"],
+        }
+        effective_price = int(api_info["price_idr"])
+        base_price = effective_price
+        is_api_plan = True
+    elif plan_key in API_SUBSCRIPTION_PLANS:
+        api_info = API_SUBSCRIPTION_PLANS[plan_key]
+        plan = {
+            "id": api_info["id"],
+            "name": f"Langganan API {api_info['name']}",
+            "price": api_info["price_idr"],
+            "category": "Developer API",
+            "credits": api_info["monthly_credits"],
+        }
+        effective_price = int(api_info["price_idr"])
+        base_price = effective_price
+        is_api_plan = True
+    else:
+        plan = SUBSCRIPTION_PLANS.get(plan_key)
+        if not plan:
+            raise HTTPException(status_code=400, detail=f"Paket tidak valid: {req.plan_id}")
+        base_price = int(plan["price"])
+        effective_price = await get_active_promo_price(req.plan_id, req.user_email, base_price)
 
     # Format Order ID unik terpusat via payment_utils
     order_id = generate_order_id(req.plan_id, req.user_id)
@@ -68,7 +103,7 @@ async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: Backg
                 "quantity": 1,
                 "name": f"{plan['name']}{' (Promo)' if effective_price < base_price else ''}",
                 "brand": "PDF Toolbox Pro",
-                "category": "Subscription",
+                "category": "Developer API" if is_api_plan else "Subscription",
             }
         ],
         "customer_details": {
@@ -77,6 +112,7 @@ async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: Backg
         },
         "custom_field1": req.user_id,
         "custom_field2": req.plan_id,
+        "custom_field3": req.api_key or "",
         "enabled_payments": [
             "qris",
             "gopay",
@@ -166,6 +202,7 @@ async def midtrans_webhook(request: Request, background_tasks: BackgroundTasks):
     if is_success:
         user_id = body.get("custom_field1")
         plan_id = body.get("custom_field2")
+        api_key = body.get("custom_field3")
 
         # Jika custom fields kosong, coba ekstrak dari format order_id via parse_order_id
         if not plan_id and order_id:
@@ -173,9 +210,35 @@ async def midtrans_webhook(request: Request, background_tasks: BackgroundTasks):
             if parsed.get("valid"):
                 plan_id = parsed.get("plan_id")
 
-        plan = SUBSCRIPTION_PLANS.get(str(plan_id).lower(), SUBSCRIPTION_PLANS["flash"])
+        plan_key = str(plan_id or "").lower()
 
-        if user_id:
+        # Pemenuhan otomatis Paket Kredit B2B Micro-API
+        if plan_key in API_PREPAID_PLANS or plan_key in API_SUBSCRIPTION_PLANS:
+            if plan_key in API_PREPAID_PLANS:
+                credits = API_PREPAID_PLANS[plan_key]["credits"]
+                p_type = "prepaid"
+            else:
+                credits = API_SUBSCRIPTION_PLANS[plan_key]["monthly_credits"]
+                p_type = "subscription"
+
+            target_key = api_key
+            if not target_key and user_id:
+                user_keys = get_user_api_keys(user_id)
+                if user_keys:
+                    target_key = user_keys[0].get("api_key")
+
+            if target_key:
+                top_up_api_credits(target_key, credits, new_plan_id=plan_key)
+            elif user_id:
+                create_api_key_record(
+                    user_id=user_id,
+                    plan_id=plan_key,
+                    plan_type=p_type,
+                    user_email=body.get("customer_details", {}).get("email", ""),
+                )
+        elif user_id:
+            # Pemenuhan langganan reguler PDF Toolbox Pro
+            plan = SUBSCRIPTION_PLANS.get(plan_key, SUBSCRIPTION_PLANS["flash"])
             background_tasks.add_task(
                 update_supabase_user_tier,
                 user_id=user_id,
@@ -221,16 +284,47 @@ async def check_payment_status(order_id: str):
         is_paid = tx_status in ("settlement", "capture")
         user_id = status_resp.get("custom_field1")
         plan_id = status_resp.get("custom_field2")
+        api_key = status_resp.get("custom_field3")
 
-        # Jika berhasil bayar dan user_id diketahui, pastikan tier terupdate
-        if is_paid and user_id:
-            plan = SUBSCRIPTION_PLANS.get(str(plan_id).lower(), SUBSCRIPTION_PLANS["flash"])
-            await update_supabase_user_tier(
-                user_id=user_id,
-                tier=plan["tier"],
-                duration_hours=plan.get("duration_hours"),
-                duration_days=plan.get("duration_days"),
-            )
+        # Jika berhasil bayar, sinkronkan kuota / tier
+        if is_paid:
+            plan_key = str(plan_id or "").lower()
+            if not plan_key and order_id:
+                parsed = parse_order_id(order_id)
+                if parsed.get("valid"):
+                    plan_key = str(parsed.get("plan_id") or "").lower()
+
+            if plan_key in API_PREPAID_PLANS or plan_key in API_SUBSCRIPTION_PLANS:
+                if plan_key in API_PREPAID_PLANS:
+                    credits = API_PREPAID_PLANS[plan_key]["credits"]
+                    p_type = "prepaid"
+                else:
+                    credits = API_SUBSCRIPTION_PLANS[plan_key]["monthly_credits"]
+                    p_type = "subscription"
+
+                target_key = api_key
+                if not target_key and user_id:
+                    user_keys = get_user_api_keys(user_id)
+                    if user_keys:
+                        target_key = user_keys[0].get("api_key")
+
+                if target_key:
+                    top_up_api_credits(target_key, credits, new_plan_id=plan_key)
+                elif user_id:
+                    create_api_key_record(
+                        user_id=user_id,
+                        plan_id=plan_key,
+                        plan_type=p_type,
+                        user_email="",
+                    )
+            elif user_id:
+                plan = SUBSCRIPTION_PLANS.get(plan_key, SUBSCRIPTION_PLANS["flash"])
+                await update_supabase_user_tier(
+                    user_id=user_id,
+                    tier=plan["tier"],
+                    duration_hours=plan.get("duration_hours"),
+                    duration_days=plan.get("duration_days"),
+                )
 
         # Sinkronkan status ke tabel payment_transactions
         await record_payment_transaction(

@@ -1,5 +1,5 @@
 // frontend/components/developer/DeveloperApiHub.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Key, 
   Copy, 
@@ -16,7 +16,12 @@ import {
   Server, 
   CheckCircle2,
   Lock,
-  ArrowLeft
+  ArrowLeft,
+  Loader2,
+  CreditCard,
+  Shield,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -39,8 +44,107 @@ interface ApiKeyData {
   created_at: string;
 }
 
+interface ApiPackageInfo {
+  id: string;
+  name: string;
+  price: string;
+  priceNum: number;
+  credits: string;
+  creditsNum: number;
+  type: 'prepaid' | 'subscription';
+  rateLimit: string;
+  maxFileSize: string;
+  badge?: string;
+  period?: string;
+}
+
+const ALL_PACKAGES: Record<string, ApiPackageInfo> = {
+  starter: {
+    id: 'starter',
+    name: 'Starter Pack',
+    price: 'Rp 49.000',
+    priceNum: 49000,
+    credits: '750 Request',
+    creditsNum: 750,
+    type: 'prepaid',
+    rateLimit: '3 req/detik',
+    maxFileSize: '15 MB',
+  },
+  growth: {
+    id: 'growth',
+    name: 'Growth Pack',
+    price: 'Rp 149.000',
+    priceNum: 149000,
+    credits: '2.500 Request',
+    creditsNum: 2500,
+    type: 'prepaid',
+    rateLimit: '5 req/detik',
+    maxFileSize: '25 MB',
+    badge: 'Populer',
+  },
+  business: {
+    id: 'business',
+    name: 'Business Pack',
+    price: 'Rp 399.000',
+    priceNum: 399000,
+    credits: '8.000 Request',
+    creditsNum: 8000,
+    type: 'prepaid',
+    rateLimit: '10 req/detik',
+    maxFileSize: '50 MB',
+  },
+  scale: {
+    id: 'scale',
+    name: 'Scale Pack',
+    price: 'Rp 899.000',
+    priceNum: 899000,
+    credits: '20.000 Request',
+    creditsNum: 20000,
+    type: 'prepaid',
+    rateLimit: '20 req/detik',
+    maxFileSize: '50 MB',
+  },
+  dev_starter: {
+    id: 'dev_starter',
+    name: 'Dev Starter',
+    price: 'Rp 99.000',
+    priceNum: 99000,
+    credits: '3.000 Request / bln',
+    creditsNum: 3000,
+    type: 'subscription',
+    rateLimit: '5 req/detik',
+    maxFileSize: '25 MB',
+    period: '/ bulan',
+  },
+  dev_pro: {
+    id: 'dev_pro',
+    name: 'Dev Pro',
+    price: 'Rp 249.000',
+    priceNum: 249000,
+    credits: '10.000 Request / bln',
+    creditsNum: 10000,
+    type: 'subscription',
+    rateLimit: '15 req/detik',
+    maxFileSize: '50 MB',
+    badge: 'Terbaik',
+    period: '/ bulan',
+  },
+  dev_scale: {
+    id: 'dev_scale',
+    name: 'Dev Scale',
+    price: 'Rp 699.000',
+    priceNum: 699000,
+    credits: '35.000 Request / bln',
+    creditsNum: 35000,
+    type: 'subscription',
+    rateLimit: '30 req/detik',
+    maxFileSize: '100 MB',
+    period: '/ bulan',
+  },
+};
+
 const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, signInWithGoogle } = useAuth();
   const { addToast } = useToast();
 
   const [apiKeyData, setApiKeyData] = useState<ApiKeyData | null>(null);
@@ -53,32 +157,63 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('compress');
   const [topUpModalOpen, setTopUpModalOpen] = useState<boolean>(false);
   const [selectedPackage, setSelectedPackage] = useState<string>('starter');
+  const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const pollIntervalRef = useRef<any>(null);
 
   const userId = user?.id || 'guest_dev_preview';
 
   // Muat kunci API pengguna dari backend
+  const fetchKey = useCallback(async () => {
+    setIsLoadingKey(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/keys/user/${userId}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.length > 0) {
+          setApiKeyData(json.data[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat kunci API:', err);
+    } finally {
+      setIsLoadingKey(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
-    let isMounted = true;
-    const fetchKey = async () => {
-      setIsLoadingKey(true);
+    fetchKey();
+  }, [fetchKey]);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  // Polling status transaksi Midtrans
+  const startPollingPayment = useCallback((activeOrderId: string) => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+    pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/keys/user/${userId}`);
+        const res = await fetch(`${BACKEND_URL}/payment/status/${activeOrderId}`);
         if (res.ok) {
-          const json = await res.json();
-          if (json.data && json.data.length > 0 && isMounted) {
-            setApiKeyData(json.data[0]);
+          const data = await res.json();
+          if (data.is_paid) {
+            clearInterval(pollIntervalRef.current);
+            setIsProcessingPayment(false);
+            setTopUpModalOpen(false);
+            addToast('Pembayaran berhasil! Kredit API telah ditambahkan ke akun Anda.', 'success');
+            await fetchKey();
           }
         }
       } catch (err) {
-        console.warn('Gagal memuat kunci API:', err);
-      } finally {
-        if (isMounted) setIsLoadingKey(false);
+        console.warn('Gagal memeriksa status pembayaran Midtrans:', err);
       }
-    };
-
-    fetchKey();
-    return () => { isMounted = false; };
-  }, [userId]);
+    }, 3500);
+  }, [addToast, fetchKey]);
 
   // Handler Buat Kunci API Baru (Sandbox 100 Kredit)
   const handleGenerateKey = async (planId = 'sandbox', planType = 'prepaid') => {
@@ -114,25 +249,80 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
     setTimeout(() => setCopied(false), 2500);
   };
 
+  // Eksekusi Pembayaran Top-Up Kredit API Resmi via Midtrans Snap
   const handleTopUpConfirm = async () => {
-    if (!apiKeyData) return;
+    if (isGuest) {
+      addToast('Silakan masuk dengan akun Google terlebih dahulu agar kunci API dan kredit tersimpan aman.', 'info');
+      await signInWithGoogle();
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
     try {
-      const res = await fetch(`${BACKEND_URL}/api/keys/top-up`, {
+      const res = await fetch(`${BACKEND_URL}/payment/create-snap-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          api_key: apiKeyData.api_key,
-          package_id: selectedPackage,
+          plan_id: selectedPackage,
+          user_id: user?.id || userId,
+          user_email: user?.email || 'developer@pdftoolbox.app',
+          user_name: user?.fullName || 'Developer PDF Toolbox',
+          api_key: apiKeyData?.api_key || null,
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal memproses top-up.');
-      const json = await res.json();
-      setApiKeyData(json.data);
-      setTopUpModalOpen(false);
-      addToast('Kredit API berhasil ditambahkan ke akun Anda!', 'success');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'Gagal membuat sesi pembayaran Midtrans.');
+      }
+
+      const data = await res.json();
+
+      if ((window as any).snap && data.token && data.token !== 'DEMO-SNAP-TOKEN') {
+        (window as any).snap.pay(data.token, {
+          onSuccess: async (result: any) => {
+            console.log('Top-up Midtrans Snap Success:', result);
+            setIsProcessingPayment(false);
+            setTopUpModalOpen(false);
+            addToast('Pembayaran berhasil! Kredit API telah ditambahkan ke akun Anda.', 'success');
+            await fetchKey();
+          },
+          onPending: (result: any) => {
+            console.log('Top-up Midtrans Snap Pending:', result);
+            addToast('Menunggu pembayaran diselesaikan...', 'info');
+            if (data.order_id) {
+              startPollingPayment(data.order_id);
+            }
+          },
+          onError: (result: any) => {
+            console.error('Top-up Midtrans Snap Error:', result);
+            setIsProcessingPayment(false);
+            setPaymentError('Pembayaran dibatalkan atau gagal diproses oleh gateway.');
+            addToast('Pembayaran gagal atau dibatalkan.', 'error');
+          },
+          onClose: () => {
+            console.log('Pengguna menutup jendela pembayaran Snap');
+            setIsProcessingPayment(false);
+            if (data.order_id) {
+              startPollingPayment(data.order_id);
+            }
+          },
+        });
+      } else if (data.redirect_url) {
+        window.open(data.redirect_url, '_blank');
+        if (data.order_id) {
+          startPollingPayment(data.order_id);
+        }
+      } else {
+        throw new Error('Sesi pembayaran Midtrans tidak dapat dimuat.');
+      }
     } catch (err: any) {
-      addToast(err.message || 'Gagal mengisi saldo kredit.', 'error');
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Gagal memproses pembayaran top-up.');
+      addToast(err.message || 'Gagal memproses pembayaran.', 'error');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -559,43 +749,159 @@ curl_close($ch);
         </div>
       </div>
 
-      {/* Modal Konfirmasi Top-Up / Pembelian */}
-      {topUpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-          <div className="bg-surface rounded-3xl max-w-md w-full p-6 border border-border-subtle shadow-paper-float">
-            <h3 className="font-serif text-lg font-bold text-text-primary mb-2">
-              Konfirmasi Top-Up Kredit API
-            </h3>
-            <p className="text-xs text-text-secondary mb-4">
-              Kredit akan langsung ditambahkan ke kunci API Anda secara instan setelah pembayaran terkonfirmasi.
-            </p>
+      {/* Modal Konfirmasi Top-Up / Pembelian Kredit API */}
+      {topUpModalOpen && (() => {
+        const pkg = ALL_PACKAGES[selectedPackage] || {
+          id: selectedPackage,
+          name: selectedPackage.replace('_', ' ').toUpperCase(),
+          price: 'Rp -',
+          priceNum: 0,
+          credits: '-',
+          creditsNum: 0,
+          type: 'prepaid',
+          rateLimit: '-',
+          maxFileSize: '-',
+        };
 
-            <div className="bg-canvas rounded-2xl p-4 mb-6 border border-border-subtle">
-              <span className="text-[11px] text-text-muted block uppercase font-bold">Paket yang Dipilih</span>
-              <span className="text-base font-serif font-bold text-[#9B4819] dark:text-[#E06D3B] capitalize">
-                {selectedPackage.replace('_', ' ')}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-end gap-3">
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fade-in">
+            <div className="bg-surface rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-border-subtle shadow-paper-float relative">
+              {/* Close Button */}
               <button
                 type="button"
-                onClick={() => setTopUpModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-text-secondary hover:bg-elevated transition-all cursor-pointer min-h-[44px]"
+                onClick={() => !isProcessingPayment && setTopUpModalOpen(false)}
+                disabled={isProcessingPayment}
+                className="absolute top-5 right-5 p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-elevated transition-colors cursor-pointer disabled:opacity-40"
+                title="Tutup"
               >
-                Batal
+                <X size={18} />
               </button>
-              <button
-                type="button"
-                onClick={handleTopUpConfirm}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper active:scale-95 transition-all cursor-pointer min-h-[44px]"
-              >
-                Konfirmasi Pembayaran
-              </button>
+
+              {/* Header */}
+              <div className="pr-8 mb-5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] text-[11px] font-bold uppercase tracking-wider mb-2">
+                  <CreditCard size={13} />
+                  <span>Gerbang Pembayaran Midtrans</span>
+                </div>
+                <h3 className="font-serif text-xl sm:text-2xl font-bold text-text-primary">
+                  Konfirmasi Top-Up Kredit API
+                </h3>
+                <p className="text-xs text-text-secondary mt-1">
+                  Kredit akan langsung ditambahkan ke Kunci API Anda secara instan begitu pembayaran terverifikasi.
+                </p>
+              </div>
+
+              {/* Detail Paket Terpilih */}
+              <div className="bg-canvas rounded-2xl p-4 sm:p-5 border border-border-subtle space-y-3.5 mb-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">
+                      Paket yang Dipilih
+                    </span>
+                    <h4 className="font-serif text-lg font-bold text-text-primary mt-0.5">
+                      {pkg.name}
+                    </h4>
+                    <span className="inline-block mt-1 text-[11px] font-semibold text-[#9B4819] dark:text-[#E06D3B]">
+                      {pkg.type === 'prepaid' ? 'Prabayar (Aktif 365 Hari)' : 'Langganan Bulanan'}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">
+                      Total Tagihan
+                    </span>
+                    <span className="font-serif text-2xl font-bold text-[#9B4819] dark:text-[#E06D3B]">
+                      {pkg.price}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-border-subtle/80 grid grid-cols-2 gap-3 text-xs text-text-secondary">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-[#314028] dark:text-[#34D399] shrink-0" />
+                    <span>Kuota: <strong>{pkg.credits}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-[#314028] dark:text-[#34D399] shrink-0" />
+                    <span>Maks Berkas: <strong>{pkg.maxFileSize}</strong></span>
+                  </div>
+                </div>
+
+                {/* Target Key Info */}
+                <div className="pt-3 border-t border-border-subtle/80 text-xs">
+                  <span className="text-text-muted text-[11px] font-medium block mb-1">
+                    Kunci API Penerima Kredit:
+                  </span>
+                  {apiKeyData ? (
+                    <div className="flex items-center gap-2 bg-surface px-3 py-2 rounded-xl border border-border-subtle font-mono text-[11px] text-text-primary">
+                      <Key size={13} className="text-[#9B4819] dark:text-[#E06D3B] shrink-0" />
+                      <span className="truncate flex-1">{apiKeyData.api_key}</span>
+                      <span className="text-[10px] font-bold text-[#314028] dark:text-[#34D399] uppercase shrink-0">
+                        Aktif
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-surface px-3 py-2 rounded-xl border border-border-subtle text-text-secondary text-[11px]">
+                      <Sparkles size={13} className="text-[#9B4819] dark:text-[#E06D3B] shrink-0" />
+                      <span>Kunci API baru akan otomatis diterbitkan untuk akun <strong>{user?.email || 'Anda'}</strong></span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Midtrans Trust & Payment Channels */}
+              <div className="bg-[#314028]/5 dark:bg-[#34D399]/10 rounded-2xl p-3.5 border border-[#314028]/15 dark:border-[#34D399]/20 mb-5 text-xs text-text-secondary flex items-start gap-2.5">
+                <Shield size={16} className="text-[#314028] dark:text-[#34D399] shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <p className="font-semibold text-text-primary">
+                    Mendukung QRIS & Virtual Account Resmi
+                  </p>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    GoPay, OVO, ShopeePay, Dana, LinkAja, BCA, BNI, BRI, Permata & Mandiri. Verifikasi instan 24/7.
+                  </p>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {paymentError && (
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-start gap-2.5 text-xs text-rose-600 dark:text-rose-400 mb-5">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
+
+              {/* Tombol Aksi */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTopUpModalOpen(false)}
+                  disabled={isProcessingPayment}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-text-secondary hover:bg-elevated transition-all cursor-pointer min-h-[44px] disabled:opacity-40"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTopUpConfirm}
+                  disabled={isProcessingPayment}
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper active:scale-95 transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Menyiapkan Gateway...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={15} />
+                      <span>Bayar Sekarang ({pkg.price})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
