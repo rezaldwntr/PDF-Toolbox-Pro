@@ -118,34 +118,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
             </button>
           </div>
         ) : (
-          filteredCategories.map((category) => (
-            <div key={category.id} className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-border-subtle pb-3">
-                <h2 className="font-serif text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
-                  {category.title}
-                </h2>
-                <span className="text-xs text-text-secondary font-normal">
-                  {category.description}
-                </span>
-              </div>
+          filteredCategories.map((category) => {
+            const isFourCol = category.tools.length === 4;
+            const gridColsClass = isFourCol
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
-              {/* Grid 3 Kolom Sesuai Radley Styling */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {category.tools.map((tool) => (
-                  <ToolCard
-                    key={tool.id}
-                    title={tool.title}
-                    description={tool.description}
-                    icon={tool.icon}
-                    active={tool.active}
-                    engineType={tool.engineType}
-                    badge={tool.badge}
-                    onClick={() => tool.view && onSelectView(tool.view)}
-                  />
-                ))}
+            return (
+              <div key={category.id} className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1.5 border-b border-border-subtle pb-3">
+                  <h2 className="font-serif text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                    {category.title}
+                  </h2>
+                  <span className="text-xs text-text-secondary font-normal">
+                    {category.description}
+                  </span>
+                </div>
+
+                {/* Grid Rapi Simetris dengan gap-6 */}
+                <div className={`grid ${gridColsClass} gap-6`}>
+                  {category.tools.map((tool) => (
+                    <ToolCard
+                      key={tool.id}
+                      title={tool.title}
+                      description={tool.description}
+                      icon={tool.icon}
+                      active={tool.active}
+                      engineType={tool.engineType}
+                      badge={tool.badge}
+                      onClick={() => tool.view && onSelectView(tool.view)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </section>
 

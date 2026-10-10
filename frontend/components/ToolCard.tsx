@@ -55,28 +55,28 @@ const ToolCard: React.FC<ToolCardProps> = ({
       <div
         onClick={handleClick}
         title="Fitur ini sedang dalam tahap pengembangan."
-        className="group relative flex flex-col justify-between p-5 rounded-t-[28px] rounded-b-2xl border border-dashed border-border-subtle bg-elevated/50 opacity-60 cursor-not-allowed select-none transition-all h-full"
+        className="group relative flex flex-col justify-between p-6 rounded-t-[28px] rounded-b-2xl border border-dashed border-border-subtle bg-elevated/50 opacity-60 cursor-not-allowed select-none transition-all h-full"
       >
         <div>
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <div className="w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-secondary flex items-center justify-center shrink-0">
+          <div className="flex items-start justify-between gap-2 mb-3.5">
+            <div className="w-11 h-11 rounded-full bg-surface border border-border-subtle text-text-secondary flex items-center justify-center shrink-0">
               {icon}
             </div>
             <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full border border-border-subtle text-text-secondary">
               Segera Hadir
             </span>
           </div>
-          <h3 className="font-serif font-bold text-sm text-text-secondary mb-1">
+          <h3 className="font-serif font-bold text-base text-text-secondary mb-1.5 leading-snug">
             {title}
           </h3>
           {description && (
-            <p className="text-xs text-text-secondary/80 line-clamp-2 leading-relaxed">
+            <p className="text-xs text-text-secondary/80 line-clamp-2 leading-relaxed min-h-[36px]">
               {description}
             </p>
           )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between text-xs text-text-secondary font-medium">
+        <div className="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between text-xs text-text-secondary font-medium">
           <span>Dalam Pengembangan</span>
           <Lock size={12} className="text-text-secondary" />
         </div>
@@ -87,12 +87,12 @@ const ToolCard: React.FC<ToolCardProps> = ({
   return (
     <div
       onClick={handleClick}
-      className="group relative flex flex-col justify-between p-5.5 rounded-t-[28px] rounded-b-2xl border border-border-subtle bg-surface hover:border-[#9B4819]/40 hover:shadow-paper hover:-translate-y-1 cursor-pointer select-none transition-all duration-300 h-full shadow-2xs"
+      className="group relative flex flex-col justify-between p-6 rounded-t-[28px] rounded-b-2xl border border-border-subtle bg-surface hover:border-[#9B4819]/50 hover:shadow-paper hover:-translate-y-1 cursor-pointer select-none transition-all duration-300 h-full shadow-2xs"
     >
       <div>
         {/* Header Kartu: Segel Ikon Kriya di kiri & Badge Mesin di kanan */}
         <div className="flex items-start justify-between gap-2 mb-3.5">
-          <div className="w-10 h-10 rounded-full bg-elevated border border-border-subtle group-hover:border-[#9B4819]/40 group-hover:bg-[#9B4819] group-hover:text-white text-text-primary flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs">
+          <div className="w-11 h-11 rounded-full bg-elevated border border-border-subtle group-hover:border-[#9B4819]/40 group-hover:bg-[#9B4819] group-hover:text-white text-text-primary flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs">
             {icon}
           </div>
 
@@ -108,17 +108,17 @@ const ToolCard: React.FC<ToolCardProps> = ({
           </div>
         </div>
 
-        <h3 className="font-serif font-bold text-base sm:text-[17px] text-text-primary group-hover:text-[#9B4819] transition-colors mb-1.5 tracking-tight">
+        <h3 className="font-serif font-bold text-base sm:text-[17px] text-text-primary group-hover:text-[#9B4819] transition-colors mb-2 leading-snug tracking-tight">
           {title}
         </h3>
         {description && (
-          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed min-h-[36px]">
             {description}
           </p>
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between text-xs font-medium text-text-secondary group-hover:text-[#9B4819] transition-colors">
+      <div className="mt-5 pt-3.5 border-t border-border-subtle flex items-center justify-between text-xs font-medium text-text-secondary group-hover:text-[#9B4819] transition-colors">
         <span>Buka Perkakas</span>
         <ArrowRight size={14} className="transform group-hover:translate-x-1.5 transition-transform" />
       </div>

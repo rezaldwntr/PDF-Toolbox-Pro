@@ -1,121 +1,162 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { View } from '../../types';
-import ToolCard, { EngineType } from '../ToolCard';
-import { 
-  FileText, 
-  Layers, 
-  Minimize2, 
-  PenTool, 
-  FileSpreadsheet, 
-  Presentation, 
-  Image, 
-  FileCheck, 
-  FolderTree, 
-  Scissors, 
-  Type, 
-  Edit3, 
-  Crop, 
-  Stamp, 
-  Eye, 
-  Lock, 
-  Unlock, 
-  Landmark,
-  Languages,
-  ShieldCheck 
-} from 'lucide-react';
-
-interface ToolItem {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  active: boolean;
-  view: View;
-  engineType: EngineType;
-  badge?: string;
-}
+import ToolCard from '../ToolCard';
+import { TOOL_CATEGORIES, ToolCategory } from '../../data/toolsCatalog';
+import { Search, Sparkles } from 'lucide-react';
 
 interface ToolsPageProps {
   onSelectTool: (view: View) => void;
 }
 
 const ToolsPage: React.FC<ToolsPageProps> = ({ onSelectTool }) => {
-  const categories: { title: string; tools: ToolItem[] }[] = [
-    {
-      title: "1. Esensial & Populer",
-      tools: [
-        { title: "PDF ke Word", description: "Konversi berkas PDF menjadi dokumen Word DOCX yang dapat diedit.", icon: <FileText size={20} />, active: true, view: View.PDF_TO_WORD, engineType: 'cloud' },
-        { title: "Gabungkan PDF", description: "Satukan beberapa PDF menjadi satu dokumen urut di RAM lokal.", icon: <Layers size={20} />, active: true, view: View.MERGE, engineType: 'client' },
-        { title: "Kompres PDF", description: "Kecilkan ukuran dokumen PDF tanpa pecah (Preset CPNS 200KB).", icon: <Minimize2 size={20} />, active: true, view: View.COMPRESS, engineType: 'fast' },
-        { title: "Tanda Tangan & e-Meterai", description: "Tambahkan tanda tangan digital dan panduan e-Meterai resmi.", icon: <PenTool size={20} />, active: true, view: View.ADD_SIGNATURE, engineType: 'client' },
-      ]
-    },
-    {
-      title: "2. Konversi & Finansial",
-      tools: [
-        { title: "Rekening Koran ke Excel", description: "Ekstrak mutasi PDF bank BCA, Mandiri, BRI, BNI, BSI, BPD ke XLSX.", icon: <Landmark size={20} />, active: true, view: View.BANK_STATEMENT, engineType: 'fast', badge: 'BARU' },
-        { title: "PDF ke Excel", description: "Ekstrak tabel dan data tabular PDF ke spreadsheet Excel.", icon: <FileSpreadsheet size={20} />, active: true, view: View.PDF_TO_EXCEL, engineType: 'cloud' },
-        { title: "PDF ke PPT", description: "Ubah slide presentasi PDF menjadi slide PowerPoint PPTX.", icon: <Presentation size={20} />, active: true, view: View.PDF_TO_PPT, engineType: 'cloud' },
-        { title: "PDF ke Gambar (JPG)", description: "Simpan halaman PDF sebagai gambar tajam resolusi tinggi.", icon: <Image size={20} />, active: true, view: View.PDF_TO_IMAGE, engineType: 'cloud' },
-        { title: "PDF/A Converter", description: "Format arsip jangka panjang berstandar ISO 19005.", icon: <FileCheck size={20} />, active: true, view: View.PDF_A, engineType: 'cloud' },
-      ]
-    },
-    {
-      title: "3. Edit & Organisasi Halaman",
-      tools: [
-        { title: "Atur & Susun PDF", description: "Hapus, putar, atau ubah urutan halaman dengan kanvas visual.", icon: <FolderTree size={20} />, active: true, view: View.ORGANIZE, engineType: 'client' },
-        { title: "Pisahkan PDF", description: "Pisahkan berkas atau ekstrak halaman tertentu di memori browser.", icon: <Scissors size={20} />, active: true, view: View.SPLIT, engineType: 'client' },
-        { title: "Tambah Teks", description: "Ketik dan letakkan teks tambahan di koordinat halaman dokumen.", icon: <Type size={20} />, active: true, view: View.ADD_TEXT, engineType: 'client' },
-        { title: "Edit Teks PDF", description: "Sunting teks asli yang sudah ada di dokumen PDF.", icon: <Edit3 size={20} />, active: true, view: View.EDIT_PDF, engineType: 'cloud' },
-        { title: "Crop PDF", description: "Pangkas bagian tepi berkas atau margin kosong yang tidak perlu.", icon: <Crop size={20} />, active: true, view: View.CROP_PDF, engineType: 'client' },
-        { title: "Cap Air (Watermark)", description: "Bubuhkan cap air teks atau logo perlindungan hak cipta dokumen.", icon: <Stamp size={20} />, active: true, view: View.WATERMARK, engineType: 'fast' },
-      ]
-    },
-    {
-      title: "4. Keamanan, AI & Privasi",
-      tools: [
-        { title: "Sensor PII (UU PDP)", description: "Sensor permanen NIK, NPWP, No Rekening, HP, & Email UU PDP No. 27/2022.", icon: <ShieldCheck size={20} />, active: true, view: View.REDACT_PDF, engineType: 'fast', badge: 'UU PDP' },
-        { title: "Proteksi Sandi PDF", description: "Kunci dokumen dengan kata sandi kuat dan enkripsi AES-256.", icon: <Lock size={20} />, active: true, view: View.PROTECT_PDF, engineType: 'fast' },
-        { title: "Buka Kunci PDF", description: "Buka dan dekripsi perlindungan PDF milik Anda.", icon: <Unlock size={20} />, active: true, view: View.UNLOCK_PDF, engineType: 'fast' },
-        { title: "OCR PDF", description: "Pindai dan kenali teks dari gambar scan menjadi Searchable PDF.", icon: <Eye size={20} />, active: true, view: View.OCR_PDF, engineType: 'cloud' },
-        { title: "Terjemahkan PDF", description: "Terjemahkan dokumen ke 30+ bahasa dengan Gemini Multimodal AI.", icon: <Languages size={20} />, active: true, view: View.TRANSLATE_PDF, engineType: 'cloud' },
-      ]
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
+
+  const totalToolsCount = useMemo(() => {
+    return TOOL_CATEGORIES.reduce((acc, cat) => acc + cat.tools.length, 0);
+  }, []);
+
+  // Filter kategori berdasarkan tab dan query pencarian
+  const displayedCategories = useMemo(() => {
+    let base = TOOL_CATEGORIES;
+    if (selectedCategoryId !== 'all') {
+      base = base.filter(c => c.id === selectedCategoryId);
     }
-  ];
+
+    if (!searchQuery.trim()) return base;
+    const q = searchQuery.toLowerCase().trim();
+
+    return base.map(cat => ({
+      ...cat,
+      tools: cat.tools.filter(t => 
+        t.title.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.keywords.some(k => k.includes(q))
+      )
+    })).filter(cat => cat.tools.length > 0);
+  }, [selectedCategoryId, searchQuery]);
 
   return (
-    <div className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full animate-fade-in">
+    <div className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full animate-fade-in">
+      {/* Editorial Header Radley */}
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight mb-2">
-          Katalog Lengkap Perkakas PDF
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/20 text-xs mb-3.5 font-medium select-none shadow-2xs">
+          <Sparkles size={13} className="stroke-[2.2]" />
+          <span>Direktori Lengkap {totalToolsCount} Perkakas PDF</span>
+        </div>
+
+        <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight mb-3">
+          Katalog Lengkap Perkakas
         </h1>
-        <p className="text-xs sm:text-sm text-text-secondary">
-          Seluruh perkakas terstruktur berdasarkan arsitektur mesin: RAM Lokal, Server Fast, dan Heavy Cloud.
+        <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+          Seluruh utilitas terstruktur rapi berdasarkan alur kebutuhan: dokumen esensial harian, konversi format, organisasi lembar, dan kepatuhan privasi hukum.
         </p>
+
+        {/* Quick Search Bar */}
+        <div className="relative max-w-lg mx-auto mt-6">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-secondary">
+            <Search size={15} />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari alat (misal: word, kompres, tanda tangan, rekening, sensor)..."
+            className="w-full pl-11 pr-20 py-2.5 rounded-full bg-surface border border-border-subtle text-text-primary placeholder:text-text-secondary text-xs sm:text-sm focus:outline-none focus:border-[#9B4819] focus:ring-2 focus:ring-[#9B4819]/20 shadow-2xs hover:shadow-paper transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-semibold text-[#9B4819] hover:underline cursor-pointer"
+            >
+              Hapus
+            </button>
+          )}
+        </div>
+
+        {/* Interactive Category Filter Tabs */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => setSelectedCategoryId('all')}
+            className={`px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+              selectedCategoryId === 'all'
+                ? 'bg-[#9B4819] text-white font-medium shadow-xs'
+                : 'bg-surface hover:bg-elevated text-text-secondary border border-border-subtle hover:border-border-strong'
+            }`}
+          >
+            Semua ({totalToolsCount})
+          </button>
+          {TOOL_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategoryId(cat.id)}
+              className={`px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                selectedCategoryId === cat.id
+                  ? 'bg-[#9B4819] text-white font-medium shadow-xs'
+                  : 'bg-surface hover:bg-elevated text-text-secondary border border-border-subtle hover:border-border-strong'
+              }`}
+            >
+              {cat.title.replace(/^[0-9]+\.\s*/, '')} ({cat.tools.length})
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-10">
-        {categories.map((category) => (
-          <div key={category.title} className="space-y-4">
-            <h2 className="text-lg sm:text-xl font-bold text-text-primary border-b border-border-subtle pb-2.5 tracking-tight">
-              {category.title}
-            </h2>
-            {/* Grid 3 Kolom Sesuai Spesifikasi Design Bible Section 3.3 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
-              {category.tools.map((tool) => (
-                <ToolCard
-                  key={tool.title}
-                  title={tool.title}
-                  description={tool.description}
-                  icon={tool.icon}
-                  active={tool.active}
-                  engineType={tool.engineType}
-                  badge={tool.badge}
-                  onClick={() => tool.view && onSelectTool(tool.view)}
-                />
-              ))}
-            </div>
+      {/* Grid Seksi Perkakas */}
+      <div className="space-y-12">
+        {displayedCategories.length === 0 ? (
+          <div className="text-center py-16 bg-surface rounded-3xl border border-border-subtle p-8 shadow-paper max-w-xl mx-auto">
+            <p className="text-text-secondary font-serif text-base mb-3">
+              Tidak ada perkakas yang cocok dengan kata kunci "{searchQuery}".
+            </p>
+            <button
+              onClick={() => { setSearchQuery(''); setSelectedCategoryId('all'); }}
+              className="text-xs font-bold text-[#9B4819] hover:underline cursor-pointer"
+            >
+              Tampilkan semua perkakas
+            </button>
           </div>
-        ))}
+        ) : (
+          displayedCategories.map((category) => {
+            // Tentukan jumlah kolom yang proporsional:
+            // Jika kategori memiliki 4 kartu: gunakan 4 kolom (1 baris penuh presisi!)
+            // Jika kategori memiliki 6 kartu: gunakan 3 kolom (2 baris penuh presisi!)
+            // Jika dalam mode filter tunggal atau pencarian: gunakan 4 kolom adaptif
+            const isFourColCategory = category.tools.length === 4;
+            const gridColsClass = isFourColCategory
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+
+            return (
+              <div key={category.id} className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1.5 border-b border-border-subtle pb-3">
+                  <h2 className="font-serif text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                    {category.title}
+                  </h2>
+                  <span className="text-xs text-text-secondary font-normal">
+                    {category.description}
+                  </span>
+                </div>
+
+                {/* Grid Rapi Presisi dengan gap-6 yang lega */}
+                <div className={`grid ${gridColsClass} gap-6`}>
+                  {category.tools.map((tool) => (
+                    <ToolCard
+                      key={tool.id}
+                      title={tool.title}
+                      description={tool.description}
+                      icon={tool.icon}
+                      active={tool.active}
+                      engineType={tool.engineType}
+                      badge={tool.badge}
+                      onClick={() => tool.view && onSelectTool(tool.view)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

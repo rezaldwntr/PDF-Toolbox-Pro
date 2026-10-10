@@ -48,12 +48,12 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   {
     id: 'essential',
     title: '1. Esensial & Populer',
-    description: 'Perkakas harian untuk manipulasi, pemisahan, dan optimasi berkas.',
+    description: 'Perkakas harian favorit untuk konversi naskah, penggabungan, kompresi, dan tanda tangan legal.',
     tools: [
       {
         id: 'pdf-to-word',
         title: 'PDF ke Word',
-        description: 'Ekstrak dan transformasi dokumen PDF menjadi format DOCX yang dapat diedit.',
+        description: 'Ekstrak dan transformasi dokumen PDF menjadi berkas DOCX yang dapat disunting penuh.',
         icon: <FileText size={20} />,
         active: true,
         view: View.PDF_TO_WORD,
@@ -64,7 +64,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       {
         id: 'merge-pdf',
         title: 'Gabungkan PDF',
-        description: 'Satukan beberapa berkas PDF menjadi satu dokumen berurutan di RAM lokal.',
+        description: 'Satukan beberapa berkas dokumen PDF menjadi satu urutan utuh di memori RAM lokal.',
         icon: <Layers size={20} />,
         active: true,
         view: View.MERGE,
@@ -75,7 +75,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       {
         id: 'compress-pdf',
         title: 'Kompres PDF',
-        description: 'Kecilkan ukuran berkas tanpa merusak kualitas cetak (Preset CPNS/BKN 200KB).',
+        description: 'Kecilkan ukuran dokumen tanpa pecah (Preset resmi CPNS/BKN 200KB & 300KB).',
         icon: <Minimize2 size={20} />,
         active: true,
         view: View.COMPRESS,
@@ -86,7 +86,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       {
         id: 'sign-pdf',
         title: 'Tanda Tangan & e-Meterai',
-        description: 'Bubuhkan tanda tangan visual dan panduan penempatan e-Meterai Rp10.000.',
+        description: 'Bubuhkan paraf visual legal dan panduan penempatan e-Meterai resmi Rp10.000.',
         icon: <PenTool size={20} />,
         active: true,
         view: View.ADD_SIGNATURE,
@@ -98,8 +98,8 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   },
   {
     id: 'convert',
-    title: '2. Konversi & Finansial',
-    description: 'Ekspor tabel dan transformasi dokumen PDF ke format spreadsheet & presentasi.',
+    title: '2. Konversi Format & Finansial',
+    description: 'Ekspor tabel mutasi perbankan dan transformasi dokumen PDF ke format spreadsheet & presentasi.',
     tools: [
       {
         id: 'bank-statement',
@@ -109,124 +109,113 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
         badge: 'BARU',
         active: true,
         view: View.BANK_STATEMENT,
-        category: 'Konversi & Finansial',
+        category: 'Konversi Format & Finansial',
         engineType: 'fast',
         keywords: ['bank', 'rekening koran', 'mutasi', 'bca', 'mandiri', 'bri', 'bni', 'bsi', 'kalsel', 'bpd', 'excel']
       },
       {
         id: 'pdf-to-excel',
         title: 'PDF ke Excel',
-        description: 'Identifikasi baris dan kolom tabel PDF langsung ke spreadsheet XLSX.',
+        description: 'Ekstrak tabel dan data tabular dari naskah PDF langsung ke format spreadsheet XLSX.',
         icon: <FileSpreadsheet size={20} />,
         active: true,
         view: View.PDF_TO_EXCEL,
-        category: 'Konversi & Finansial',
+        category: 'Konversi Format & Finansial',
         engineType: 'cloud',
         keywords: ['excel', 'xlsx', 'xls', 'spreadsheet', 'tabel', 'angka']
       },
       {
         id: 'pdf-to-ppt',
         title: 'PDF ke PPT',
-        description: 'Konversi lembar presentasi PDF menjadi slide PowerPoint PPTX yang dapat diedit.',
+        description: 'Ubah lembar presentasi PDF menjadi slide Microsoft PowerPoint PPTX siap presentasi.',
         icon: <Presentation size={20} />,
         active: true,
         view: View.PDF_TO_PPT,
-        category: 'Konversi & Finansial',
+        category: 'Konversi Format & Finansial',
         engineType: 'cloud',
         keywords: ['ppt', 'pptx', 'powerpoint', 'slide', 'presentasi']
       },
       {
         id: 'pdf-to-image',
         title: 'PDF ke Gambar (JPG/PNG)',
-        description: 'Ekspor setiap halaman dokumen menjadi gambar tajam resolusi tinggi.',
+        description: 'Simpan dan ekspor setiap lembar halaman dokumen menjadi gambar resolusi tinggi.',
         icon: <Image size={20} />,
         active: true,
         view: View.PDF_TO_IMAGE,
-        category: 'Konversi & Finansial',
+        category: 'Konversi Format & Finansial',
         engineType: 'cloud',
         keywords: ['jpg', 'jpeg', 'png', 'gambar', 'image', 'foto']
-      },
-      {
-        id: 'pdf-a',
-        title: 'PDF/A Converter',
-        description: 'Standarisasi dokumen PDF untuk pengarsipan hukum jangka panjang standar ISO.',
-        icon: <FileCheck size={20} />,
-        active: true,
-        view: View.PDF_A,
-        category: 'Konversi & Finansial',
-        engineType: 'cloud',
-        keywords: ['pdf/a', 'arsip', 'iso', 'standar']
       }
     ]
   },
   {
     id: 'organize',
-    title: '3. Edit & Organisasi Halaman',
-    description: 'Tata urutan, potong margin, atau tambahkan anotasi teks langsung di browser.',
+    title: '3. Edit, Tata Letak & Anotasi',
+    description: 'Tata urutan lembar, pangkas margin, atau sisipkan anotasi teks dan cap air langsung di browser.',
     tools: [
       {
         id: 'organize-pdf',
-        title: 'Atur & Susun PDF',
-        description: 'Hapus, putar, atau ubah urutan halaman dengan drag & drop visual di RAM.',
+        title: 'Atur & Susun Halaman',
+        description: 'Hapus, putar, atau ubah susunan urutan halaman dengan kanvas visual di RAM lokal.',
         icon: <FolderTree size={20} />,
         active: true,
         view: View.ORGANIZE,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'client',
         keywords: ['atur', 'organize', 'susun', 'rotasi', 'urutan', 'halaman']
       },
       {
         id: 'split-pdf',
         title: 'Pisahkan PDF',
-        description: 'Ekstrak rentang halaman tertentu atau pisahkan menjadi beberapa dokumen terpisah.',
+        description: 'Ekstrak rentang halaman tertentu atau pisahkan menjadi dokumen arsip ZIP mandiri.',
         icon: <Scissors size={20} />,
         active: true,
         view: View.SPLIT,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'client',
         keywords: ['split', 'pisah', 'potong', 'ekstrak', 'halaman']
       },
       {
         id: 'add-text',
         title: 'Tambah Teks & Anotasi',
-        description: 'Ketik dan sisipkan teks tambahan langsung di koordinat dokumen PDF.',
+        description: 'Ketik dan letakkan teks tambahan di koordinat presisi pada dokumen PDF.',
         icon: <Type size={20} />,
         active: true,
         view: View.ADD_TEXT,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'client',
         keywords: ['text', 'teks', 'ketik', 'tulis', 'tambah teks']
       },
       {
         id: 'edit-text',
         title: 'Edit Teks PDF',
-        description: 'Analisis dan sunting teks asli yang sudah ada di dalam dokumen PDF.',
+        description: 'Analisis dan sunting teks asli yang sudah ada di dalam berkas dokumen PDF.',
         icon: <Edit3 size={20} />,
         active: true,
         view: View.EDIT_PDF,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'cloud',
         keywords: ['edit', 'sunting', 'ubah teks']
       },
       {
         id: 'crop-pdf',
-        title: 'Crop PDF',
-        description: 'Pangkas margin atau area kosong yang tidak diinginkan dengan bounding box.',
+        title: 'Crop & Pangkas PDF',
+        description: 'Pangkas bagian tepi berkas atau buang margin kosong dengan titik kontrol responsif.',
         icon: <Crop size={20} />,
         active: true,
         view: View.CROP_PDF,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'client',
         keywords: ['crop', 'potong margin', 'pangkas']
       },
       {
         id: 'watermark',
         title: 'Cap Air (Watermark)',
-        description: 'Sisipkan cap air teks atau logo untuk melindungi hak cipta dokumen.',
+        description: 'Bubuhkan cap air teks atau logo transparan untuk perlindungan hak cipta berkas.',
         icon: <Stamp size={20} />,
         active: true,
         view: View.WATERMARK,
-        category: 'Edit & Organisasi Halaman',
+        category: 'Edit, Tata Letak & Anotasi',
         engineType: 'fast',
         keywords: ['watermark', 'cap air', 'logo', 'hak cipta']
       }
@@ -234,18 +223,18 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   },
   {
     id: 'security',
-    title: '4. Keamanan, AI & Privasi',
-    description: 'Proteksi kata sandi, enkripsi AES-256, OCR, dan sensor PII kepatuhan UU PDP.',
+    title: '4. Keamanan, Arsip Legal & AI',
+    description: 'Sensor data sensitif UU PDP, enkripsi AES-256, standarisasi arsip ISO, dan AI terjemahan.',
     tools: [
       {
         id: 'redact-pdf',
         title: 'Sensor Data Sensitif (UU PDP)',
-        description: 'True binary redaction: hapus permanen NIK, NPWP, Rekening, HP & Medis.',
+        description: 'True binary redaction: hancurkan permanen NIK, NPWP, Rekening, HP & Medis.',
         icon: <ShieldCheck size={20} />,
         badge: 'UU PDP',
         active: true,
         view: View.REDACT_PDF,
-        category: 'Keamanan, AI & Privasi',
+        category: 'Keamanan, Arsip Legal & AI',
         engineType: 'fast',
         keywords: ['redact', 'sensor', 'nik', 'ktp', 'uu pdp', 'pdp', 'npwp', 'rekening', 'privasi', 'rahasia', 'pii']
       },
@@ -256,29 +245,40 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
         icon: <Lock size={20} />,
         active: true,
         view: View.PROTECT_PDF,
-        category: 'Keamanan, AI & Privasi',
+        category: 'Keamanan, Arsip Legal & AI',
         engineType: 'fast',
         keywords: ['protect', 'kunci', 'sandi', 'password', 'enkripsi']
       },
       {
         id: 'unlock-pdf',
         title: 'Buka Kunci PDF',
-        description: 'Buka dan dekripsi kata sandi perlindungan dokumen PDF milik Anda.',
+        description: 'Buka dan dekripsi kata sandi perlindungan dokumen PDF sah milik Anda.',
         icon: <Unlock size={20} />,
         active: true,
         view: View.UNLOCK_PDF,
-        category: 'Keamanan, AI & Privasi',
+        category: 'Keamanan, Arsip Legal & AI',
         engineType: 'fast',
         keywords: ['unlock', 'buka kunci', 'hapus sandi', 'password']
       },
       {
+        id: 'pdf-a',
+        title: 'PDF/A Converter (Arsip ISO)',
+        description: 'Standarisasi dokumen ke ISO 19005 untuk pengarsipan hukum permanen puluhan tahun.',
+        icon: <FileCheck size={20} />,
+        active: true,
+        view: View.PDF_A,
+        category: 'Keamanan, Arsip Legal & AI',
+        engineType: 'cloud',
+        keywords: ['pdf/a', 'arsip', 'iso', 'standar']
+      },
+      {
         id: 'ocr-pdf',
         title: 'OCR Dokumen Pindaian',
-        description: 'Kenali dan ubah teks dari pindaian scan/foto menjadi Searchable PDF.',
+        description: 'Kenali dan ubah teks dari hasil foto/pindaian scan menjadi Searchable PDF.',
         icon: <Eye size={20} />,
         active: true,
         view: View.OCR_PDF,
-        category: 'Keamanan, AI & Privasi',
+        category: 'Keamanan, Arsip Legal & AI',
         engineType: 'cloud',
         keywords: ['ocr', 'scan', 'pindai', 'baca gambar']
       },
@@ -289,7 +289,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
         icon: <Languages size={20} />,
         active: true,
         view: View.TRANSLATE_PDF,
-        category: 'Keamanan, AI & Privasi',
+        category: 'Keamanan, Arsip Legal & AI',
         engineType: 'cloud',
         keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
       }
