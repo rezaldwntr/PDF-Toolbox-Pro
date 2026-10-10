@@ -588,24 +588,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
       {/* 4 Kartu Metrik Utama */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
         {/* Kartu 1: Pengguna Terdaftar */}
-        <div className="bg-surface p-5.5 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float">
-          <div className="flex items-center justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float flex flex-col justify-between min-h-[170px]">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
               Pengguna Terdaftar
             </span>
-            <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Users className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 mb-3">
             <span className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-text-primary">
               {stats?.users?.total ?? userList.length}
             </span>
-            <span className="text-xs text-[#314028] dark:text-[#34D399] font-semibold">
+            <span className="text-xs text-[#314028] dark:text-[#34D399] font-semibold bg-[#314028]/10 px-2 py-0.5 rounded-full border border-[#314028]/20">
               ({stats?.users?.pro_total ?? computedProTotal} Pro)
             </span>
           </div>
-          <div className="mt-3.5 flex items-center gap-1.5 flex-wrap text-[11px]">
+          <div className="pt-3 border-t border-border-subtle/60 flex items-center gap-1.5 flex-wrap text-[11px]">
             <span className="px-2 py-0.5 rounded-full bg-elevated border border-border-subtle text-text-secondary font-medium">
               Free: {stats?.users?.tiers?.free ?? computedTiers['free'] ?? 0}
             </span>
@@ -622,71 +622,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
         </div>
 
         {/* Kartu 2: Pendapatan Midtrans */}
-        <div className="bg-surface p-5.5 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float">
-          <div className="flex items-center justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float flex flex-col justify-between min-h-[170px]">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
               Total Omset Penjualan
             </span>
-            <span className="w-8 h-8 rounded-full bg-[#314028]/10 text-[#314028] dark:text-[#34D399] flex items-center justify-center">
+            <span className="w-8 h-8 rounded-full bg-[#314028]/10 text-[#314028] dark:text-[#34D399] flex items-center justify-center shrink-0">
               <DollarSign className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 mb-3">
             <span className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-[#9B4819] dark:text-[#E06D3B]">
               {formatIDR(stats?.revenue?.total_idr ?? 0)}
             </span>
           </div>
-          <div className="mt-3.5 text-[11px] text-text-secondary flex items-center justify-between">
+          <div className="pt-3 border-t border-border-subtle/60 text-[11px] text-text-secondary flex items-center justify-between">
             <span>{stats?.revenue?.successful_orders ?? 0} Transaksi Berhasil</span>
             <span className="text-text-secondary/70 font-mono text-[10px]">Midtrans Gateway</span>
           </div>
         </div>
 
         {/* Kartu 3: Total Operasi PDF */}
-        <div className="bg-surface p-5.5 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float">
-          <div className="flex items-center justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float flex flex-col justify-between min-h-[170px]">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
               Total Operasi Alat
             </span>
-            <span className="w-8 h-8 rounded-full bg-[#9B4819]/10 text-[#9B4819] flex items-center justify-center">
+            <span className="w-8 h-8 rounded-full bg-[#9B4819]/10 text-[#9B4819] flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 mb-3">
             <span className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-text-primary">
               {stats?.usages?.total_operations ?? toolLogs.length}
             </span>
-            <span className="text-xs text-[#9B4819] dark:text-[#E06D3B] font-semibold">
+            <span className="text-xs text-[#9B4819] dark:text-[#E06D3B] font-semibold bg-[#9B4819]/10 px-2 py-0.5 rounded-full border border-[#9B4819]/20">
               Eksekusi
             </span>
           </div>
-          <div className="mt-3.5 flex items-center justify-between text-[11px] text-text-secondary">
+          <div className="pt-3 border-t border-border-subtle/60 flex items-center justify-between text-[11px] text-text-secondary">
             <span>Tamu: {stats?.usages?.guest_operations ?? 0} ({stats?.usages?.guest_percentage ?? 0}%)</span>
             <span>Member: {stats?.usages?.member_operations ?? 0}</span>
           </div>
         </div>
 
         {/* Kartu 4: Realtime Online Presences */}
-        <div className="bg-surface p-5.5 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float">
-          <div className="flex items-center justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper relative overflow-hidden transition-all hover:shadow-paper-float flex flex-col justify-between min-h-[170px]">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
               Aktif Detik Ini
             </span>
-            <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Activity className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2.5 flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 mb-3">
             <span className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-text-primary">
               {presence.onlineCount}
             </span>
-            <span className="text-xs text-[#314028] dark:text-[#34D399] font-semibold">
+            <span className="text-xs text-[#314028] dark:text-[#34D399] font-semibold bg-[#314028]/10 px-2 py-0.5 rounded-full border border-[#314028]/20">
               Sesi Aktif
             </span>
           </div>
-          <div className="mt-3.5 text-[11px] text-text-secondary flex items-center justify-between">
+          <div className="pt-3 border-t border-border-subtle/60 text-[11px] text-text-secondary flex items-center justify-between">
             <span>Supabase Realtime Sync</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono text-[10px]">Live</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono text-[10px] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live
+            </span>
           </div>
         </div>
       </div>
