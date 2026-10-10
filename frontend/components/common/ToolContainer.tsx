@@ -97,9 +97,9 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
         )}
       </div>
 
-      {/* ARSITEKTUR WORKSPACE SPLIT-VIEW */}
+      {/* ARSITEKTUR WORKSPACE SPLIT-VIEW (google-anno-skip melindungi kanvas dari injeksi iklan otomatis AdSense) */}
       {isSplitView ? (
-        <div className="w-full flex flex-col lg:flex-row items-stretch gap-6 mb-8">
+        <div className="google-anno-skip w-full flex flex-col lg:flex-row items-stretch gap-6 mb-8">
           
           {/* KANVAS DOKUMEN (Kiri/Tengah: 70% s.d. 75% Lebar Layar) */}
           <div className="w-full lg:w-[70%] xl:w-[72%] flex flex-col gap-4">
@@ -161,7 +161,7 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
         </div>
       ) : (
         /* Single Container Workspace (Backwards Compatibility) */
-        <div className={`w-full ${maxWidth} mx-auto bg-surface p-6 sm:p-8 rounded-3xl border border-border-subtle shadow-paper transition-all mb-8`}>
+        <div className={`google-anno-skip w-full ${maxWidth} mx-auto bg-surface p-6 sm:p-8 rounded-3xl border border-border-subtle shadow-paper transition-all mb-8`}>
           {children}
         </div>
       )}

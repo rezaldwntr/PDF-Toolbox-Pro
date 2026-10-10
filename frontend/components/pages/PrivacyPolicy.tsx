@@ -105,17 +105,30 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
           </p>
         </div>
 
-        {/* 5. Kebijakan Iklan & Kuki */}
+        {/* 5. Kebijakan Iklan Pihak Ketiga (Google AdSense) & Kuki (Cookies) */}
         <div className="space-y-3">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            5. Kebijakan Iklan (Google AdSense) & Kuki (Cookies)
+            5. Kebijakan Iklan (Google AdSense), Vendor Pihak Ketiga & Kuki (Cookies)
           </h3>
           <p className="text-sm">
-            Untuk membiayai infrastruktur server dan menjaga agar alat ini tetap gratis bagi masyarakat umum:
+            Untuk membiayai operasional infrastruktur komputasi server dan menjaga agar seluruh perkakas pengolah dokumen dasar tetap dapat digunakan secara gratis oleh masyarakat umum di Indonesia:
           </p>
-          <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pl-2">
-            <li>Layanan ini menayangkan iklan display pihak ketiga (seperti Google AdSense) untuk pengguna Tamu dan Free. Mitra periklanan kami dapat menggunakan kuki untuk menayangkan iklan yang relevan.</li>
-            <li>Pengguna paket berbayar (Flash Pass, Monthly Pro, Annual VIP) secara otomatis mendapatkan pengalaman <strong>100% Bebas Iklan (Ad-Free)</strong>.</li>
+          <ul className="list-disc list-inside space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pl-2">
+            <li>
+              <strong>Penayangan Iklan Google:</strong> Google, sebagai vendor pihak ketiga, menggunakan kuki (cookies) untuk menayangkan iklan pada situs web <strong>PDF Toolbox Pro</strong> (<a href="https://pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] underline">pdftoolbox.app</a>).
+            </li>
+            <li>
+              <strong>Kuki DART (DoubleClick DART Cookie):</strong> Penggunaan kuki DART oleh Google memungkinkannya dan mitra jaringannya untuk menayangkan iklan kepada pengguna kami berdasarkan kunjungan mereka ke situs ini dan/atau situs web lain di internet.
+            </li>
+            <li>
+              <strong>Penyisihan (Opt-Out) Iklan Personal:</strong> Pengguna dapat memilih untuk menyisihkan diri dari penggunaan kuki DART untuk periklanan berbasis minat dengan mengunjungi <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" className="text-[#9B4819] dark:text-[#E06D3B] underline font-semibold">Kebijakan Privasi Iklan Google</a> atau melalui pengaturan preferensi iklan di <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-[#9B4819] dark:text-[#E06D3B] underline font-semibold">Google Ads Settings</a> serta inisiatif industri <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer" className="text-[#9B4819] dark:text-[#E06D3B] underline font-semibold">aboutads.info</a>.
+            </li>
+            <li>
+              <strong>Pengalaman Bebas Iklan (Ad-Free):</strong> Pengguna yang mengaktifkan paket berbayar (Flash Pass, Monthly Pro, Annual VIP) secara otomatis mendapatkan pengalaman antarmuka <strong>100% Bebas Iklan</strong> tanpa pelacakan komersial.
+            </li>
+            <li>
+              <strong>Kerahasiaan Dokumen Terjamin:</strong> Pihak ketiga penyedia iklan (termasuk Google) <strong>TIDAK PERNAH</strong> memiliki akses ke berkas dokumen, teks berkas PDF, nama file, atau data pribadi yang Anda unggah ke sistem konversi kami.
+            </li>
           </ul>
         </div>
 
@@ -123,10 +136,10 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
         <div className="p-5 bg-slate-50 dark:bg-[#161A22] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
           <h4 className="font-bold text-slate-900 dark:text-white text-sm">Pertanyaan Mengenai Privasi?</h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            Jika Anda memiliki pertanyaan tentang kebijakan ini atau ingin meminta penghapusan data akun Anda, silakan hubungi tim kami melalui formulir tiket pada menu <strong>Hubungi Dukungan</strong> di aplikasi ini.
+            Jika Anda memiliki pertanyaan tentang kebijakan ini atau ingin meminta penghapusan data akun Anda, silakan hubungi tim kami melalui email resmi <a href="mailto:support@pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] font-semibold underline">support@pdftoolbox.app</a> atau <a href="mailto:rezaldewantara@gmail.com" className="text-[#9B4819] dark:text-[#E06D3B] font-semibold underline">rezaldewantara@gmail.com</a>.
           </p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
-            Terakhir diperbarui: September 2026 · Versi Dokumen: 2.1 (Arsitektur Hybrid & Sistem Bisnis Multi-Tier)
+            Terakhir diperbarui: 10 Oktober 2026 · Versi Dokumen: 2.2 (Kepatuhan UU PDP No. 27/2022 & Kebijakan Google AdSense)
           </p>
         </div>
 

@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#F4F1E8]/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#D8C6B7] dark:border-[#3A3A3A] transition-colors duration-200">
+      <header className="google-anno-skip sticky top-0 z-40 bg-[#F4F1E8]/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#D8C6B7] dark:border-[#3A3A3A] transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Left Section: Logo Segel Lilin Terracotta Monogram PT + Breadcrumb */}

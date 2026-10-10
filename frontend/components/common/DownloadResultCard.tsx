@@ -58,7 +58,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     : 0;
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-surface rounded-3xl border border-border-subtle p-7 sm:p-9 shadow-paper animate-fade-in text-center select-none">
+    <div className="google-anno-skip w-full max-w-lg mx-auto bg-surface rounded-3xl border border-border-subtle p-7 sm:p-9 shadow-paper animate-fade-in text-center select-none">
       
       {/* Icon Sukses Segel Forest Green */}
       <div className="w-16 h-16 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/20 flex items-center justify-center mx-auto mb-4 shadow-xs">

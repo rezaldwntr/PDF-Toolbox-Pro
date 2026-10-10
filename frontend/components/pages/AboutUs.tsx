@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import ToolContainer from '../common/ToolContainer';
 import { View } from '../../types';
 import { Zap, ShieldCheck, Heart, Sparkles, Award, Users, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -98,6 +98,31 @@ const AboutUs: React.FC<AboutUsProps> = ({ onBack, onSelectView }) => {
                   Mendukung pembayaran lokal instan QRIS, GoPay, OVO, dan Dana. 24-Hour Flash Pass (Rp5.000) dan Monthly Pro (Rp29.000) yang 75% lebih murah dari kompetitor asing.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Identitas Penayang, Pengembang & Tanggung Jawab Operasional */}
+        <div className="bg-slate-50 dark:bg-[#161A22] p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Users size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
+            <span>Pengembang, Tim Redaksi & Penanggung Jawab Situs</span>
+          </h3>
+          <p className="text-sm leading-relaxed">
+            <strong>PDF Toolbox Pro</strong> (<a href="https://pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] font-semibold underline">pdftoolbox.app</a>) didirikan, dikembangkan, dan dipelihara secara aktif oleh <strong>Rezal Dewantara</strong> bersama tim rekayasa perangkat lunak dan kurator konten dokumen digital di Indonesia.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+            <div className="p-4 bg-white dark:bg-[#1e232d] rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[11px] text-slate-400 block uppercase font-bold">Integritas & Pemeliharaan</span>
+              <p className="text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                Platform diperbarui secara rutin dengan algoritma kompresi terkini, standar kepatuhan regulasi UU PDP No. 27/2022, dan kompatibilitas format PDF/A (ISO 19005).
+              </p>
+            </div>
+            <div className="p-4 bg-white dark:bg-[#1e232d] rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[11px] text-slate-400 block uppercase font-bold">Kontak & Dukungan Resmi</span>
+              <p className="text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                Email Dukungan: <a href="mailto:support@pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] underline font-semibold">support@pdftoolbox.app</a> / <a href="mailto:rezaldewantara@gmail.com" className="text-[#9B4819] dark:text-[#E06D3B] underline font-semibold">rezaldewantara@gmail.com</a>
+              </p>
             </div>
           </div>
         </div>

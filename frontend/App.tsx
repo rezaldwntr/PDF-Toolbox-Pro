@@ -83,6 +83,93 @@ const VIEW_TO_TOOL_NAME: Partial<Record<View, string>> = {
   [View.REDACT_PDF]: 'Sensor Data Sensitif',
 };
 
+const ROUTE_MAP: Record<string, View> = {
+  '/': View.HOME_TAB,
+  '/tools': View.TOOLS_TAB,
+  '/pricing': View.PRICING,
+  '/about': View.ABOUT,
+  '/faq': View.FAQ,
+  '/blog': View.BLOG,
+  '/contact': View.CONTACT,
+  '/privacy': View.PRIVACY,
+  '/terms': View.TERMS,
+  '/profile': View.PROFILE_TAB,
+  '/merge-pdf': View.MERGE,
+  '/split-pdf': View.SPLIT,
+  '/compress-pdf': View.COMPRESS,
+  '/pdf-to-word': View.PDF_TO_WORD,
+  '/pdf-to-excel': View.PDF_TO_EXCEL,
+  '/pdf-to-ppt': View.PDF_TO_PPT,
+  '/pdf-to-image': View.PDF_TO_IMAGE,
+  '/sign-pdf': View.ADD_SIGNATURE,
+  '/watermark-pdf': View.WATERMARK,
+  '/protect-pdf': View.PROTECT_PDF,
+  '/unlock-pdf': View.UNLOCK_PDF,
+  '/crop-pdf': View.CROP_PDF,
+  '/convert-pdfa': View.PDF_A,
+  '/edit-pdf': View.EDIT_PDF,
+  '/ocr-pdf': View.OCR_PDF,
+  '/translate-pdf': View.TRANSLATE_PDF,
+  '/bank-statement': View.BANK_STATEMENT,
+  '/parse-bank-statement': View.BANK_STATEMENT,
+  '/redact-pdf': View.REDACT_PDF,
+  '/developer-api': View.DEVELOPER_API,
+  '/dev': View.DEVELOPER_API,
+  '/admin': View.ADMIN_DASHBOARD,
+};
+
+const VIEW_TO_ROUTE: Partial<Record<View, string>> = {
+  [View.HOME_TAB]: '/',
+  [View.TOOLS_TAB]: '/tools',
+  [View.PRICING]: '/pricing',
+  [View.ABOUT]: '/about',
+  [View.FAQ]: '/faq',
+  [View.BLOG]: '/blog',
+  [View.CONTACT]: '/contact',
+  [View.PRIVACY]: '/privacy',
+  [View.TERMS]: '/terms',
+  [View.PROFILE_TAB]: '/profile',
+  [View.MERGE]: '/merge-pdf',
+  [View.SPLIT]: '/split-pdf',
+  [View.COMPRESS]: '/compress-pdf',
+  [View.PDF_TO_WORD]: '/pdf-to-word',
+  [View.PDF_TO_EXCEL]: '/pdf-to-excel',
+  [View.PDF_TO_PPT]: '/pdf-to-ppt',
+  [View.PDF_TO_IMAGE]: '/pdf-to-image',
+  [View.ADD_SIGNATURE]: '/sign-pdf',
+  [View.WATERMARK]: '/watermark-pdf',
+  [View.PROTECT_PDF]: '/protect-pdf',
+  [View.UNLOCK_PDF]: '/unlock-pdf',
+  [View.CROP_PDF]: '/crop-pdf',
+  [View.PDF_A]: '/convert-pdfa',
+  [View.EDIT_PDF]: '/edit-pdf',
+  [View.OCR_PDF]: '/ocr-pdf',
+  [View.TRANSLATE_PDF]: '/translate-pdf',
+  [View.BANK_STATEMENT]: '/bank-statement',
+  [View.REDACT_PDF]: '/redact-pdf',
+  [View.DEVELOPER_API]: '/developer-api',
+  [View.ADMIN_DASHBOARD]: '/admin',
+};
+
+const resolveInitialView = (): View => {
+  if (typeof window === 'undefined') return View.HOME_TAB;
+  const hash = window.location.hash.toLowerCase();
+  if (hash === '#admin') return View.ADMIN_DASHBOARD;
+  if (hash === '#developer-api' || hash === '#dev') return View.DEVELOPER_API;
+  if (hash === '#blog') return View.BLOG;
+  if (hash === '#privacy') return View.PRIVACY;
+  if (hash === '#about') return View.ABOUT;
+  if (hash === '#contact') return View.CONTACT;
+  if (hash === '#faq') return View.FAQ;
+  if (hash === '#terms') return View.TERMS;
+
+  const path = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+  if (ROUTE_MAP[path] !== undefined) {
+    return ROUTE_MAP[path];
+  }
+  return View.HOME_TAB;
+};
+
 // Fallback spinner saat modul perkakas atau halaman sedang diunduh secara asinkron
 const ViewLoadingFallback = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500 dark:text-slate-400">
@@ -92,7 +179,7 @@ const ViewLoadingFallback = () => (
 );
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState<View>(View.HOME_TAB);
+  const [currentView, setCurrentView] = useState<View>(resolveInitialView);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { user, userTier } = useAuth();
   const { setActiveTool } = useQuota();
@@ -109,32 +196,36 @@ function AppContent() {
     }
   }, [user?.id, user?.tier, user?.lastNotifiedTier]);
 
-  // Hash route support (#admin & #developer-api)
+  // Dukungan navigasi URL Path dan Hash untuk Browser & Web Crawler (AdSense/SEO)
   useEffect(() => {
-    const handleHash = () => {
-      if (window.location.hash === '#admin') {
-        setCurrentView(View.ADMIN_DASHBOARD);
-      } else if (window.location.hash === '#developer-api' || window.location.hash === '#dev') {
-        setCurrentView(View.DEVELOPER_API);
-      }
+    const handleLocationChange = () => {
+      const nextView = resolveInitialView();
+      setCurrentView(nextView);
     };
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, []);
 
-  // Sync hash with currentView
+  // Sinkronisasikan URL browser secara elegan saat currentView berubah
   useEffect(() => {
-    if (currentView === View.ADMIN_DASHBOARD) {
-      if (window.location.hash !== '#admin') {
-        window.location.hash = 'admin';
+    const targetPath = VIEW_TO_ROUTE[currentView];
+    if (targetPath) {
+      if (currentView === View.ADMIN_DASHBOARD) {
+        if (window.location.hash !== '#admin' && window.location.pathname !== '/admin') {
+          window.history.pushState(null, '', '/admin');
+        }
+      } else if (currentView === View.DEVELOPER_API) {
+        if (window.location.hash !== '#developer-api' && window.location.pathname !== '/developer-api') {
+          window.history.pushState(null, '', '/developer-api');
+        }
+      } else if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
       }
-    } else if (currentView === View.DEVELOPER_API) {
-      if (window.location.hash !== '#developer-api') {
-        window.location.hash = 'developer-api';
-      }
-    } else if (window.location.hash === '#admin' || window.location.hash === '#developer-api') {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }, [currentView]);
 

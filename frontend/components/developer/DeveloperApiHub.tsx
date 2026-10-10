@@ -428,7 +428,7 @@ curl_close($ch);
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
+    <div className="google-anno-skip max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
       {/* Tombol Kembali & Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
