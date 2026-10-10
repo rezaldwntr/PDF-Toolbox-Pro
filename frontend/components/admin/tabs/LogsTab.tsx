@@ -19,19 +19,19 @@ export const LogsTab: React.FC<LogsTabProps> = ({
   });
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Layers className="w-4 h-4 text-indigo-600" />
+    <div className="bg-surface rounded-2xl border border-border-subtle shadow-paper overflow-hidden animate-fade-in">
+      <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-3">
+        <h3 className="font-serif text-sm sm:text-base font-bold text-text-primary flex items-center gap-2">
+          <Layers className="w-4 h-4 text-[#9B4819]" />
           Riwayat Eksekusi Alat PDF (Realtime Telemetry)
         </h3>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">Filter Alat:</span>
+          <span className="text-xs text-text-secondary">Filter Alat:</span>
           <select
             value={logToolFilter}
             onChange={(e) => setLogToolFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-elevated border border-border-subtle text-xs text-text-primary focus:outline-none cursor-pointer"
           >
             <option value="all">Semua Alat</option>
             <option value="merge">Gabungkan (Merge)</option>
@@ -46,8 +46,8 @@ export const LogsTab: React.FC<LogsTabProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-          <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+        <table className="w-full text-left text-xs text-text-primary">
+          <thead className="bg-elevated text-text-secondary font-semibold border-b border-border-subtle">
             <tr>
               <th className="px-5 py-3.5">Waktu</th>
               <th className="px-5 py-3.5">Nama Alat</th>
@@ -56,36 +56,36 @@ export const LogsTab: React.FC<LogsTabProps> = ({
               <th className="px-5 py-3.5">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-border-subtle/50">
             {filteredLogs.length > 0 ? (
               filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
-                  <td className="px-5 py-3.5 font-mono text-slate-500">
+                <tr key={log.id} className="hover:bg-elevated/40 transition">
+                  <td className="px-5 py-3.5 font-mono text-text-secondary text-[11px]">
                     {formatDateTimeIndonesia(log.created_at)}
                   </td>
-                  <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-white capitalize">
+                  <td className="px-5 py-3.5 font-semibold text-text-primary capitalize">
                     {log.tool_name}
                   </td>
                   <td className="px-5 py-3.5">
                     {log.is_guest ? (
-                      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-elevated border border-border-subtle text-text-secondary font-medium text-[10px]">
                         Tamu (Guest / Tanpa Login)
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-mono text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-[#9B4819]/10 border border-[#9B4819]/25 text-[#9B4819] dark:text-[#E06D3B] font-mono text-[10px] font-semibold">
                         {log.user_email || 'Member Login'}
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3.5 font-mono text-slate-600 dark:text-slate-400">
+                  <td className="px-5 py-3.5 font-mono text-text-secondary">
                     {formatFileSize(log.file_size_bytes)}
                   </td>
                   <td className="px-5 py-3.5">
                     <span
-                      className={`px-2 py-0.5 rounded-full font-semibold text-[10px] uppercase ${
+                      className={`px-2.5 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wider ${
                         (log.status || '').toLowerCase() === 'success'
-                          ? 'bg-emerald-500/10 text-emerald-600'
-                          : 'bg-red-500/10 text-red-600'
+                          ? 'bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border border-[#314028]/25'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/25'
                       }`}
                     >
                       {log.status}
@@ -95,7 +95,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-5 py-10 text-center text-text-secondary">
                   Belum ada rekaman eksekusi alat di tabel tool_usages.
                 </td>
               </tr>

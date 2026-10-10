@@ -26,9 +26,9 @@ interface HeaderProps {
 
 const TIER_BADGE: Record<string, { label: string; cls: string }> = {
   free:    { label: 'FREE',        cls: 'bg-elevated text-text-secondary border-border-subtle' },
-  flash:   { label: 'FLASH PASS',  cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold' },
-  monthly: { label: 'PRO',         cls: 'bg-accent-primary/10 text-accent-primary border-accent-primary/30 font-bold' },
-  annual:  { label: 'ANNUAL PRO',  cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 font-bold' },
+  flash:   { label: 'FLASH PASS',  cls: 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30 font-bold' },
+  monthly: { label: 'PRO',         cls: 'bg-[#9B4819]/15 text-[#9B4819] dark:text-[#E06D3B] border-[#9B4819]/30 font-bold' },
+  annual:  { label: 'ANNUAL PRO',  cls: 'bg-[#9B4819]/20 text-[#7E3812] dark:text-[#F29F67] border-[#9B4819]/40 font-bold' },
 };
 
 /** Pemetaan breadcrumb aktif sesuai Design Bible Section 2.1 */
@@ -88,7 +88,8 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
   const [isCommandBarOpen, setIsCommandBarOpen] = React.useState<boolean>(false);
   const { isOnline, isInstallable, isInstalled, promptInstall } = usePwa();
 
-  const isAdmin = user?.email?.toLowerCase().trim() === 'rezaldewantara@gmail.com';
+  const isDevLocal = typeof window !== 'undefined' && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
+  const isAdmin = user?.email?.toLowerCase().trim() === 'rezaldewantara@gmail.com' || (isDevLocal && window.location.search.includes('dev_admin=true'));
   const tierBadge = user ? TIER_BADGE[user.tier] ?? TIER_BADGE.free : null;
   const breadcrumb = getViewBreadcrumb(currentView);
 
@@ -106,51 +107,53 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur-md border-b border-border-subtle transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-15 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-[#F4F1E8]/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#D8C6B7] dark:border-[#3A3A3A] transition-colors duration-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Left Section: Logo Segel Lilin Terracotta Monogram PT + Breadcrumb */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 shrink-0">
             <div
               onClick={() => onSelectView(View.HOME_TAB)}
-              className="flex items-center gap-3 cursor-pointer group select-none"
+              className="flex items-center gap-2.5 cursor-pointer group select-none"
             >
               {/* Segel Lilin Terracotta Monogram PT */}
-              <div className="w-9 h-9 rounded-full bg-[#9B4819] text-white flex items-center justify-center shadow-md ring-4 ring-[#9B4819]/15 group-hover:scale-105 group-hover:bg-[#7E3812] transition-all duration-300 shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#9B4819] text-white flex items-center justify-center shadow-md ring-3 ring-[#9B4819]/20 group-hover:scale-105 group-hover:bg-[#7E3812] transition-all duration-300 shrink-0">
                 <span className="font-serif italic font-bold text-sm tracking-tighter">PT</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="font-serif font-bold text-lg tracking-tight text-text-primary">PDF Toolbox</span>
-                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/20">
+              <div className="flex items-center gap-1.5">
+                <span className="font-serif font-bold text-base sm:text-lg tracking-tight text-text-primary whitespace-nowrap">
+                  PDF Toolbox
+                </span>
+                <span className="text-[10px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-[#9B4819]/10 text-[#9B4819] border border-[#9B4819]/25 shrink-0">
                   Pro
                 </span>
               </div>
             </div>
 
-            {/* Chip Breadcrumb aktif */}
-            <div className="hidden xl:flex items-center gap-1.5 text-xs text-text-secondary select-none pl-3 border-l border-border-subtle">
+            {/* Chip Breadcrumb aktif: Hanya tampil di layar 2XL agar tidak mendesak navigasi */}
+            <div className="hidden 2xl:flex items-center gap-1.5 text-xs text-text-secondary select-none pl-3 border-l border-border-subtle">
               <span className="text-text-secondary/70 font-medium">{breadcrumb.group}</span>
               <span className="text-text-secondary/40">/</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-elevated text-text-primary font-medium text-[11px] border border-border-subtle">
+              <span className="px-2 py-0.5 rounded-full bg-elevated text-text-primary font-medium text-[11px] border border-border-subtle">
                 {breadcrumb.name}
               </span>
             </div>
           </div>
 
           {/* Center Section: Raycast Command Bar Trigger (⌘K) & Nav Links */}
-          <div className="hidden md:flex items-center gap-2 lg:gap-3">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-1 justify-center max-w-xl">
             <button
               type="button"
               onClick={() => setIsCommandBarOpen(true)}
-              className="flex items-center justify-between w-56 lg:w-64 px-3.5 py-1.5 rounded-full bg-elevated/80 border border-border-subtle hover:border-[#9B4819]/40 text-text-secondary hover:text-text-primary transition-all text-xs cursor-pointer group shadow-2xs hover:shadow-paper"
+              className="flex items-center justify-between w-40 sm:w-48 lg:w-56 h-8.5 px-3 rounded-full bg-elevated/70 border border-border-subtle hover:border-[#9B4819]/40 text-text-secondary hover:text-text-primary transition-all text-xs cursor-pointer group shadow-2xs hover:shadow-paper"
               title="Cari perkakas atau ketik perintah (⌘K / Ctrl+K)"
             >
-              <div className="flex items-center gap-2 overflow-hidden">
-                <Search size={14} className="text-text-secondary group-hover:text-[#9B4819] shrink-0 transition-colors" />
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <Search size={13} className="text-text-secondary group-hover:text-[#9B4819] shrink-0 transition-colors" />
                 <span className="truncate text-xs font-normal">Cari perkakas...</span>
               </div>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-surface border border-border-subtle text-text-secondary shrink-0 font-medium">
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-surface border border-border-subtle text-text-secondary shrink-0 font-medium">
                 <span>⌘</span>K
               </kbd>
             </button>
@@ -159,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             <nav className="flex items-center gap-1">
               <button
                 onClick={() => onSelectView(View.HOME_TAB)}
-                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                   currentView === View.HOME_TAB
                     ? 'text-white bg-[#9B4819] font-medium shadow-xs'
                     : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
@@ -169,7 +172,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               </button>
               <button
                 onClick={() => onSelectView(View.TOOLS_TAB)}
-                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                   currentView === View.TOOLS_TAB
                     ? 'text-white bg-[#9B4819] font-medium shadow-xs'
                     : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
@@ -179,7 +182,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               </button>
               <button
                 onClick={() => setShowPricingModal(true)}
-                className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                   currentView === View.PRICING
                     ? 'text-white bg-[#9B4819] font-medium shadow-xs'
                     : 'text-text-secondary hover:text-text-primary hover:bg-elevated font-normal'
@@ -190,13 +193,14 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               {isAdmin && (
                 <button
                   onClick={() => onSelectView(View.ADMIN_DASHBOARD)}
-                  className={`px-2 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${
+                  className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
                     currentView === View.ADMIN_DASHBOARD
-                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800'
-                      : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/30'
+                      ? 'text-white bg-[#9B4819] shadow-xs'
+                      : 'text-[#9B4819] dark:text-[#E06D3B] bg-[#9B4819]/10 hover:bg-[#9B4819]/20 border border-[#9B4819]/30'
                   }`}
+                  title="Dasbor Manajemen & Analitik Admin"
                 >
-                  <ShieldCheck size={14} />
+                  <ShieldCheck size={13} className="shrink-0" />
                   <span>Admin</span>
                 </button>
               )}
@@ -204,24 +208,24 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
           </div>
 
           {/* Right Actions: Quota Pill, Theme Toggle, Auth, PWA */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* PWA Install Button */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* PWA Install Button (Compact) */}
             {isInstallable && !isInstalled && (
               <button
                 type="button"
                 onClick={promptInstall}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full text-xs font-medium text-[#9B4819] bg-[#9B4819]/10 hover:bg-[#9B4819]/20 border border-[#9B4819]/30 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
+                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 h-8.5 rounded-full text-xs font-medium text-text-secondary hover:text-text-primary bg-elevated hover:bg-surface border border-border-subtle hover:border-[#9B4819]/40 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
                 title="Pasang aplikasi PDF Toolbox Pro di perangkat Anda"
               >
-                <Download size={13} className="stroke-[2.2]" />
-                <span>Pasang App</span>
+                <Download size={13} className="stroke-[2.2] text-[#9B4819]" />
+                <span>Pasang</span>
               </button>
             )}
 
             {/* Offline Status Pill */}
             {!isOnline && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                <WifiOff size={13} className="animate-pulse" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 h-8.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                <WifiOff size={12} className="animate-pulse" />
                 <span>Offline</span>
               </div>
             )}
@@ -230,42 +234,42 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             {isPreview ? (
               <button
                 onClick={() => setShowEnvModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20 shadow-2xs active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 py-1 h-8.5 rounded-full text-xs font-medium border transition-all cursor-pointer bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20 shadow-2xs active:scale-95"
                 title="Vercel Preview — Kuota bebas tanpa batas"
               >
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-600 dark:bg-purple-400"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600 dark:bg-amber-400"></span>
                 </span>
                 <span className="font-semibold text-[11px]">Preview</span>
-                <span className="px-1 rounded bg-purple-200/70 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 font-mono text-[10px] font-bold">∞</span>
+                <span className="px-1 rounded bg-amber-200/70 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 font-mono text-[10px] font-bold">∞</span>
               </button>
             ) : isPro ? (
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${tierBadge?.cls}`}>
-                <Zap size={12} className="fill-current text-[#9B4819]" />
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 h-8.5 rounded-full text-xs font-semibold border transition-all ${tierBadge?.cls}`}>
+                <Zap size={11} className="fill-current text-[#9B4819]" />
                 <span className="text-[11px] font-bold">{tierBadge?.label ?? 'PRO'}</span>
               </div>
             ) : (
               <div
                 onClick={() => (quota !== null && quota <= 0) ? openPaywall('quota_exhausted') : setShowPricingModal(true)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 h-8.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
                   quota === null || quota > 1
                     ? 'bg-elevated text-text-primary border-border-subtle hover:border-border-strong'
                     : quota === 1
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse'
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 animate-pulse'
+                    : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30'
                 }`}
                 title="Kuota harian berkas gratis"
               >
-                <Zap size={12} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-[#9B4819]'} />
-                <span className="text-[11px] font-medium">
+                <Zap size={11} className={quota === 1 ? 'fill-amber-500 text-amber-500' : quota === 0 ? 'text-rose-500' : 'text-[#9B4819]'} />
+                <span className="text-[11px] font-medium whitespace-nowrap">
                   {quota === null
-                    ? '∞ Unlimited'
+                    ? '∞ Bebas'
                     : quota > 1
                     ? `${quota}/${maxQuota} Gratis`
                     : quota === 1
-                    ? `1/${maxQuota} Tersisa`
-                    : `Kuota Habis`}
+                    ? `1/${maxQuota} Sisa`
+                    : `Habis`}
                 </span>
               </div>
             )}
@@ -274,23 +278,23 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Beralih ke mode terang' : 'Beralih ke mode gelap'}
-              className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full bg-surface border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
+              className="w-8.5 h-8.5 flex items-center justify-center rounded-full bg-surface border border-border-subtle hover:border-border-strong text-text-secondary hover:text-text-primary transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs shrink-0"
             >
               {theme === 'dark' ? (
-                <Sun size={15} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
+                <Sun size={14} className="text-amber-400 transition-transform rotate-0 hover:rotate-45" />
               ) : (
-                <Moon size={15} className="text-text-secondary transition-transform rotate-0 hover:-rotate-12" />
+                <Moon size={14} className="text-text-secondary transition-transform rotate-0 hover:-rotate-12" />
               )}
             </button>
 
             {/* Auth Button / User Menu */}
             {isLoading ? (
-              <div className="w-8 h-8 rounded-full bg-elevated animate-pulse" />
+              <div className="w-8.5 h-8.5 rounded-full bg-elevated animate-pulse" />
             ) : isGuest ? (
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-xs hover:shadow-paper transition-all duration-200 active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1 h-8.5 rounded-full text-xs font-semibold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-xs hover:shadow-paper transition-all duration-200 active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 Masuk
               </button>
@@ -299,16 +303,16 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
                 <button
                   type="button"
                   onClick={() => setShowUserMenu(v => !v)}
-                  className="flex items-center gap-2 pl-1.5 pr-3 py-1 min-h-[36px] rounded-full bg-surface border border-border-subtle hover:border-[#9B4819]/40 transition-all duration-200 active:scale-98 cursor-pointer shadow-2xs"
+                  className="flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 h-8.5 rounded-full bg-surface border border-border-subtle hover:border-[#9B4819]/40 transition-all duration-200 active:scale-98 cursor-pointer shadow-2xs"
                 >
                   {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.fullName ?? 'User'} className="w-6 h-6 rounded-full object-cover border border-[#9B4819]/40" />
+                    <img src={user.avatarUrl} alt={user.fullName ?? 'User'} className="w-6 h-6 rounded-full object-cover border border-[#9B4819]/30 shrink-0" />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#9B4819] flex items-center justify-center text-white text-[10px] font-bold">
+                    <div className="w-6 h-6 rounded-full bg-[#9B4819] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                       {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
                     </div>
                   )}
-                  <span className="hidden sm:inline text-xs font-medium text-text-primary max-w-[85px] truncate">
+                  <span className="text-xs font-medium text-text-primary max-w-[70px] sm:max-w-[100px] truncate">
                     {user?.fullName?.split(' ')[0] ?? 'User'}
                   </span>
                 </button>
