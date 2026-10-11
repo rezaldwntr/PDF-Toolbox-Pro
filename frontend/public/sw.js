@@ -4,13 +4,14 @@
  * Mendukung offline caching untuk Shell Aplikasi & In-Memory Client Tools (Merge/Split/Organize).
  */
 
-const CACHE_NAME = 'pdf-toolbox-v1.0';
+const CACHE_NAME = 'pdf-toolbox-v1.1';
 
 // Aset statis inti yang langsung dicache saat Service Worker dipasang
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/favicon.ico',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
