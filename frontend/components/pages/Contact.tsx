@@ -77,17 +77,17 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
     return (
       <ToolContainer title="Pesan Berhasil Terkirim!" onBack={onBack} maxWidth="max-w-xl">
         <div className="text-center py-8 space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-emerald-500/20">
+          <div className="w-16 h-16 bg-[#314028] text-white rounded-2xl flex items-center justify-center mx-auto shadow-paper">
             <CheckCircle2 size={32} />
           </div>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Terima Kasih!</h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+          <h3 className="font-serif text-2xl font-bold text-text-primary">Terima Kasih!</h3>
+          <p className="text-sm text-text-secondary max-w-sm mx-auto leading-relaxed">
             Pesan Anda telah berhasil kami terima. Tim dukungan kami akan meninjau dan merespons melalui email Anda dalam waktu maksimal 24 jam kerja.
           </p>
           <div className="pt-4">
             <button 
               onClick={() => setFormStatus('idle')} 
-              className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-colors shadow-sm"
+              className="px-6 py-2.5 rounded-full bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold text-xs shadow-paper hover:shadow-paper-float transition-all cursor-pointer"
             >
               Kirim Pesan Lain
             </button>
@@ -103,48 +103,48 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
         
         {/* Intro */}
         <div className="text-center max-w-xl mx-auto space-y-2">
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
+          <p className="text-text-secondary text-sm leading-relaxed">
             Mengalami masalah teknis saat konversi, pertanyaan seputar kuota pembayaran, atau memiliki ide fitur baru? Kami siap mendengar dan membantu Anda.
           </p>
         </div>
 
         {/* 3 Contact Info Badges */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 not-prose">
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+          <div className="p-4 rounded-2xl bg-surface border border-border-subtle shadow-paper flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] flex items-center justify-center shrink-0">
               <MessageSquare size={18} />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Pusat Bantuan</p>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Tiket Dukungan Online</p>
+              <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Pusat Bantuan</p>
+              <p className="text-xs font-semibold text-text-primary">Tiket Dukungan Online</p>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="p-4 rounded-2xl bg-surface border border-border-subtle shadow-paper flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#314028]/10 text-[#314028] dark:text-emerald-400 flex items-center justify-center shrink-0">
               <Clock size={18} />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Waktu Respons</p>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Maksimal 24 Jam Kerja</p>
+              <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Waktu Respons</p>
+              <p className="text-xs font-semibold text-text-primary">Maksimal 24 Jam Kerja</p>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+          <div className="p-4 rounded-2xl bg-surface border border-border-subtle shadow-paper flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] flex items-center justify-center shrink-0">
               <MapPin size={18} />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Operasional</p>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Indonesia (WIB / WRT)</p>
+              <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Operasional</p>
+              <p className="text-xs font-semibold text-text-primary">Indonesia (WIB / WRT)</p>
             </div>
           </div>
         </div>
 
         {/* Contact Form */}
-        <div className="bg-white dark:bg-[#161A22] p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <MessageSquare size={18} className="text-blue-600" />
+        <div className="bg-surface p-6 sm:p-8 rounded-3xl border border-border-subtle shadow-paper">
+          <h3 className="font-serif text-xl font-bold text-text-primary mb-6 flex items-center gap-2">
+            <MessageSquare size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
             <span>Kirim Pesan Langsung</span>
           </h3>
 
@@ -154,22 +154,22 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
               {/* Nama Pengirim */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="name" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label htmlFor="name" className="block text-xs font-bold text-text-primary">
                     Nama Pengirim {!isAnonymous && <span className="text-rose-500">*</span>}
                   </label>
                   {/* Pilihan Kirim sebagai Anonim */}
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-medium text-text-secondary hover:text-[#9B4819] dark:hover:text-[#E06D3B] transition-colors">
                     <input
                       type="checkbox"
                       checked={isAnonymous}
                       onChange={(e) => handleToggleAnonymous(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded text-[#9B4819] focus:ring-[#9B4819] border-border-subtle cursor-pointer"
                     />
                     <span>Kirim sebagai Anon</span>
                   </label>
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-muted">
                     {isAnonymous ? <EyeOff size={15} /> : <User size={15} />}
                   </div>
                   <input
@@ -183,13 +183,13 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     placeholder={isAnonymous ? 'Anonim' : 'Nama lengkap Anda'}
                     className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-xs sm:text-sm outline-none transition-all ${
                       isAnonymous
-                        ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 italic cursor-not-allowed'
-                        : 'bg-slate-50 dark:bg-[#1E222B] border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 dark:text-slate-200'
+                        ? 'bg-elevated border-border-subtle text-text-muted italic cursor-not-allowed'
+                        : 'bg-elevated border-border-subtle focus:border-[#9B4819] focus:ring-2 focus:ring-[#9B4819]/20 text-text-primary'
                     }`}
                   />
                 </div>
                 {isAnonymous && (
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[11px] text-text-muted">
                     Identitas nama Anda akan dikirimkan sebagai "Anonim".
                   </p>
                 )}
@@ -197,11 +197,11 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
 
               {/* Email Pengirim */}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="email" className="block text-xs font-bold text-text-primary">
                   Email Anda <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-muted">
                     <Mail size={15} />
                   </div>
                   <input
@@ -212,17 +212,17 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     onChange={handleChange}
                     required
                     placeholder="nama@email.com"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-elevated border border-border-subtle focus:border-[#9B4819] focus:ring-2 focus:ring-[#9B4819]/20 outline-none transition-all text-xs sm:text-sm text-text-primary"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                <p className="text-[11px] text-text-muted">
                   Admin kami akan membalas langsung ke alamat email ini.
                 </p>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="category" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label htmlFor="category" className="block text-xs font-bold text-text-primary">
                 Topik / Kategori Pesan
               </label>
               <select
@@ -230,7 +230,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 id="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200"
+                className="w-full px-4 py-2.5 rounded-xl bg-elevated border border-border-subtle focus:border-[#9B4819] focus:ring-2 focus:ring-[#9B4819]/20 outline-none transition-all text-xs sm:text-sm text-text-primary"
               >
                 <option value="Kendala Konversi Dokumen">Kendala Konversi Dokumen (Word/Excel/PPT/Gambar)</option>
                 <option value="Pertanyaan Pembayaran & Kuota">Pertanyaan Pembayaran (QRIS) & Kuota Akun</option>
@@ -241,7 +241,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="message" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label htmlFor="message" className="block text-xs font-bold text-text-primary">
                 Pesan / Detail Masalah
               </label>
               <textarea 
@@ -252,7 +252,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 onChange={handleChange} 
                 required
                 placeholder="Tuliskan detail pertanyaan atau kendala yang Anda alami..."
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1E222B] border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 resize-none" 
+                className="w-full px-4 py-2.5 rounded-xl bg-elevated border border-border-subtle focus:border-[#9B4819] focus:ring-2 focus:ring-[#9B4819]/20 outline-none transition-all text-xs sm:text-sm text-text-primary placeholder:text-text-muted resize-none" 
               />
             </div>
 
@@ -266,7 +266,7 @@ const Contact: React.FC<ContactProps> = ({ onBack }) => {
             <button 
               type="submit" 
               disabled={formStatus === 'submitting'}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-md shadow-blue-500/20 transition-all active:scale-98 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs sm:text-sm"
+              className="w-full bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold py-3.5 px-6 rounded-full shadow-paper hover:shadow-paper-float transition-all active:scale-98 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
             >
               {formStatus === 'submitting' ? (
                 <span>Sedang Mengirim Pesan...</span>

@@ -24,6 +24,7 @@ interface ToolContainerProps {
   maxWidth?: string;
   currentStep?: 1 | 2 | 3;
   showGuide?: boolean;
+  showStepper?: boolean;
 }
 
 const ToolContainer: React.FC<ToolContainerProps> = ({ 
@@ -38,11 +39,22 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
   fileInfo, 
   maxWidth = 'max-w-4xl', 
   currentStep = 1, 
-  showGuide 
+  showGuide,
+  showStepper
 }) => {
-  const shouldShowGuide = showGuide !== undefined 
-    ? showGuide 
-    : !['Tentang PDF Toolbox Pro', 'Kebijakan Privasi & Keamanan Data', 'Syarat & Ketentuan Layanan', 'Hubungi Kami', 'Pertanyaan yang Sering Diajukan (FAQ)', 'Blog & Wawasan', 'Pesan Berhasil Terkirim!'].includes(title);
+  const isInformationalPage = [
+    'Tentang PDF Toolbox Pro',
+    'Kebijakan Privasi',
+    'Syarat & Ketentuan',
+    'Hubungi',
+    'Pertanyaan yang Sering Diajukan',
+    'FAQ',
+    'Blog & Wawasan',
+    'Pesan Berhasil Terkirim!'
+  ].some(item => title.toLowerCase().includes(item.toLowerCase()));
+
+  const shouldShowStepper = showStepper !== undefined ? showStepper : !isInformationalPage;
+  const shouldShowGuide = showGuide !== undefined ? showGuide : !isInformationalPage;
 
   // Jika inspectorSlot diberikan, aktifkan arsitektur Split-View
   const isSplitView = Boolean(inspectorSlot);
@@ -60,29 +72,36 @@ const ToolContainer: React.FC<ToolContainerProps> = ({
           <span>Kembali ke Beranda</span>
         </button>
 
-        {/* 3-Step Workflow Indicator */}
-        <div className="flex items-center gap-2.5 text-xs font-medium text-text-secondary bg-surface border border-border-subtle px-4 py-1.5 rounded-full shadow-2xs select-none">
-          <div className={`flex items-center gap-1.5 ${currentStep >= 1 ? 'text-[#9B4819] font-bold' : ''}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-              currentStep >= 1 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
-            }`}>1</span>
-            <span>Unggah</span>
+        {/* 3-Step Workflow Indicator / Info Page Indicator */}
+        {shouldShowStepper ? (
+          <div className="flex items-center gap-2.5 text-xs font-medium text-text-secondary bg-surface border border-border-subtle px-4 py-1.5 rounded-full shadow-2xs select-none">
+            <div className={`flex items-center gap-1.5 ${currentStep >= 1 ? 'text-[#9B4819] font-bold' : ''}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                currentStep >= 1 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
+              }`}>1</span>
+              <span>Unggah</span>
+            </div>
+            <span className="text-border-strong">•</span>
+            <div className={`flex items-center gap-1.5 ${currentStep >= 2 ? 'text-[#9B4819] font-bold' : ''}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                currentStep >= 2 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
+              }`}>2</span>
+              <span>Konfigurasi</span>
+            </div>
+            <span className="text-border-strong">•</span>
+            <div className={`flex items-center gap-1.5 ${currentStep >= 3 ? 'text-[#9B4819] font-bold' : ''}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                currentStep >= 3 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
+              }`}>3</span>
+              <span>Unduh</span>
+            </div>
           </div>
-          <span className="text-border-strong">•</span>
-          <div className={`flex items-center gap-1.5 ${currentStep >= 2 ? 'text-[#9B4819] font-bold' : ''}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-              currentStep >= 2 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
-            }`}>2</span>
-            <span>Konfigurasi</span>
+        ) : (
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium bg-surface border border-border-subtle text-text-secondary shadow-2xs select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#9B4819]" />
+            <span>Dokumentasi Resmi & Informasi Layanan</span>
           </div>
-          <span className="text-border-strong">•</span>
-          <div className={`flex items-center gap-1.5 ${currentStep >= 3 ? 'text-[#9B4819] font-bold' : ''}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-              currentStep >= 3 ? 'bg-[#9B4819] text-white font-bold shadow-xs' : 'bg-elevated border border-border-subtle text-text-secondary'
-            }`}>3</span>
-            <span>Unduh</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Main Workspace Header */}

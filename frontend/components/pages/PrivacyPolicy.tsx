@@ -9,18 +9,18 @@ interface PrivacyPolicyProps {
 const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
   return (
     <ToolContainer title="Kebijakan Privasi & Keamanan Data" onBack={onBack} maxWidth="max-w-4xl">
-      <div className="space-y-8 text-slate-600 dark:text-slate-300 leading-relaxed text-sm sm:text-base">
+      <div className="space-y-8 text-text-secondary leading-relaxed text-sm sm:text-base">
         
         {/* Highlight Banner */}
-        <div className="flex items-start gap-4 p-5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="flex items-start gap-4 p-5 bg-[#314028]/10 dark:bg-[#314028]/25 border border-[#314028]/20 dark:border-[#314028]/40 rounded-2xl shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-[#314028] text-white flex items-center justify-center shrink-0 shadow-xs">
             <ShieldCheck size={22} />
           </div>
           <div>
-            <h3 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm mb-1">
+            <h3 className="font-serif font-bold text-[#314028] dark:text-emerald-400 text-base mb-1">
               Prinsip Dasar: Privasi Anda adalah Prioritas Tertinggi Kami
             </h3>
-            <p className="text-xs text-emerald-800/90 dark:text-emerald-400/90 leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               Kami tidak pernah membaca, menyalin, menganalisis, menjual, atau melatih model AI apa pun menggunakan dokumen yang Anda proses di PDF Toolbox Pro. Dokumen Anda adalah milik Anda sepenuhnya.
             </p>
           </div>
@@ -28,31 +28,31 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* 1. Arsitektur Pemrosesan Hybrid */}
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Server size={18} className="text-blue-600" />
+          <h3 className="font-serif text-lg font-bold text-text-primary flex items-center gap-2">
+            <Server size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
             <span>1. Arsitektur Pemrosesan Hybrid (Client-Side & Server-Side)</span>
           </h3>
-          <p className="text-sm">
+          <p className="text-sm text-text-secondary">
             PDF Toolbox Pro dirancang menggunakan arsitektur hybrid modern untuk memastikan privasi data maksimal sekaligus performa yang tinggi:
           </p>
 
           <div className="grid md:grid-cols-2 gap-4 not-prose">
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
+            <div className="p-5 rounded-2xl bg-surface border border-border-subtle shadow-paper">
+              <div className="w-9 h-9 rounded-lg bg-[#314028]/10 text-[#314028] dark:text-emerald-400 flex items-center justify-center mb-3">
                 <HardDrive size={18} />
               </div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-1">Pemrosesan Lokal (Client-Side)</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <h4 className="font-serif font-bold text-text-primary text-base mb-1">Pemrosesan Lokal (Client-Side)</h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
                 Untuk fitur <strong>Tambah Teks, Tambah Tanda Tangan, Atur Halaman, dan Potong Rentang</strong>, file Anda diproses 100% di dalam memori peramban browser Anda. Dokumen <strong>sama sekali tidak pernah diunggah</strong> ke server internet mana pun.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800">
-              <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+            <div className="p-5 rounded-2xl bg-surface border border-border-subtle shadow-paper">
+              <div className="w-9 h-9 rounded-lg bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] flex items-center justify-center mb-3">
                 <Lock size={18} />
               </div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-1">Pemrosesan Server (Server-Side)</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <h4 className="font-serif font-bold text-text-primary text-base mb-1">Pemrosesan Server (Server-Side)</h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
                 Untuk fitur konversi berkecepatan tinggi seperti <strong>PDF ke Word, Excel, PPT, dan Gambar</strong>, file dikirimkan melalui jalur terenkripsi <strong>TLS 256-bit</strong> ke worker server kami, diproses, lalu langsung disediakan untuk diunduh.
               </p>
             </div>
@@ -61,14 +61,14 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* 2. Kebijakan Penghapusan Dokumen Otomatis */}
         <div className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <h3 className="font-serif text-lg font-bold text-text-primary flex items-center gap-2">
             <Trash2 size={18} className="text-rose-500" />
             <span>2. Penghapusan Berkas Otomatis (Auto-Cleanup Cron)</span>
           </h3>
-          <p className="text-sm">
+          <p className="text-sm text-text-secondary">
             Semua berkas sementara hasil proses di sisi server dihapus secara permanen dan otomatis oleh sistem terjadwal:
           </p>
-          <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pl-2">
+          <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-text-secondary pl-2">
             <li><strong>Pengguna Tamu (Guest) & Pengguna Gratis:</strong> Berkas dihapus permanen maksimal dalam waktu <strong>60 menit</strong>.</li>
             <li><strong>Pengguna Flash Pass & Pro:</strong> Berkas tersedia untuk diunduh ulang sementara hingga maksimal <strong>6–24 jam</strong> sebelum dihapus permanen.</li>
             <li>Kami tidak menyediakan fasilitas pencadangan (*backup*) berkas jangka panjang demi menjamin kerahasiaan dokumen Anda.</li>
@@ -77,14 +77,14 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* 3. Data Pengguna & Akun Google */}
         <div className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <EyeOff size={18} className="text-purple-500" />
+          <h3 className="font-serif text-lg font-bold text-text-primary flex items-center gap-2">
+            <EyeOff size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
             <span>3. Data Akun & Login Google OAuth</span>
           </h3>
-          <p className="text-sm">
+          <p className="text-sm text-text-secondary">
             Saat Anda memilih untuk masuk menggunakan akun Google, kami hanya meminta akses informasi profil publik dasar:
           </p>
-          <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pl-2">
+          <ul className="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-text-secondary pl-2">
             <li><strong>Alamat Email:</strong> Digunakan untuk mengenali akun Anda dan mencatat batas kuota harian.</li>
             <li><strong>Nama Lengkap & Foto Profil:</strong> Ditampilkan di pojok kanan atas antarmuka aplikasi.</li>
             <li>Kami <strong>tidak pernah meminta akses</strong> ke Google Drive, isi kotak masuk Gmail, daftar kontak, atau data pribadi Google Anda lainnya.</li>
@@ -93,29 +93,29 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
         {/* 4. Keamanan Pembayaran & Transaksi */}
         <div className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <CreditCard size={18} className="text-amber-500" />
+          <h3 className="font-serif text-lg font-bold text-text-primary flex items-center gap-2">
+            <CreditCard size={18} className="text-[#314028] dark:text-emerald-400" />
             <span>4. Keamanan Transaksi & Pembayaran</span>
           </h3>
-          <p className="text-sm">
+          <p className="text-sm text-text-secondary">
             Semua transaksi pembayaran paket mikro (24-Hour Flash Pass) dan paket langganan diproses melalui Payment Gateway berlisensi resmi Bank Indonesia dengan standar keamanan PCI-DSS:
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-text-secondary">
             Kami <strong>tidak pernah menyimpan</strong> data kartu kredit, informasi rekening bank, ataupun PIN dompet digital Anda di server kami. Semua konfirmasi pembayaran dikirimkan secara terenkripsi via webhook aman.
           </p>
         </div>
 
         {/* 5. Kebijakan Iklan Pihak Ketiga (Google AdSense) & Kuki (Cookies) */}
         <div className="space-y-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+          <h3 className="font-serif text-lg font-bold text-text-primary">
             5. Kebijakan Iklan (Google AdSense), Vendor Pihak Ketiga & Kuki (Cookies)
           </h3>
-          <p className="text-sm">
+          <p className="text-sm text-text-secondary">
             Untuk membiayai operasional infrastruktur komputasi server dan menjaga agar seluruh perkakas pengolah dokumen dasar tetap dapat digunakan secara gratis oleh masyarakat umum di Indonesia:
           </p>
-          <ul className="list-disc list-inside space-y-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pl-2">
+          <ul className="list-disc list-inside space-y-2 text-xs sm:text-sm text-text-secondary pl-2">
             <li>
-              <strong>Penayangan Iklan Google:</strong> Google, sebagai vendor pihak ketiga, menggunakan kuki (cookies) untuk menayangkan iklan pada situs web <strong>PDF Toolbox Pro</strong> (<a href="https://pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] underline">pdftoolbox.app</a>).
+              <strong>Penayangan Iklan Google:</strong> Google, sebagai vendor pihak ketiga, menggunakan kuki (cookies) untuk menayangkan iklan pada situs web <strong>PDF Toolbox Pro</strong> (<a href="https://pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] underline font-medium">pdftoolbox.app</a>).
             </li>
             <li>
               <strong>Kuki DART (DoubleClick DART Cookie):</strong> Penggunaan kuki DART oleh Google memungkinkannya dan mitra jaringannya untuk menayangkan iklan kepada pengguna kami berdasarkan kunjungan mereka ke situs ini dan/atau situs web lain di internet.
@@ -133,12 +133,12 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
         </div>
 
         {/* 6. Hak Pengguna & Kontak Privasi */}
-        <div className="p-5 bg-slate-50 dark:bg-[#161A22] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <h4 className="font-bold text-slate-900 dark:text-white text-sm">Pertanyaan Mengenai Privasi?</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        <div className="p-5 bg-elevated rounded-2xl border border-border-subtle space-y-2 shadow-2xs">
+          <h4 className="font-serif font-bold text-text-primary text-base">Pertanyaan Mengenai Privasi?</h4>
+          <p className="text-xs text-text-secondary leading-relaxed">
             Jika Anda memiliki pertanyaan tentang kebijakan ini atau ingin meminta penghapusan data akun Anda, silakan hubungi tim kami melalui email resmi <a href="mailto:support@pdftoolbox.app" className="text-[#9B4819] dark:text-[#E06D3B] font-semibold underline">support@pdftoolbox.app</a> atau <a href="mailto:rezaldewantara@gmail.com" className="text-[#9B4819] dark:text-[#E06D3B] font-semibold underline">rezaldewantara@gmail.com</a>.
           </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <p className="text-[11px] text-text-muted pt-2 border-t border-border-subtle">
             Terakhir diperbarui: 10 Oktober 2026 · Versi Dokumen: 2.2 (Kepatuhan UU PDP No. 27/2022 & Kebijakan Google AdSense)
           </p>
         </div>

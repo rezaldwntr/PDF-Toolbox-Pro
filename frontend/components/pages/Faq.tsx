@@ -64,23 +64,23 @@ const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onToggle: () =>
     <div className="mb-3">
       <button 
         onClick={onToggle}
-        className={`flex justify-between items-center w-full p-5 sm:p-6 text-left transition-all duration-200 bg-white dark:bg-[#161A22] border border-slate-200 dark:border-slate-800 ${
-          isOpen ? 'rounded-t-2xl border-b-transparent shadow-xs' : 'rounded-2xl hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
+        className={`flex justify-between items-center w-full p-5 sm:p-6 text-left transition-all duration-200 bg-surface border border-border-subtle cursor-pointer ${
+          isOpen ? 'rounded-t-2xl border-b-transparent shadow-paper' : 'rounded-2xl hover:border-[#9B4819]/40 hover:shadow-paper shadow-2xs'
         }`}
       >
-        <span className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base pr-4">
+        <span className="font-serif font-bold text-text-primary text-base pr-4 leading-snug">
           {q}
         </span>
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 ${
-          isOpen ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 rotate-180' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+          isOpen ? 'bg-[#9B4819] text-white rotate-180 shadow-xs' : 'bg-elevated text-text-secondary'
         }`}>
           <ChevronDown size={16} />
         </div>
       </button>
 
       {isOpen && (
-        <div className="p-5 sm:p-6 bg-slate-50/70 dark:bg-[#1E222B]/50 rounded-b-2xl border border-t-0 border-slate-200 dark:border-slate-800 animate-fade-in">
-          <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-xs sm:text-sm">
+        <div className="p-5 sm:p-6 bg-elevated rounded-b-2xl border border-t-0 border-border-subtle animate-fade-in shadow-2xs">
+          <p className="text-text-secondary leading-relaxed text-sm">
             {a}
           </p>
         </div>
@@ -111,14 +111,14 @@ const Faq: React.FC<FaqProps> = ({ onBack, onSelectView }) => {
       </div>
 
       {/* Support Card Footer */}
-      <div className="mt-10 p-6 bg-blue-50/70 dark:bg-blue-950/30 rounded-3xl text-center border border-blue-200/80 dark:border-blue-900/40 space-y-3">
-        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mx-auto">
-          <MessageSquare size={20} />
+      <div className="mt-10 p-6 sm:p-8 bg-gradient-to-br from-[#9B4819]/10 via-surface to-elevated rounded-3xl text-center border-2 border-[#9B4819]/25 shadow-paper space-y-4">
+        <div className="w-12 h-12 bg-[#9B4819] text-white rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+          <MessageSquare size={22} />
         </div>
-        <h4 className="text-base font-bold text-slate-900 dark:text-white">
+        <h4 className="font-serif text-xl sm:text-2xl font-bold text-text-primary">
           Masih Memiliki Pertanyaan atau Mengalami Kendala?
         </h4>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+        <p className="text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
           Tim kami siap membantu Anda menyelesaikan masalah pemrosesan dokumen atau mendengarkan saran fitur baru.
         </p>
         
@@ -126,7 +126,7 @@ const Faq: React.FC<FaqProps> = ({ onBack, onSelectView }) => {
           <div className="pt-2">
             <button 
               onClick={() => onSelectView(View.CONTACT)}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95"
+              className="px-7 py-3 bg-[#9B4819] hover:bg-[#7E3812] text-white font-bold text-sm rounded-full transition-all shadow-paper hover:shadow-paper-float active:scale-95 cursor-pointer"
             >
               Hubungi Tim Dukungan Kami →
             </button>
