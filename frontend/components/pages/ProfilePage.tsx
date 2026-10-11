@@ -28,28 +28,28 @@ interface ProfilePageProps {
 const TIER_BADGES: Record<string, { label: string; badgeCls: string; icon: React.ReactNode }> = {
   guest: { 
     label: 'Tamu (Tanpa Akun)', 
-    badgeCls: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700',
-    icon: <HelpCircle className="w-4 h-4 text-slate-500" />
+    badgeCls: 'bg-elevated text-text-secondary border-border-subtle',
+    icon: <HelpCircle className="w-3.5 h-3.5 text-text-secondary" />
   },
   free: { 
     label: 'Akun Gratis', 
-    badgeCls: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    icon: <CheckCircle2 className="w-4 h-4 text-blue-500" />
+    badgeCls: 'bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border-[#9B4819]/25 font-semibold',
+    icon: <CheckCircle2 className="w-3.5 h-3.5 text-[#9B4819]" />
   },
   flash: { 
     label: '24-Hour Flash Pass', 
-    badgeCls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    icon: <Zap className="w-4 h-4 text-amber-500" />
+    badgeCls: 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30 font-bold',
+    icon: <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 fill-current" />
   },
   monthly: { 
     label: 'Monthly Pro', 
-    badgeCls: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-    icon: <Crown className="w-4 h-4 text-indigo-500" />
+    badgeCls: 'bg-[#9B4819]/15 text-[#9B4819] dark:text-[#E06D3B] border-[#9B4819]/30 font-bold',
+    icon: <Crown className="w-3.5 h-3.5 text-[#9B4819]" />
   },
   annual: { 
     label: 'Annual VIP Pass', 
-    badgeCls: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-    icon: <Sparkles className="w-4 h-4 text-purple-500" />
+    badgeCls: 'bg-[#9B4819]/20 text-[#7E3812] dark:text-[#F29F67] border-[#9B4819]/40 font-bold',
+    icon: <Sparkles className="w-3.5 h-3.5 text-[#9B4819]" />
   },
 };
 
@@ -111,7 +111,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full animate-fade-in pb-24">
       {/* 1. KARTU PROFIL UTAMA */}
-      <div className="bg-white dark:bg-[#1E222B] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm transition-all mb-8">
+      <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper transition-all mb-8">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
           {/* Avatar */}
           <div className="relative shrink-0">
@@ -119,35 +119,37 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
               <img 
                 src={user.avatarUrl} 
                 alt={user.fullName || 'User Avatar'} 
-                className="w-24 h-24 rounded-2xl object-cover ring-4 ring-blue-500/20 shadow-md shadow-slate-200 dark:shadow-none"
+                className="w-24 h-24 rounded-2xl object-cover ring-4 ring-[#9B4819]/20 shadow-paper"
               />
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-extrabold shadow-md shadow-blue-500/20">
+              <div className="w-24 h-24 rounded-2xl bg-linear-to-tr from-[#9B4819] to-[#7E3812] flex items-center justify-center text-white text-3xl font-serif font-bold shadow-paper">
                 {user?.fullName ? user.fullName[0].toUpperCase() : 'G'}
               </div>
             )}
-            <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-[#1E222B]" title="Akun Aktif">
+            <div className="absolute -bottom-1.5 -right-1.5 bg-[#314028] text-white p-1 rounded-full border-2 border-surface shadow-xs" title="Akun Aktif">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
 
           {/* User Info & Tier */}
           <div className="flex-1 text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1 justify-center sm:justify-start">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1.5 justify-center sm:justify-start">
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
                 {user?.fullName || 'Pengguna Tamu'}
               </h1>
-              <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border ${tierMeta.badgeCls} self-center sm:self-auto`}>
+              <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border ${tierMeta.badgeCls} self-center sm:self-auto shadow-2xs`}>
                 {tierMeta.icon}
                 <span>{tierMeta.label}</span>
               </div>
             </div>
 
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-text-secondary mb-4">
               {user?.email ? (
-                <span className="flex items-center gap-1.5 justify-center sm:justify-start font-medium">
+                <span className="flex items-center gap-2 justify-center sm:justify-start font-medium">
                   <span>{user.email}</span>
-                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded font-semibold">Google Verified</span>
+                  <span className="text-xs text-[#314028] dark:text-emerald-400 bg-[#314028]/10 border border-[#314028]/25 px-2.5 py-0.5 rounded-full font-semibold">
+                    Google Verified
+                  </span>
                 </span>
               ) : (
                 'Anda sedang menggunakan sesi tamu sementara.'
@@ -159,7 +161,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
               {isGuest ? (
                 <button
                   onClick={signInWithGoogle}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/25 transition-all flex items-center gap-2 active:scale-95"
+                  className="px-5 py-2.5 rounded-full text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -173,15 +175,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                 <>
                   <button
                     onClick={() => setShowPricingModal(true)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+                    className="px-5 py-2.5 rounded-full text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-paper hover:shadow-paper-float transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                   >
-                    <Crown size={14} className="text-amber-300" />
+                    <Crown size={14} className="text-amber-200 fill-amber-200" />
                     <span>{isPro ? 'Ganti Paket' : 'Upgrade ke Pro'}</span>
                   </button>
 
                   <button
                     onClick={handleSignOut}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/40 transition-colors flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-full text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-300 dark:border-rose-900/40 transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <LogOut size={14} />
                     <span>Keluar dari Akun</span>
@@ -196,92 +198,92 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
       {/* 2. GRID STATUS KUOTA & SPESIFIKASI PAKET */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         {/* Kuota Card */}
-        <div className="bg-white dark:bg-[#1E222B] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper flex flex-col justify-between hover:shadow-paper-float transition-all">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Kuota Harian</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Zap size={16} className="fill-blue-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Kuota Harian</span>
+              <div className="w-9 h-9 rounded-xl bg-[#9B4819]/10 text-[#9B4819] flex items-center justify-center">
+                <Zap size={16} className="fill-[#9B4819]" />
               </div>
             </div>
             
             <div className="mb-2">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              <span className="font-serif text-3xl font-bold text-text-primary">
                 {isPro ? 'Unlimited' : `${quota ?? 0}`}
               </span>
               {!isPro && (
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium ml-1">
+                <span className="text-xs text-text-secondary font-medium ml-1">
                   / {maxQuota ?? 10} tersisa hari ini
                 </span>
               )}
             </div>
 
             {!isPro && (
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
+              <div className="w-full bg-elevated h-2 rounded-full overflow-hidden mb-2 border border-border-subtle/40">
                 <div 
-                  className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                  className="bg-[#9B4819] h-full rounded-full transition-all duration-500"
                   style={{ width: `${Math.max(5, 100 - percentUsed)}%` }}
                 />
               </div>
             )}
           </div>
 
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-2">
+          <p className="text-[11px] text-text-secondary flex items-center gap-1 mt-2">
             <Clock size={12} />
             <span>Reset otomatis setiap jam 00:00 WIB</span>
           </p>
         </div>
 
         {/* Batas Ukuran File Card */}
-        <div className="bg-white dark:bg-[#1E222B] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper flex flex-col justify-between hover:shadow-paper-float transition-all">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Batas Ukuran File</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Batas Ukuran File</span>
+              <div className="w-9 h-9 rounded-xl bg-[#314028]/10 text-[#314028] dark:text-emerald-400 flex items-center justify-center">
                 <HardDrive size={16} />
               </div>
             </div>
 
             <div className="mb-1">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              <span className="font-serif text-3xl font-bold text-text-primary">
                 {maxFileSizeMB} MB
               </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium ml-1">per dokumen</span>
+              <span className="text-xs text-text-secondary font-medium ml-1">per dokumen</span>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            <p className="text-xs text-text-secondary mt-2 leading-relaxed">
               Maksimal ukuran file PDF yang dapat diproses dan dikonversi sekaligus.
             </p>
           </div>
 
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-3">
+          <span className="text-[11px] text-[#314028] dark:text-emerald-400 font-semibold mt-3">
             {isPro ? '✓ Kapasitas Tinggi Aktif' : 'Tersedia hingga 500 MB di paket Pro'}
           </span>
         </div>
 
         {/* Batch File Processing Card */}
-        <div className="bg-white dark:bg-[#1E222B] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div className="bg-surface p-6 rounded-2xl border border-border-subtle shadow-paper flex flex-col justify-between hover:shadow-paper-float transition-all">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Multi-Berkas (Batch)</span>
-              <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Multi-Berkas (Batch)</span>
+              <div className="w-9 h-9 rounded-xl bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] flex items-center justify-center">
                 <Layers size={16} />
               </div>
             </div>
 
             <div className="mb-1">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              <span className="font-serif text-3xl font-bold text-text-primary">
                 {currentConfig.maxBatchFiles} File
               </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium ml-1">sekaligus</span>
+              <span className="text-xs text-text-secondary font-medium ml-1">sekaligus</span>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            <p className="text-xs text-text-secondary mt-2 leading-relaxed">
               Jumlah berkas dokumen yang dapat digabungkan atau dikompresi dalam 1 klik.
             </p>
           </div>
 
-          <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold mt-3">
+          <span className="text-[11px] text-[#9B4819] dark:text-[#E06D3B] font-semibold mt-3">
             {isPro ? '✓ Batch Processing Prioritas' : 'Hingga 100 file di paket Annual'}
           </span>
         </div>
@@ -289,31 +291,34 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
 
       {/* 3. PROMO PRO BANNER (Jika belum Pro) */}
       {!isPro && (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-blue-500/20 mb-8 relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#9B4819] via-[#853C14] to-[#5F280A] dark:from-[#2c170d] dark:via-[#21120a] dark:to-[#170c07] p-6 sm:p-8 text-white border-2 border-[#9B4819]/40 shadow-paper-float mb-8">
+          {/* Subtle Decorative Glow */}
+          <div className="absolute -right-8 -bottom-8 w-60 h-60 rounded-full bg-white/5 pointer-events-none blur-2xl" />
+
           <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="space-y-2 text-center sm:text-left max-w-xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-bold backdrop-blur-sm">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold backdrop-blur-xs border border-white/20">
                 <Zap size={13} className="fill-amber-300 text-amber-300" />
                 <span>24-Hour Flash Pass · Hanya Rp5.000</span>
               </div>
-              <h3 className="text-2xl font-extrabold tracking-tight">
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#F4F1E8]">
                 Butuh Proses Banyak Dokumen Hari Ini?
               </h3>
-              <p className="text-xs sm:text-sm text-blue-100 leading-relaxed">
-                Dapatkan akses tanpa batas selama 24 jam penuh, batas berkas 100 MB, bebas iklan, dan prioritas server. Pembayaran instan via QRIS, GoPay, OVO, atau Dana.
+              <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
+                Dapatkan akses tanpa batas selama 24 jam penuh, batas berkas 100 MB, bebas iklan, dan prioritas server. Pembayaran instan via QRIS, GoPay, OVO, atau ShopeePay.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full sm:w-auto">
               <button
                 onClick={() => openCheckout('flash')}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white text-blue-700 hover:bg-blue-50 font-bold text-sm shadow-md transition-all active:scale-95 text-center"
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#F4F1E8] hover:bg-white text-[#9B4819] font-bold text-sm shadow-paper hover:shadow-paper-float transition-all active:scale-95 text-center cursor-pointer"
               >
                 Beli Flash Pass Rp5.000 →
               </button>
               <button
                 onClick={() => setShowPricingModal(true)}
-                className="w-full sm:w-auto px-4 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs transition-colors text-center backdrop-blur-sm"
+                className="w-full sm:w-auto px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium text-xs border border-white/25 transition-all text-center backdrop-blur-xs cursor-pointer"
               >
                 Lihat Semua Paket
               </button>
@@ -324,23 +329,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
 
       {/* 3.5 PREFERENSI PENAWARAN EMAIL */}
       {!isGuest && (
-        <div className="bg-white dark:bg-[#1E222B] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm mb-8">
+        <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-10 h-10 rounded-xl bg-[#9B4819]/10 text-[#9B4819] flex items-center justify-center shrink-0 mt-0.5">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="font-serif text-base font-bold text-text-primary flex items-center gap-2">
                   <span>Preferensi Penawaran & Promo Khusus</span>
                   {acceptsMarketing && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/25">
                       Aktif
                     </span>
                   )}
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
-                  Dapatkan kode voucher diskon rahasia, promo harga khusus langganan, dan pengumuman fitur baru langsung ke <strong className="text-slate-700 dark:text-slate-300">{user?.email}</strong>. Anda bebas menonaktifkannya kapan saja.
+                <p className="text-xs text-text-secondary mt-1 max-w-xl leading-relaxed">
+                  Dapatkan kode voucher diskon rahasia, promo harga khusus langganan, dan pengumuman fitur baru langsung ke <strong className="text-text-primary">{user?.email}</strong>. Anda bebas menonaktifkannya kapan saja.
                 </p>
               </div>
             </div>
@@ -352,13 +357,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                 aria-checked={acceptsMarketing}
                 disabled={isUpdatingMarketing}
                 onClick={() => handleToggleMarketing(!acceptsMarketing)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  acceptsMarketing ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#9B4819]/30 ${
+                  acceptsMarketing ? 'bg-[#9B4819]' : 'bg-elevated border border-border-subtle'
                 } ${isUpdatingMarketing ? 'opacity-50 cursor-wait' : ''}`}
                 title="Aktifkan / Nonaktifkan Penawaran Email"
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
                     acceptsMarketing ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -369,36 +374,36 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
       )}
 
       {/* 4. DETAIL AKUN & KEAMANAN SISTEM */}
-      <div className="bg-white dark:bg-[#1E222B] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="text-base font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-          <ShieldCheck className="text-emerald-500 w-5 h-5" />
+      <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper">
+        <h3 className="font-serif text-lg font-bold text-text-primary mb-6 flex items-center gap-2.5">
+          <ShieldCheck className="text-[#314028] dark:text-emerald-400 w-5 h-5" />
           <span>Keamanan & Privasi Data Berkas</span>
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161A22] border border-slate-200/80 dark:border-slate-800">
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Enkripsi Berkas TLS 256-bit</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          <div className="p-5 rounded-2xl bg-elevated/60 dark:bg-[#252525] border border-border-subtle">
+            <h4 className="font-serif text-sm font-bold text-text-primary mb-1">Enkripsi Berkas TLS 256-bit</h4>
+            <p className="text-xs text-text-secondary leading-relaxed">
               Semua file yang diunggah dikirimkan melalui jalur aman terenkripsi berstandar perbankan.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161A22] border border-slate-200/80 dark:border-slate-800">
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Pembersihan Otomatis 60 Menit</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          <div className="p-5 rounded-2xl bg-elevated/60 dark:bg-[#252525] border border-border-subtle">
+            <h4 className="font-serif text-sm font-bold text-text-primary mb-1">Pembersihan Otomatis 60 Menit</h4>
+            <p className="text-xs text-text-secondary leading-relaxed">
               File server-side dihapus permanen secara otomatis maksimal dalam 1 jam setelah diproses.
             </p>
           </div>
         </div>
 
         {onSelectView && (
-          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <div className="mt-8 pt-6 border-t border-border-subtle flex justify-end">
             <button
               onClick={() => onSelectView(View.TOOLS_TAB)}
-              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#9B4819] dark:text-[#E06D3B] hover:text-[#7E3812] hover:underline cursor-pointer group"
             >
               <span>Jelajahi Semua Alat PDF</span>
-              <ArrowRight size={14} />
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         )}
