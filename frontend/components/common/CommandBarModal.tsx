@@ -25,7 +25,8 @@ import {
   ShieldCheck, 
   Landmark,
   Sparkles,
-  Command
+  Command,
+  Code2
 } from 'lucide-react';
 import { EngineType } from '../ToolCard';
 
@@ -74,6 +75,9 @@ const ALL_COMMANDS: CommandBarItem[] = [
   { id: 'unlock-pdf', title: 'Buka Kunci PDF', description: 'Buka dan hapus proteksi sandi pada dokumen PDF', view: View.UNLOCK_PDF, category: 'Keamanan', engineType: 'fast', keywords: ['unlock', 'buka kunci'] },
   { id: 'ocr-pdf', title: 'OCR Dokumen Pindaian', description: 'Kenali teks dari gambar scan menjadi Searchable PDF', view: View.OCR_PDF, category: 'Keamanan', engineType: 'cloud', keywords: ['ocr', 'scan', 'pindai'] },
   { id: 'translate-pdf', title: 'Terjemahkan Dokumen', description: 'Terjemahkan dokumen ke 30+ bahasa dengan Gemini AI', view: View.TRANSLATE_PDF, category: 'Keamanan', engineType: 'cloud', keywords: ['translate', 'terjemah', 'bahasa'] },
+
+  // 5. Developer & B2B
+  { id: 'developer-api', title: 'B2B Micro-API Hub & Gateway', description: 'Kelola API Key, top up kredit, dan integrasikan 18+ endpoint RESTful', view: View.DEVELOPER_API, category: 'Developer', engineType: 'fast', badge: 'B2B', keywords: ['api', 'developer', 'b2b', 'rest', 'sdk', 'backend', 'curl', 'python', 'token', 'key'] },
 ];
 
 const CommandBarModal: React.FC<CommandBarModalProps> = ({ isOpen, onClose, onSelectView }) => {

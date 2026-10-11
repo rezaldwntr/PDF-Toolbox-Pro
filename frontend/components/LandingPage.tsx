@@ -10,7 +10,12 @@ import {
   Zap, 
   Award, 
   BookOpen, 
-  CheckCircle2 
+  CheckCircle2,
+  Code2,
+  ArrowRight,
+  Terminal,
+  Sparkles,
+  Key
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -43,9 +48,25 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
     <div className="w-full">
       {/* HERO SECTION EDITORIAL RADLEY */}
       <section className="pt-12 pb-6 px-4 sm:px-6 lg:px-8 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/20 text-xs mb-5 font-medium select-none shadow-2xs">
-          <ShieldCheck size={14} className="stroke-[2.2]" />
-          <span>Kepatuhan UU PDP No. 27/2022 • RAM Lokal & Zero Data Retention</span>
+        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/20 text-xs font-medium select-none shadow-2xs">
+            <ShieldCheck size={14} className="stroke-[2.2]" />
+            <span>Kepatuhan UU PDP No. 27/2022 • RAM Lokal & Zero Retention</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onSelectView(View.DEVELOPER_API)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#9B4819]/10 hover:bg-[#9B4819]/20 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/25 text-xs font-semibold shadow-2xs cursor-pointer group transition-all"
+            title="Integrasikan RESTful API kami ke aplikasi & sistem Anda"
+          >
+            <Code2 size={13} className="stroke-[2.2]" />
+            <span>B2B Micro-API Hub</span>
+            <span className="text-[9px] bg-[#9B4819] text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Baru
+            </span>
+            <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+          </button>
         </div>
 
         <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl text-text-primary tracking-tight leading-[1.18] mb-4">
@@ -101,6 +122,170 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
       {/* TRIPTYCH FEATURE BANNER (3 Jendela Kubah Resmi) */}
       {!searchQuery && (
         <TriptychFeatureBanner onSelectView={onSelectView} />
+      )}
+
+      {/* B2B MICRO-API SHOWCASE BANNER (High Visibility for Enterprise & Developers) */}
+      {!searchQuery && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
+          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#9B4819]/10 via-surface to-elevated dark:from-[#251811] dark:via-[#1e1e1e] dark:to-[#181818] border-2 border-[#9B4819]/30 p-6 sm:p-8 lg:p-10 shadow-paper">
+            {/* Background Decorative Blur */}
+            <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-[#9B4819]/5 dark:bg-[#9B4819]/10 pointer-events-none blur-3xl" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              
+              {/* Kolom Kiri: Informasi B2B & Proposisi Nilai (7 cols) */}
+              <div className="lg:col-span-7 space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9B4819] text-white text-[11px] font-bold tracking-wider uppercase shadow-xs">
+                    <Terminal size={12} className="stroke-[2.5]" />
+                    <span>B2B Micro-API Gateway</span>
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/25 text-[11px] font-semibold">
+                    18+ Endpoint Aktif
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/25 text-[11px] font-semibold">
+                    Pay-as-you-go
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary tracking-tight leading-tight">
+                    Integrasikan Seluruh Mesin PDF Kami Langsung ke Sistem Anda
+                  </h2>
+                  <p className="text-xs sm:text-sm text-text-secondary leading-relaxed max-w-2xl">
+                    Kembangkan automasi alur kerja dokumen perusahaan Anda tanpa membangun server pengolahan PDF sendiri. Akses API RESTful berkecepatan tinggi untuk kompresi berkas CPNS, ekstraksi mutasi bank BCA/Mandiri/BRI, OCR pindaian, dan sensor UU PDP.
+                  </p>
+                </div>
+
+                {/* 4 Poin Keunggulan Utama */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-surface/80 dark:bg-[#262626]/80 border border-border-subtle shadow-2xs">
+                    <div className="w-8 h-8 rounded-full bg-[#9B4819]/10 text-[#9B4819] flex items-center justify-center shrink-0 mt-0.5">
+                      <Key size={15} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">API Key Instan</h4>
+                      <p className="text-[11px] text-text-secondary leading-normal">Aktifkan kredensial dalam hitungan detik dari dasbor pengembang.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-surface/80 dark:bg-[#262626]/80 border border-border-subtle shadow-2xs">
+                    <div className="w-8 h-8 rounded-full bg-[#314028]/10 text-[#314028] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles size={15} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">Kredit Selamanya</h4>
+                      <p className="text-[11px] text-text-secondary leading-normal">Sistem saldo prabayar fleksibel yang tidak akan pernah kedaluwarsa.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-surface/80 dark:bg-[#262626]/80 border border-border-subtle shadow-2xs">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <ShieldCheck size={15} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">RAM Zero Retention</h4>
+                      <p className="text-[11px] text-text-secondary leading-normal">Standar kepatuhan UU PDP No. 27/2022 tanpa penyimpanan permanen.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-surface/80 dark:bg-[#262626]/80 border border-border-subtle shadow-2xs">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <Code2 size={15} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">Multi-Bahasa SDK</h4>
+                      <p className="text-[11px] text-text-secondary leading-normal">Contoh kode siap pakai untuk cURL, Python, Node.js, PHP, & Go.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tombol Aksi Nyata */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    onClick={() => onSelectView(View.DEVELOPER_API)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9B4819] hover:bg-[#7E3812] text-white text-xs sm:text-sm font-semibold shadow-paper hover:shadow-paper-float hover:-translate-y-0.5 transition-all cursor-pointer group"
+                  >
+                    <Terminal size={16} />
+                    <span>Buka B2B Micro-API Hub Sekarang</span>
+                    <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  <button
+                    onClick={() => onSelectView(View.DEVELOPER_API)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-surface hover:bg-elevated text-text-primary border border-border-subtle hover:border-[#9B4819]/40 text-xs sm:text-sm font-medium transition-all cursor-pointer"
+                  >
+                    <span>Mulai dari Rp 49.000</span>
+                    <span className="text-text-secondary font-mono text-xs">(750 Request)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Kolom Kanan: Interactive Code Snippet / Terminal Mockup (5 cols) */}
+              <div className="lg:col-span-5">
+                <div className="rounded-2xl bg-[#141414] border border-[#333333] shadow-paper-float overflow-hidden font-mono text-xs text-slate-200">
+                  {/* Window Title Bar */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#1e1e1e] border-b border-[#2d2d2d]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                      <span className="ml-2 text-[11px] text-slate-400 font-sans font-medium">
+                        Terminal • cURL Micro-API
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-sans font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
+                      Live Gateway
+                    </span>
+                  </div>
+
+                  {/* Code Snippet */}
+                  <div className="p-4 space-y-3 leading-relaxed text-[11px]">
+                    <div>
+                      <span className="text-slate-500"># 1. Kirim berkas via REST API</span>
+                      <pre className="mt-1 text-slate-300 overflow-x-auto selection:bg-[#9B4819]/40">
+                        <span className="text-[#E06D3B]">curl</span> -X POST <span className="text-emerald-300">"https://pdftoolbox.app/tools/parse-bank-statement"</span> \
+                        <br />  -H <span className="text-amber-300">"X-API-Key: pt_live_xxxxxxxxxxxx"</span> \
+                        <br />  -F <span className="text-amber-300">"file=@mutasi_bca.pdf"</span> \
+                        <br />  -o <span className="text-sky-300">"mutasi_hasil.xlsx"</span>
+                      </pre>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#262626]">
+                      <span className="text-slate-500"># 2. Respon Server (Sub-detik)</span>
+                      <div className="mt-1.5 p-2.5 rounded-lg bg-[#0d0d0d] border border-[#222222] text-[11px] text-emerald-400 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span>HTTP/2 200 OK</span>
+                          <span className="text-slate-400 font-sans text-[10px]">380 ms</span>
+                        </div>
+                        <div className="text-slate-400 text-[10px]">
+                          X-API-Credit-Remaining: <span className="text-white font-bold">2,499</span>
+                        </div>
+                        <div className="text-slate-400 text-[10px]">
+                          Content-Type: application/vnd.openxmlformats...
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Terminal Footer Bar */}
+                  <div className="px-4 py-2 bg-[#1a1a1a] border-t border-[#262626] flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400 font-sans">
+                      Otomatisasi tanpa batas kuota
+                    </span>
+                    <button
+                      onClick={() => onSelectView(View.DEVELOPER_API)}
+                      className="text-[#E06D3B] hover:text-[#F29F67] font-sans font-semibold hover:underline cursor-pointer"
+                    >
+                      Buka Dokumentasi &rarr;
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
       )}
 
       {/* KATALOG PERKAKAS GRID 3-KOLOM */}

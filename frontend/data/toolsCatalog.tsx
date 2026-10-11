@@ -21,7 +21,8 @@ import {
   Unlock, 
   Languages, 
   Landmark, 
-  ShieldCheck 
+  ShieldCheck,
+  Code2 
 } from 'lucide-react';
 
 export interface ToolItem {
@@ -292,6 +293,25 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
         category: 'Keamanan, Arsip Legal & AI',
         engineType: 'cloud',
         keywords: ['translate', 'terjemah', 'bahasa', 'inggris', 'indonesia', 'ai']
+      }
+    ]
+  },
+  {
+    id: 'developer-b2b',
+    title: '5. Integrasi Sistem & B2B Micro-API',
+    description: 'Automasi dokumen skala besar untuk perbankan, ERP, dan aplikasi bisnis via RESTful API berkecepatan tinggi.',
+    tools: [
+      {
+        id: 'b2b-api-hub',
+        title: 'B2B Micro-API Gateway',
+        description: 'Dapatkan API Key instan, kelola kredit prabayar tanpa kedaluwarsa, dan hubungkan parser mutasi & kompresi ke backend Anda.',
+        icon: <Code2 size={20} />,
+        badge: 'B2B / API',
+        active: true,
+        view: View.DEVELOPER_API,
+        category: 'Integrasi Sistem & B2B Micro-API',
+        engineType: 'fast',
+        keywords: ['api', 'developer', 'b2b', 'rest', 'sdk', 'backend', 'curl', 'python', 'token', 'key', 'endpoint', 'integrasi', 'microservice']
       }
     ]
   }

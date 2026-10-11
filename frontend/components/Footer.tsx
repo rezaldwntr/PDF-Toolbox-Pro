@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from '../types';
-import { ShieldCheck, Lock, Cpu, ArrowUpRight } from 'lucide-react';
+import { ShieldCheck, Lock, Cpu, ArrowUpRight, Code2 } from 'lucide-react';
 
 interface FooterProps {
   onSelectView: (view: View) => void;
@@ -159,9 +159,13 @@ const Footer: React.FC<FooterProps> = ({ onSelectView }) => {
               <li>
                 <button 
                   onClick={() => onSelectView(View.DEVELOPER_API)} 
-                  className="inline-flex items-center gap-1 font-semibold text-white hover:underline transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-bold text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/20 transition-all cursor-pointer shadow-xs"
                 >
+                  <Code2 size={12} className="stroke-[2.2]" />
                   <span>B2B Micro-API Hub</span>
+                  <span className="text-[9px] bg-amber-400 text-stone-900 px-1.5 py-0.2 rounded font-extrabold uppercase">
+                    API
+                  </span>
                   <ArrowUpRight size={12} />
                 </button>
               </li>

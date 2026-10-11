@@ -14,7 +14,8 @@ import {
   User, 
   Download, 
   WifiOff, 
-  Search 
+  Search,
+  Code2 
 } from 'lucide-react';
 import { usePwa } from '../lib/pwa';
 import CommandBarModal from './common/CommandBarModal';
@@ -190,6 +191,22 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
               >
                 Harga
               </button>
+              {/* B2B Micro-API Nav Button (Desktop) */}
+              <button
+                onClick={() => onSelectView(View.DEVELOPER_API)}
+                className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                  currentView === View.DEVELOPER_API
+                    ? 'text-white bg-[#9B4819] font-semibold shadow-xs'
+                    : 'text-[#9B4819] dark:text-[#E06D3B] hover:text-[#7E3812] dark:hover:text-[#F29F67] hover:bg-[#9B4819]/10 bg-[#9B4819]/8 border border-[#9B4819]/25 font-semibold'
+                }`}
+                title="Integrasi B2B Micro-API untuk Pengembang & Bisnis"
+              >
+                <Code2 size={13} className="shrink-0 stroke-[2.2]" />
+                <span className="whitespace-nowrap">B2B Micro-API</span>
+                <span className="hidden xl:inline text-[9px] px-1 py-0.2 rounded-full bg-[#9B4819]/15 dark:bg-[#9B4819]/30 text-[#9B4819] dark:text-[#F29F67] font-bold">
+                  API
+                </span>
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => onSelectView(View.ADMIN_DASHBOARD)}
@@ -209,6 +226,20 @@ const Header: React.FC<HeaderProps> = ({ currentView, onSelectView }) => {
 
           {/* Right Actions: Quota Pill, Theme Toggle, Auth, PWA */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile B2B API Quick Button */}
+            <button
+              type="button"
+              onClick={() => onSelectView(View.DEVELOPER_API)}
+              className={`md:hidden flex items-center gap-1 px-2.5 py-1 h-8.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                currentView === View.DEVELOPER_API
+                  ? 'text-white bg-[#9B4819]'
+                  : 'bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/25 hover:bg-[#9B4819]/20'
+              }`}
+              title="B2B Micro-API Hub"
+            >
+              <Code2 size={13} className="stroke-[2.2]" />
+              <span className="text-[11px]">B2B API</span>
+            </button>
             {/* PWA Install Button (Compact) */}
             {isInstallable && !isInstalled && (
               <button
