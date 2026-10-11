@@ -127,7 +127,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectView }) => {
       {/* B2B MICRO-API SHOWCASE BANNER (High Visibility for Enterprise & Developers) */}
       {!searchQuery && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
-          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#9B4819]/10 via-surface to-elevated dark:from-[#251811] dark:via-[#1e1e1e] dark:to-[#181818] border-2 border-[#9B4819]/30 p-6 sm:p-8 lg:p-10 shadow-paper">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#9B4819]/10 via-surface to-elevated dark:from-[#251811] dark:via-[#1e1e1e] dark:to-[#181818] border-2 border-[#9B4819]/30 p-6 sm:p-8 lg:p-10 shadow-paper">
             {/* Background Decorative Blur */}
             <div className="absolute -right-10 -bottom-10 w-64 h-64 rounded-full bg-[#9B4819]/5 dark:bg-[#9B4819]/10 pointer-events-none blur-3xl" />
 

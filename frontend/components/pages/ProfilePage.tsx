@@ -122,7 +122,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                 className="w-24 h-24 rounded-2xl object-cover ring-4 ring-[#9B4819]/20 shadow-paper"
               />
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-linear-to-tr from-[#9B4819] to-[#7E3812] flex items-center justify-center text-white text-3xl font-serif font-bold shadow-paper">
+              <div 
+                className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-[#9B4819] to-[#7E3812] flex items-center justify-center text-white text-3xl font-serif font-bold shadow-paper"
+                style={{ backgroundColor: '#9B4819' }}
+              >
                 {user?.fullName ? user.fullName[0].toUpperCase() : 'G'}
               </div>
             )}
@@ -208,7 +211,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
             </div>
             
             <div className="mb-2">
-              <span className="font-serif text-3xl font-bold text-text-primary">
+              <span className="font-sans font-extrabold text-3xl tabular-nums text-text-primary tracking-tight">
                 {isPro ? 'Unlimited' : `${quota ?? 0}`}
               </span>
               {!isPro && (
@@ -245,7 +248,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
             </div>
 
             <div className="mb-1">
-              <span className="font-serif text-3xl font-bold text-text-primary">
+              <span className="font-sans font-extrabold text-3xl tabular-nums text-text-primary tracking-tight">
                 {maxFileSizeMB} MB
               </span>
               <span className="text-xs text-text-secondary font-medium ml-1">per dokumen</span>
@@ -272,7 +275,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
             </div>
 
             <div className="mb-1">
-              <span className="font-serif text-3xl font-bold text-text-primary">
+              <span className="font-sans font-extrabold text-3xl tabular-nums text-text-primary tracking-tight">
                 {currentConfig.maxBatchFiles} File
               </span>
               <span className="text-xs text-text-secondary font-medium ml-1">sekaligus</span>
@@ -291,7 +294,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
 
       {/* 3. PROMO PRO BANNER (Jika belum Pro) */}
       {!isPro && (
-        <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#9B4819] via-[#853C14] to-[#5F280A] dark:from-[#2c170d] dark:via-[#21120a] dark:to-[#170c07] p-6 sm:p-8 text-white border-2 border-[#9B4819]/40 shadow-paper-float mb-8">
+        <div 
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#9B4819] via-[#853C14] to-[#5F280A] dark:from-[#2c170d] dark:via-[#21120a] dark:to-[#170c07] p-6 sm:p-8 text-white border-2 border-[#9B4819]/40 shadow-paper-float mb-8"
+          style={{ backgroundColor: '#9B4819', backgroundImage: 'linear-gradient(135deg, #9B4819 0%, #853C14 50%, #5F280A 100%)' }}
+        >
           {/* Subtle Decorative Glow */}
           <div className="absolute -right-8 -bottom-8 w-60 h-60 rounded-full bg-white/5 pointer-events-none blur-2xl" />
 
