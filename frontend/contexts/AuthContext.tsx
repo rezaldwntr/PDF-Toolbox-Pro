@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { GOOGLE_CLIENT_ID } from '../config';
 import type { UserProfile, UserTier } from '../types';
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 // --- Tier Configs ---
 // Sesuai Matriks Kapasitas Komputasi (Alat Standar s.d. 300 MB & Alat Berat s.d. 50 MB)
@@ -147,9 +154,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, [refreshUser]);
 
+  // Inisialisasi Google Identity Services (GIS) untuk login langsung via domain pdftoolbox.app
+  useEffect(() => {
+    if (user) return; // Jika sudah login, tidak perlu inisialisasi One Tap
+
+    const initGoogleGsi = () => {
+      if (typeof window !== 'undefined' && window.google?.accounts?.id && GOOGLE_CLIENT_ID) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: async (response: any) => {
+              if (response?.credential) {
+                setIsLoading(true);
+                try {
+                  const { data, error } = await supabase.auth.signInWithIdToken({
+                    provider: 'google',
+                    token: response.credential,
+                  });
+                  if (error) {
+                    console.error('[GIS] signInWithIdToken gagal:', error);
+                    // Fallback otomatis ke signInWithOAuth jika id_token ditolak
+                    await supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: { redirectTo: window.location.origin },
+                    });
+                  } else if (data?.user) {
+                    const profile = await mapSupabaseUser(data.user);
+                    setUser(profile);
+                  }
+                } catch (err: any) {
+                  console.error('[GIS] Exception saat verifikasi token:', err);
+                } finally {
+                  setIsLoading(false);
+                }
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          // Tampilkan Google One Tap di pdftoolbox.app secara otomatis untuk pengguna tamu
+          window.google.accounts.id.prompt();
+        } catch (e) {
+          console.warn('[GIS] Inisialisasi gagal:', e);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogleGsi();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          initGoogleGsi();
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
   const signInWithGoogle = useCallback(async () => {
+    // 1. Coba tampilkan prompt Google Identity Services (One Tap/Account Picker langsung di domain pdftoolbox.app)
+    if (typeof window !== 'undefined' && window.google?.accounts?.id && GOOGLE_CLIENT_ID) {
+      let promptDisplayed = false;
+      window.google.accounts.id.prompt((notification: any) => {
+        if (notification.isDisplayed()) {
+          promptDisplayed = true;
+        } else if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Jika One Tap tidak dapat ditampilkan (misal user pernah close atau cooldown),
+          // fallback langsung ke alur OAuth
+          if (!promptDisplayed) {
+            supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: window.location.origin,
+                queryParams: {
+                  access_type: 'offline',
+                  prompt: 'consent',
+                },
+              },
+            });
+          }
+        }
+      });
+      return;
+    }
+
+    // 2. Fallback standar jika script GIS belum siap atau diblokir
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
