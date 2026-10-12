@@ -264,8 +264,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .from('user_profiles')
         .update({ quota_used_today: nextUsed })
         .eq('id', user.id)
-        .then(() => {})
-        .catch(() => {});
+        .then(() => {}, () => {});
     }
     return true;
   };

@@ -88,7 +88,7 @@ export const recordToolUsage = async ({
     }).catch(() => {
       // Fallback: Jika backend Cloud Run offline/cold start, coba simpan via Supabase anon client jika RLS mengizinkan
       if (supabase) {
-        supabase.from('tool_usages').insert([payload]).then(() => {}).catch(() => {});
+        supabase.from('tool_usages').insert([payload]).then(() => {}, () => {});
       }
     });
   } catch (err) {
