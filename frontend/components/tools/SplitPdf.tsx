@@ -13,11 +13,9 @@ import {
   extractPagesToPdf, 
   splitDocumentToParts, 
   bundlePdfsToZip, 
-  CLIENT_PDF_MAX_SIZE_BYTES 
+  CLIENT_PDF_MAX_SIZE_BYTES,
+  loadPdfDocument
 } from '../../lib/pdfWorker';
-
-// Deklarasi global untuk pdfjsLib dari CDN
-declare const pdfjsLib: any;
 
 import { BACKEND_URL } from '../../config';
 
@@ -76,7 +74,7 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
 
       try {
         const arrayBuffer = await selectedFile.arrayBuffer();
-        const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+        const pdfDoc = await loadPdfDocument(arrayBuffer);
         
         const previews: PagePreview[] = [];
         const numPages = pdfDoc.numPages;

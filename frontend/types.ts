@@ -84,8 +84,69 @@ export interface TierConfig {
 /** Varian tampilan PaywallModal */
 export type PaywallVariant = 'quota_exhausted' | 'file_too_large' | 'pro_feature';
 
+/** Profil pengguna untuk Admin Dashboard */
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  tier?: string;
+  is_expired?: boolean;
+  subscription_expiry?: string | null;
+  accepts_marketing_emails?: boolean;
+  quota_used_today?: number;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+/** Entitas transaksi pembayaran Midtrans */
+export interface PaymentTransaction {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  plan_id: string;
+  gross_amount: number;
+  payment_type?: string;
+  status: string;
+  created_at?: string;
+  [key: string]: any;
+}
+
+/** Log telemetri pemakaian alat PDF */
+export interface ToolUsageLog {
+  id: string;
+  created_at: string;
+  tool_name: string;
+  is_guest?: boolean;
+  user_email?: string;
+  file_size_bytes: number;
+  status: string;
+  [key: string]: any;
+}
+
+/** Statistik ringkasan untuk Admin Overview Tab */
+export interface AdminOverviewStats {
+  usages?: {
+    total_operations?: number;
+    guest_percentage?: number;
+    top_tools?: Array<{
+      tool_name: string;
+      count: number;
+      percent: number;
+    }>;
+  };
+  revenue?: {
+    by_plan?: {
+      flash?: number;
+      monthly?: number;
+      annual?: number;
+    };
+  };
+}
+
 // Deklarasi konstanta yang diinjeksi Vite saat build di Vercel
 declare global {
   const __VERCEL_ENV__: string | undefined;
   const __GIT_BRANCH__: string | undefined;
 }
+

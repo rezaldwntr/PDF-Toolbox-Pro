@@ -1,8 +1,9 @@
 import React from 'react';
 import { CreditCard, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { PaymentTransaction } from '../../../types';
 
 interface TransactionsTabProps {
-  transactions: any[];
+  transactions: PaymentTransaction[];
   formatIDR: (val: number) => string;
   formatDateTime: (iso?: string) => string;
 }

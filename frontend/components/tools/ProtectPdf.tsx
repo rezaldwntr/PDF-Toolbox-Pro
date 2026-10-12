@@ -23,8 +23,7 @@ import {
   Trash2,
   X
 } from 'lucide-react';
-
-declare const pdfjsLib: any;
+import { loadPdfDocument } from '../../lib/pdfWorker';
 
 type ProtectTab = 'basic' | 'advanced';
 
@@ -84,10 +83,8 @@ const ProtectPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     try {
       const buffer = await selected.arrayBuffer();
-      if (typeof pdfjsLib !== 'undefined') {
-        const loadedDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-        setPageCount(loadedDoc.numPages);
-      }
+      const loadedDoc = await loadPdfDocument(buffer);
+      setPageCount(loadedDoc.numPages);
     } catch (e) {
       console.warn('Gagal membaca info halaman:', e);
     }

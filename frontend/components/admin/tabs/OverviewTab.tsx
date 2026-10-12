@@ -1,8 +1,9 @@
 import React from 'react';
 import { TrendingUp, Sparkles, CheckCircle2 } from 'lucide-react';
+import { AdminOverviewStats } from '../../../types';
 
 interface OverviewTabProps {
-  stats: any;
+  stats: AdminOverviewStats;
   formatIDR: (val: number) => string;
 }
 
@@ -28,7 +29,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ stats, formatIDR }) =>
 
         {stats?.usages?.top_tools && stats.usages.top_tools.length > 0 ? (
           <div className="space-y-4">
-            {stats.usages.top_tools.map((item: any, idx: number) => {
+            {stats.usages.top_tools.map((item, idx: number) => {
               const maxCount = stats.usages.top_tools[0]?.count || 1;
               const barWidth = Math.max(8, (item.count / maxCount) * 100);
 

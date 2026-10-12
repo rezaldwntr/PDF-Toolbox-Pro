@@ -17,6 +17,7 @@ from app.utils.file_utils import (
     create_file_response,
 )
 from app.utils.job_store import create_job, update_job
+from app.utils.async_task import create_tracked_task
 from app.routers.tools_helpers import (
     hex_to_rgb,
     get_target_pages,
@@ -297,51 +298,53 @@ async def ocr_pdf(
 
             all_extracted_text = []
             searchable_doc = fitz.open()
+            try:
+                for page_idx in range(doc_len):
+                    pct = int(15 + (page_idx / doc_len) * 75)
+                    update_job(job_id, progress=pct, message=f"Menjalankan OCR halaman {page_idx + 1} dari {doc_len} ({clean_langs})...")
+                    page = doc[page_idx]
+                    page_text = page.get_text()
 
-            for page_idx in range(doc_len):
-                pct = int(15 + (page_idx / doc_len) * 75)
-                update_job(job_id, progress=pct, message=f"Menjalankan OCR halaman {page_idx + 1} dari {doc_len} ({clean_langs})...")
-                page = doc[page_idx]
-                page_text = page.get_text()
+                    if len(page_text.strip()) > 50:
+                        searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                        all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + page_text.strip())
+                        continue
 
-                if len(page_text.strip()) > 50:
-                    searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
-                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + page_text.strip())
-                    continue
+                    try:
+                        textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
+                        ocr_text = textpage.extractText()
+                        all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + ocr_text.strip())
 
-                try:
-                    textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
-                    ocr_text = textpage.extractText()
-                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + ocr_text.strip())
+                        new_page = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
+                        pix = page.get_pixmap(dpi=150)
+                        img_bytes = pix.tobytes("png")
+                        new_page.insert_image(page.rect, stream=img_bytes)
 
-                    new_page = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
-                    pix = page.get_pixmap(dpi=150)
-                    img_bytes = pix.tobytes("png")
-                    new_page.insert_image(page.rect, stream=img_bytes)
+                        words = textpage.extractWORDS()
+                        for w in words:
+                            w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+                            w_text = w[4]
+                            font_size = max(6.0, w_rect.height * 0.9)
+                            new_page.insert_text(fitz.Point(w_rect.x0, w_rect.y1), w_text, fontsize=font_size, fontname="helv", render_mode=3)
+                    except Exception as ocr_err:
+                        logging.warning(f"OCR fallback pada halaman {page_idx + 1}: {ocr_err}")
+                        searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                        all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + (page_text.strip() or "[Teks tidak terdeteksi]"))
 
-                    words = textpage.extractWORDS()
-                    for w in words:
-                        w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
-                        w_text = w[4]
-                        font_size = max(6.0, w_rect.height * 0.9)
-                        new_page.insert_text(fitz.Point(w_rect.x0, w_rect.y1), w_text, fontsize=font_size, fontname="helv", render_mode=3)
-                except Exception as ocr_err:
-                    logging.warning(f"OCR fallback pada halaman {page_idx + 1}: {ocr_err}")
-                    searchable_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
-                    all_extracted_text.append(f"--- Halaman {page_idx + 1} ---\n" + (page_text.strip() or "[Teks tidak terdeteksi]"))
+                update_job(job_id, progress=92, message="Menyusun dokumen hasil OCR...")
+                full_sample = "\n".join(all_extracted_text)[:500].strip()
 
-            doc.close()
-            update_job(job_id, progress=92, message="Menyusun dokumen hasil OCR...")
-            full_sample = "\n".join(all_extracted_text)[:500].strip()
+                if out_format == "txt":
+                    txt_bytes = "\n\n".join(all_extracted_text).encode("utf-8")
+                    return txt_bytes, "text/plain; charset=utf-8", f"ocr-{safe_base}.txt", full_sample
 
-            if out_format == "txt":
-                txt_bytes = "\n\n".join(all_extracted_text).encode("utf-8")
-                searchable_doc.close()
-                return txt_bytes, "text/plain; charset=utf-8", f"ocr-{safe_base}.txt", full_sample
-
-            out_pdf_bytes = searchable_doc.tobytes(garbage=3, deflate=True)
-            searchable_doc.close()
-            return out_pdf_bytes, "application/pdf", f"searchable-{safe_base}.pdf", full_sample
+                out_pdf_bytes = searchable_doc.tobytes(garbage=3, deflate=True)
+                return out_pdf_bytes, "application/pdf", f"searchable-{safe_base}.pdf", full_sample
+            finally:
+                if doc and not doc.is_closed:
+                    doc.close()
+                if searchable_doc and not searchable_doc.is_closed:
+                    searchable_doc.close()
 
         try:
             res_bytes, media_type, out_filename, sample_text = await asyncio.to_thread(_do_ocr)
@@ -351,7 +354,7 @@ async def ocr_pdf(
             err_msg = e.detail if isinstance(e, HTTPException) else str(e)
             update_job(job_id, status="error", error=f"Gagal memproses OCR: {err_msg}", message="Terjadi kesalahan.")
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Proses OCR dimulai..."}, status_code=202)
 
 
@@ -412,64 +415,65 @@ async def translate_pdf(
 
             all_translated_text_pages = []
             num_targets = len(target_pages)
+            try:
+                for idx_t, p_idx in enumerate(target_pages):
+                    pct = int(15 + (idx_t / max(1, num_targets)) * 75)
+                    update_job(job_id, progress=pct, message=f"Menerjemahkan halaman {p_idx + 1} ({idx_t + 1}/{num_targets})...")
+                    page = doc[p_idx]
 
-            for idx_t, p_idx in enumerate(target_pages):
-                pct = int(15 + (idx_t / max(1, num_targets)) * 75)
-                update_job(job_id, progress=pct, message=f"Menerjemahkan halaman {p_idx + 1} ({idx_t + 1}/{num_targets})...")
-                page = doc[p_idx]
+                    page_blocks = page.get_text("blocks")
+                    text_blocks = [b for b in page_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
 
-                page_blocks = page.get_text("blocks")
-                text_blocks = [b for b in page_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
+                    if len(text_blocks) == 0 or sum(len(b[4].strip()) for b in text_blocks) < 30:
+                        try:
+                            ocr_lang = "eng" if src_l in ("auto", "en") else (src_l if len(src_l) == 3 else "eng")
+                            tp = page.get_textpage_ocr(language=ocr_lang, dpi=150, full=True)
+                            ocr_blocks = tp.extractBLOCKS()
+                            text_blocks = [b for b in ocr_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
+                        except Exception as ocr_e:
+                            logging.warning(f"Auto-OCR pada halaman {p_idx + 1} dilewati: {ocr_e}")
 
-                if len(text_blocks) == 0 or sum(len(b[4].strip()) for b in text_blocks) < 30:
-                    try:
-                        ocr_lang = "eng" if src_l in ("auto", "en") else (src_l if len(src_l) == 3 else "eng")
-                        tp = page.get_textpage_ocr(language=ocr_lang, dpi=150, full=True)
-                        ocr_blocks = tp.extractBLOCKS()
-                        text_blocks = [b for b in ocr_blocks if len(b) >= 7 and b[6] == 0 and b[4].strip()]
-                    except Exception as ocr_e:
-                        logging.warning(f"Auto-OCR pada halaman {p_idx + 1} dilewati: {ocr_e}")
+                    page_extracted_translations = []
+                    for b in text_blocks:
+                        orig_text = b[4].strip()
+                        if not orig_text:
+                            continue
+                        trans_text = translate_text_chunk(orig_text, src_l, tgt_l)
+                        page_extracted_translations.append(trans_text)
 
-                page_extracted_translations = []
-                for b in text_blocks:
-                    orig_text = b[4].strip()
-                    if not orig_text:
-                        continue
-                    trans_text = translate_text_chunk(orig_text, src_l, tgt_l)
-                    page_extracted_translations.append(trans_text)
+                        if out_format == "pdf":
+                            rect = fitz.Rect(b[0], b[1], b[2], b[3])
+                            page.add_redact_annot(rect, fill=(1, 1, 1))
+                            page.apply_redactions()
 
-                    if out_format == "pdf":
-                        rect = fitz.Rect(b[0], b[1], b[2], b[3])
-                        page.add_redact_annot(rect, fill=(1, 1, 1))
-                        page.apply_redactions()
+                            line_count = max(1, len(orig_text.splitlines()))
+                            approx_fs = max(6.0, min(24.0, (rect.height / line_count) * 0.72))
+                            inserted = False
+                            for fs in [approx_fs, approx_fs * 0.9, approx_fs * 0.8, approx_fs * 0.7, 7.0, 6.0]:
+                                rc = page.insert_textbox(rect, trans_text, fontsize=fs, fontname="helv", color=(0, 0, 0), align=0)
+                                if rc >= 0:
+                                    inserted = True
+                                    break
+                            if not inserted:
+                                expanded_rect = fitz.Rect(rect.x0, rect.y0, rect.x1 + 10, rect.y1 + 8)
+                                page.insert_textbox(expanded_rect, trans_text, fontsize=6.0, fontname="helv", color=(0, 0, 0), align=0)
 
-                        line_count = max(1, len(orig_text.splitlines()))
-                        approx_fs = max(6.0, min(24.0, (rect.height / line_count) * 0.72))
-                        inserted = False
-                        for fs in [approx_fs, approx_fs * 0.9, approx_fs * 0.8, approx_fs * 0.7, 7.0, 6.0]:
-                            rc = page.insert_textbox(rect, trans_text, fontsize=fs, fontname="helv", color=(0, 0, 0), align=0)
-                            if rc >= 0:
-                                inserted = True
-                                break
-                        if not inserted:
-                            expanded_rect = fitz.Rect(rect.x0, rect.y0, rect.x1 + 10, rect.y1 + 8)
-                            page.insert_textbox(expanded_rect, trans_text, fontsize=6.0, fontname="helv", color=(0, 0, 0), align=0)
+                    if page_extracted_translations:
+                        all_translated_text_pages.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(page_extracted_translations))
 
-                if page_extracted_translations:
-                    all_translated_text_pages.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(page_extracted_translations))
+                update_job(job_id, progress=92, message="Menyusun dokumen hasil terjemahan...")
+                full_sample = "\n".join(all_translated_text_pages)[:500].strip()
 
-            update_job(job_id, progress=92, message="Menyusun dokumen hasil terjemahan...")
-            full_sample = "\n".join(all_translated_text_pages)[:500].strip()
+                if out_format == "txt":
+                    full_txt = "\n\n".join(all_translated_text_pages) or "[Tidak ada teks yang dapat diterjemahkan]"
+                    txt_bytes = full_txt.encode("utf-8")
+                    return txt_bytes, "text/plain; charset=utf-8", f"translated-{safe_base}.txt", full_sample
 
-            if out_format == "txt":
-                full_txt = "\n\n".join(all_translated_text_pages) or "[Tidak ada teks yang dapat diterjemahkan]"
-                txt_bytes = full_txt.encode("utf-8")
-                doc.close()
-                return txt_bytes, "text/plain; charset=utf-8", f"translated-{safe_base}.txt", full_sample
-
-            pdf_bytes = doc.tobytes(garbage=3, deflate=True)
-            doc.close()
-            return pdf_bytes, "application/pdf", f"translated-{safe_base}.pdf", full_sample
+                pdf_bytes = doc.tobytes(garbage=3, deflate=True)
+                return pdf_bytes, "application/pdf", f"translated-{safe_base}.pdf", full_sample
+            finally:
+                if doc and not doc.is_closed:
+                    doc.close()
 
         try:
             res_bytes, media_type, out_filename, sample_text = await asyncio.to_thread(_do_translate)
@@ -479,5 +483,5 @@ async def translate_pdf(
             err_msg = e.detail if isinstance(e, HTTPException) else str(e)
             update_job(job_id, status="error", error=f"Gagal menerjemahkan dokumen: {err_msg}", message="Terjadi kesalahan.")
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Penerjemahan dokumen dimulai..."}, status_code=202)

@@ -12,9 +12,7 @@ import {
   OfficialPreset, 
   getOfficialPresetById 
 } from '../../lib/officialPresets';
-
-declare const pdfjsLib: any;
-
+import { loadPdfDocument } from '../../lib/pdfWorker';
 import { BACKEND_URL } from '../../config';
 
 type CompressionOption = 'extreme' | 'recommended' | 'low' | 'target';
@@ -61,10 +59,8 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
         const buffer = await selectedFile.arrayBuffer();
         setFileBuffer(buffer);
-        if (typeof pdfjsLib !== 'undefined') {
-          const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
-          setPageCount(pdfDoc.numPages);
-        }
+        const pdfDoc = await loadPdfDocument(buffer);
+        setPageCount(pdfDoc.numPages);
       } catch (e) {
         console.warn('Gagal membaca preview dokumen:', e);
       }

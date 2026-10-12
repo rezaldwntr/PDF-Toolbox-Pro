@@ -27,6 +27,7 @@ from openpyxl.utils import get_column_letter
 
 from app.utils.file_utils import validate_file, cleanup_folder, get_safe_base_name, get_mime_type
 from app.utils.job_store import create_job, update_job
+from app.utils.async_task import create_tracked_task
 
 router = APIRouter(prefix="/convert", tags=["Conversion"])
 
@@ -84,9 +85,8 @@ async def convert_pdf_to_docx(
 
             selected_pages = None
             if start_page is not None or end_page is not None:
-                doc_check = fitz.open(tmp_pdf_path)
-                actual_total = len(doc_check)
-                doc_check.close()
+                with fitz.open(tmp_pdf_path) as doc_check:
+                    actual_total = len(doc_check)
                 s_page = (start_page - 1) if (start_page is not None and start_page > 0) else 0
                 e_page = end_page if (end_page is not None and end_page > 0) else actual_total
                 if s_page < actual_total:
@@ -135,7 +135,7 @@ async def convert_pdf_to_docx(
         finally:
             cleanup_folder(tmp_dir)
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Konversi Word dimulai..."}, status_code=202)
 
 
@@ -328,7 +328,7 @@ async def convert_pdf_to_excel(
         finally:
             cleanup_folder(tmp_dir)
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Konversi Excel dimulai..."}, status_code=202)
 
 
@@ -356,104 +356,107 @@ async def convert_pdf_to_ppt(
             update_job(job_id, status="processing", progress=15, message="Membaca struktur slide...")
             prs = Presentation()
             doc = fitz.open(tmp_pdf_path)
-            num_pages = len(doc)
-            if num_pages > 0:
-                p1 = doc[0]
-                prs.slide_width = int((p1.rect.width / 72) * 914400)
-                prs.slide_height = int((p1.rect.height / 72) * 914400)
+            try:
+                num_pages = len(doc)
+                if num_pages > 0:
+                    p1 = doc[0]
+                    prs.slide_width = int((p1.rect.width / 72) * 914400)
+                    prs.slide_height = int((p1.rect.height / 72) * 914400)
 
-            blank_slide_layout = prs.slide_layouts[6]
+                blank_slide_layout = prs.slide_layouts[6]
 
-            for i, page in enumerate(doc):
-                pct = int(20 + (i / max(1, num_pages)) * 70)
-                update_job(job_id, progress=pct, message=f"Menyusun slide {i + 1} dari {num_pages}...")
-                slide = prs.slides.add_slide(blank_slide_layout)
+                for i, page in enumerate(doc):
+                    pct = int(20 + (i / max(1, num_pages)) * 70)
+                    update_job(job_id, progress=pct, message=f"Menyusun slide {i + 1} dari {num_pages}...")
+                    slide = prs.slides.add_slide(blank_slide_layout)
 
-                if layout_mode == "visual":
-                    pix = page.get_pixmap(dpi=150)
-                    bg_img_path = os.path.join(tmp_dir, f"bg_{i}.png")
-                    pix.save(bg_img_path)
-                    slide.shapes.add_picture(bg_img_path, 0, 0, width=prs.slide_width, height=prs.slide_height)
+                    if layout_mode == "visual":
+                        pix = page.get_pixmap(dpi=150)
+                        bg_img_path = os.path.join(tmp_dir, f"bg_{i}.png")
+                        pix.save(bg_img_path)
+                        slide.shapes.add_picture(bg_img_path, 0, 0, width=prs.slide_width, height=prs.slide_height)
 
-                    text_page = page.get_text("dict")
-                    for b in text_page["blocks"]:
-                        if b["type"] == 0:
+                        text_page = page.get_text("dict")
+                        for b in text_page["blocks"]:
+                            if b["type"] == 0:
+                                bx0, by0, bx1, by1 = b["bbox"]
+                                width = max(bx1 - bx0, 25)
+                                height = max(by1 - by0, 12)
+                                txBox = slide.shapes.add_textbox(Inches(bx0 / 72), Inches(by0 / 72), Inches(width / 72), Inches(height / 72))
+                                tf = txBox.text_frame
+                                tf.word_wrap = True
+                                tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+
+                                first_p = True
+                                for line in b["lines"]:
+                                    p = tf.paragraphs[0] if first_p else tf.add_paragraph()
+                                    first_p = False
+                                    for span in line["spans"]:
+                                        text = span["text"].strip()
+                                        if not text:
+                                            continue
+                                        run = p.add_run()
+                                        run.text = text + " "
+                                        run.font.size = Pt(max(span["size"], 8))
+                    else:
+                        img_blocks = [b for b in page.get_text("dict", flags=fitz.TEXT_PRESERVE_IMAGES)["blocks"] if b['type'] == 1]
+                        for b in img_blocks:
+                            img_path = os.path.join(tmp_dir, f"img_{os.urandom(4).hex()}.{b.get('ext', 'png')}")
+                            with open(img_path, "wb") as f:
+                                f.write(b["image"])
+                            x0, y0, x1, y1 = b["bbox"]
+                            try:
+                                slide.shapes.add_picture(
+                                    img_path,
+                                    Inches(x0 / 72),
+                                    Inches(y0 / 72),
+                                    width=Inches((x1 - x0) / 72),
+                                    height=Inches((y1 - y0) / 72)
+                                )
+                            except Exception:
+                                pass
+
+                        text_blocks = [b for b in page.get_text("dict")["blocks"] if b['type'] == 0]
+                        for b in text_blocks:
                             bx0, by0, bx1, by1 = b["bbox"]
-                            width = max(bx1 - bx0, 25)
-                            height = max(by1 - by0, 12)
-                            txBox = slide.shapes.add_textbox(Inches(bx0 / 72), Inches(by0 / 72), Inches(width / 72), Inches(height / 72))
+                            width = max(bx1 - bx0, 30)
+                            height = max(by1 - by0, 15)
+                            txBox = slide.shapes.add_textbox(
+                                Inches(bx0 / 72),
+                                Inches(by0 / 72),
+                                Inches(width / 72),
+                                Inches(height / 72)
+                            )
                             tf = txBox.text_frame
                             tf.word_wrap = True
+                            tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
                             tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
 
-                            first_p = True
+                            first_paragraph = True
                             for line in b["lines"]:
-                                p = tf.paragraphs[0] if first_p else tf.add_paragraph()
-                                first_p = False
+                                p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
+                                first_paragraph = False
                                 for span in line["spans"]:
-                                    text = span["text"].strip()
-                                    if not text:
+                                    if not span["text"]:
                                         continue
                                     run = p.add_run()
-                                    run.text = text + " "
-                                    run.font.size = Pt(max(span["size"], 8))
-                else:
-                    img_blocks = [b for b in page.get_text("dict", flags=fitz.TEXT_PRESERVE_IMAGES)["blocks"] if b['type'] == 1]
-                    for b in img_blocks:
-                        img_path = os.path.join(tmp_dir, f"img_{os.urandom(4).hex()}.{b.get('ext', 'png')}")
-                        with open(img_path, "wb") as f:
-                            f.write(b["image"])
-                        x0, y0, x1, y1 = b["bbox"]
-                        try:
-                            slide.shapes.add_picture(
-                                img_path,
-                                Inches(x0 / 72),
-                                Inches(y0 / 72),
-                                width=Inches((x1 - x0) / 72),
-                                height=Inches((y1 - y0) / 72)
-                            )
-                        except Exception:
-                            pass
+                                    run.text = span["text"]
+                                    run.font.size = Pt(max(span["size"], 9))
+                                    try:
+                                        c = span["color"]
+                                        run.font.color.rgb = RGBColor((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF)
+                                    except Exception:
+                                        pass
+                                    if span.get("flags", 0) & 16:
+                                        run.font.bold = True
+                                    if span.get("flags", 0) & 2:
+                                        run.font.italic = True
+                                    if "bold" in span.get("font", "").lower():
+                                        run.font.bold = True
+            finally:
+                if doc and not doc.is_closed:
+                    doc.close()
 
-                    text_blocks = [b for b in page.get_text("dict")["blocks"] if b['type'] == 0]
-                    for b in text_blocks:
-                        bx0, by0, bx1, by1 = b["bbox"]
-                        width = max(bx1 - bx0, 30)
-                        height = max(by1 - by0, 15)
-                        txBox = slide.shapes.add_textbox(
-                            Inches(bx0 / 72),
-                            Inches(by0 / 72),
-                            Inches(width / 72),
-                            Inches(height / 72)
-                        )
-                        tf = txBox.text_frame
-                        tf.word_wrap = True
-                        tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
-                        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
-
-                        first_paragraph = True
-                        for line in b["lines"]:
-                            p = tf.paragraphs[0] if first_paragraph else tf.add_paragraph()
-                            first_paragraph = False
-                            for span in line["spans"]:
-                                if not span["text"]:
-                                    continue
-                                run = p.add_run()
-                                run.text = span["text"]
-                                run.font.size = Pt(max(span["size"], 9))
-                                try:
-                                    c = span["color"]
-                                    run.font.color.rgb = RGBColor((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF)
-                                except Exception:
-                                    pass
-                                if span.get("flags", 0) & 16:
-                                    run.font.bold = True
-                                if span.get("flags", 0) & 2:
-                                    run.font.italic = True
-                                if "bold" in span.get("font", "").lower():
-                                    run.font.bold = True
-
-            doc.close()
             prs.save(tmp_ppt_path)
             update_job(job_id, progress=95, message="Menyusun file PowerPoint final...")
             with open(tmp_ppt_path, "rb") as out_f:
@@ -476,7 +479,7 @@ async def convert_pdf_to_ppt(
         finally:
             cleanup_folder(tmp_dir)
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Konversi PowerPoint dimulai..."}, status_code=202)
 
 
@@ -499,64 +502,65 @@ async def convert_pdf_to_image(
         def _do_image():
             update_job(job_id, status="processing", progress=15, message="Membaca halaman PDF...")
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            num_pages = len(doc)
+            try:
+                num_pages = len(doc)
 
-            # MODE 1: Ekstrak Gambar/Foto Tertanam
-            if extract_mode == "embedded":
-                update_job(job_id, progress=30, message="Mengekstrak gambar tertanam...")
-                zip_buffer = io.BytesIO()
-                img_count = 0
-                with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
-                    seen_xrefs = set()
-                    for i, page in enumerate(doc):
-                        images = page.get_images(full=True)
-                        for img in images:
-                            xref = img[0]
-                            if xref in seen_xrefs:
-                                continue
-                            seen_xrefs.add(xref)
-                            base_img = doc.extract_image(xref)
-                            image_bytes = base_img["image"]
-                            img_ext = base_img["ext"]
-                            img_count += 1
-                            zipf.writestr(f"image_{img_count}.{img_ext}", image_bytes)
-                doc.close()
+                # MODE 1: Ekstrak Gambar/Foto Tertanam
+                if extract_mode == "embedded":
+                    update_job(job_id, progress=30, message="Mengekstrak gambar tertanam...")
+                    zip_buffer = io.BytesIO()
+                    img_count = 0
+                    with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
+                        seen_xrefs = set()
+                        for i, page in enumerate(doc):
+                            images = page.get_images(full=True)
+                            for img in images:
+                                xref = img[0]
+                                if xref in seen_xrefs:
+                                    continue
+                                seen_xrefs.add(xref)
+                                base_img = doc.extract_image(xref)
+                                image_bytes = base_img["image"]
+                                img_ext = base_img["ext"]
+                                img_count += 1
+                                zipf.writestr(f"image_{img_count}.{img_ext}", image_bytes)
 
-                if img_count == 0:
-                    raise HTTPException(status_code=400, detail="Tidak ada gambar/foto tertanam yang ditemukan di dalam dokumen PDF ini.")
+                    if img_count == 0:
+                        raise HTTPException(status_code=400, detail="Tidak ada gambar/foto tertanam yang ditemukan di dalam dokumen PDF ini.")
 
-                zip_buffer.seek(0)
-                zip_filename = f"{safe_basename}_embedded_images.zip"
-                return zip_buffer.getvalue(), "application/zip", zip_filename
+                    zip_buffer.seek(0)
+                    zip_filename = f"{safe_basename}_embedded_images.zip"
+                    return zip_buffer.getvalue(), "application/zip", zip_filename
 
-            # MODE 2: Konversi Halaman ke Gambar
-            if num_pages == 1:
-                update_job(job_id, progress=50, message=f"Merender halaman ({target_dpi} DPI)...")
-                page = doc[0]
-                pix = page.get_pixmap(dpi=target_dpi)
-                img_bytes = pix.tobytes("jpeg" if fmt == "jpg" else "png")
-                doc.close()
-
-                media_type = get_mime_type(fmt)
-                single_filename = f"{safe_basename}.{fmt}"
-                return img_bytes, media_type, single_filename
-
-            # Multi-Halaman ke ZIP
-            update_job(job_id, progress=25, message=f"Merender {num_pages} halaman ({target_dpi} DPI)...")
-            zip_buffer = io.BytesIO()
-            with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
-                for i, page in enumerate(doc):
-                    pct = int(25 + (i / num_pages) * 65)
-                    update_job(job_id, progress=pct, message=f"Merender halaman {i + 1} dari {num_pages}...")
+                # MODE 2: Konversi Halaman ke Gambar
+                if num_pages == 1:
+                    update_job(job_id, progress=50, message=f"Merender halaman ({target_dpi} DPI)...")
+                    page = doc[0]
                     pix = page.get_pixmap(dpi=target_dpi)
                     img_bytes = pix.tobytes("jpeg" if fmt == "jpg" else "png")
-                    img_name = f"page_{i + 1}.{fmt}"
-                    zipf.writestr(img_name, img_bytes)
-            doc.close()
 
-            zip_buffer.seek(0)
-            zip_filename = f"{safe_basename}_images.zip"
-            return zip_buffer.getvalue(), "application/zip", zip_filename
+                    media_type = get_mime_type(fmt)
+                    single_filename = f"{safe_basename}.{fmt}"
+                    return img_bytes, media_type, single_filename
+
+                # Multi-Halaman ke ZIP
+                update_job(job_id, progress=25, message=f"Merender {num_pages} halaman ({target_dpi} DPI)...")
+                zip_buffer = io.BytesIO()
+                with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
+                    for i, page in enumerate(doc):
+                        pct = int(25 + (i / num_pages) * 65)
+                        update_job(job_id, progress=pct, message=f"Merender halaman {i + 1} dari {num_pages}...")
+                        pix = page.get_pixmap(dpi=target_dpi)
+                        img_bytes = pix.tobytes("jpeg" if fmt == "jpg" else "png")
+                        img_name = f"page_{i + 1}.{fmt}"
+                        zipf.writestr(img_name, img_bytes)
+
+                zip_buffer.seek(0)
+                zip_filename = f"{safe_basename}_images.zip"
+                return zip_buffer.getvalue(), "application/zip", zip_filename
+            finally:
+                if doc and not doc.is_closed:
+                    doc.close()
 
         try:
             result_bytes, media_type, filename = await asyncio.to_thread(_do_image)
@@ -574,5 +578,5 @@ async def convert_pdf_to_image(
             err_msg = e.detail if isinstance(e, HTTPException) else str(e)
             update_job(job_id, status="error", error=f"Gagal convert Gambar: {err_msg}", message="Terjadi kesalahan.")
 
-    asyncio.create_task(_run())
+    create_tracked_task(_run())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": "Konversi gambar dimulai..."}, status_code=202)

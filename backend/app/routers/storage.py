@@ -38,6 +38,7 @@ from app.core.config import MAX_FILE_SIZE_BY_TIER, GCS_BUCKET_NAME
 from app.utils.file_utils import get_tier_limit, cleanup_folder, validate_pdf_bytes, get_safe_base_name
 from app.utils.supabase_utils import verify_supabase_token
 from app.utils.job_store import create_job, update_job
+from app.utils.async_task import create_tracked_task
 from app.utils.gcs_utils import (
     is_gcs_available,
     generate_upload_signed_url,
@@ -210,7 +211,7 @@ async def process_gcs_job(req: ProcessJobRequest):
             # Hapus blob sementara di GCS untuk kepatuhan privasi zero-retention
             await asyncio.to_thread(delete_blob, blob_name)
 
-    asyncio.create_task(_run_gcs_task())
+    create_tracked_task(_run_gcs_task())
     return JSONResponse({"job_id": job_id, "status": "pending", "message": f"Tugas {action} dimulai..."}, status_code=202)
 
 
@@ -288,25 +289,27 @@ async def _process_excel(job_id: str, pdf_bytes: bytes, base_name: str, opts: di
 
         update_job(job_id, progress=25, message="Mendeteksi dan mengekstrak tabel...")
         doc = fitz.open(tmp_pdf)
-        num_pages = len(doc)
-
-        with pd.ExcelWriter(tmp_xlsx, engine='openpyxl') as writer:
-            wb = writer.book
-            ws = wb.create_sheet(title="Hasil Ekstraksi")
-            cur_row = 1
-            for page_idx in range(num_pages):
-                page = doc[page_idx]
-                if hasattr(page, 'find_tables'):
-                    tabs = page.find_tables()
-                    for tab in tabs:
-                        for row in tab.extract():
-                            for c_idx, val in enumerate(row, 1):
-                                ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
+        try:
+            num_pages = len(doc)
+            with pd.ExcelWriter(tmp_xlsx, engine='openpyxl') as writer:
+                wb = writer.book
+                ws = wb.create_sheet(title="Hasil Ekstraksi")
+                cur_row = 1
+                for page_idx in range(num_pages):
+                    page = doc[page_idx]
+                    if hasattr(page, 'find_tables'):
+                        tabs = page.find_tables()
+                        for tab in tabs:
+                            for row in tab.extract():
+                                for c_idx, val in enumerate(row, 1):
+                                    ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
+                                cur_row += 1
                             cur_row += 1
-                        cur_row += 1
-            if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
-                del wb["Sheet"]
-        doc.close()
+                if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+                    del wb["Sheet"]
+        finally:
+            if doc and not doc.is_closed:
+                doc.close()
 
         with open(tmp_xlsx, "rb") as out_f:
             return out_f.read()
@@ -339,19 +342,22 @@ async def _process_ppt(job_id: str, pdf_bytes: bytes, base_name: str, opts: dict
         update_job(job_id, progress=30, message="Menyusun slide presentasi PowerPoint...")
         prs = Presentation()
         doc = fitz.open(tmp_pdf)
-        if len(doc) > 0:
-            prs.slide_width = int((doc[0].rect.width / 72) * 914400)
-            prs.slide_height = int((doc[0].rect.height / 72) * 914400)
+        try:
+            if len(doc) > 0:
+                prs.slide_width = int((doc[0].rect.width / 72) * 914400)
+                prs.slide_height = int((doc[0].rect.height / 72) * 914400)
 
-        blank = prs.slide_layouts[6]
-        for i, page in enumerate(doc):
-            slide = prs.slides.add_slide(blank)
-            pix = page.get_pixmap(dpi=150)
-            img_p = os.path.join(tmp_dir, f"bg_{i}.png")
-            pix.save(img_p)
-            slide.shapes.add_picture(img_p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+            blank = prs.slide_layouts[6]
+            for i, page in enumerate(doc):
+                slide = prs.slides.add_slide(blank)
+                pix = page.get_pixmap(dpi=150)
+                img_p = os.path.join(tmp_dir, f"bg_{i}.png")
+                pix.save(img_p)
+                slide.shapes.add_picture(img_p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+        finally:
+            if doc and not doc.is_closed:
+                doc.close()
 
-        doc.close()
         prs.save(tmp_ppt)
 
         with open(tmp_ppt, "rb") as out_f:
@@ -379,23 +385,24 @@ async def _process_image(job_id: str, pdf_bytes: bytes, base_name: str, opts: di
     def _convert():
         update_job(job_id, progress=25, message="Merender halaman PDF ke citra resolusi tinggi...")
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        num_pages = len(doc)
+        try:
+            num_pages = len(doc)
+            if num_pages == 1:
+                pix = doc[0].get_pixmap(dpi=target_dpi)
+                b = pix.tobytes("jpeg" if fmt == "jpg" else "png")
+                return b, f"image/{'jpeg' if fmt == 'jpg' else 'png'}", f"{base_name}.{fmt}"
 
-        if num_pages == 1:
-            pix = doc[0].get_pixmap(dpi=target_dpi)
-            b = pix.tobytes("jpeg" if fmt == "jpg" else "png")
-            doc.close()
-            return b, f"image/{'jpeg' if fmt == 'jpg' else 'png'}", f"{base_name}.{fmt}"
-
-        zip_buffer = io.BytesIO()
-        with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
-            for i, page in enumerate(doc):
-                pct = int(25 + (i / num_pages) * 65)
-                update_job(job_id, progress=pct, message=f"Merender halaman {i + 1} dari {num_pages}...")
-                pix = page.get_pixmap(dpi=target_dpi)
-                zipf.writestr(f"page_{i + 1}.{fmt}", pix.tobytes("jpeg" if fmt == "jpg" else "png"))
-        doc.close()
-        return zip_buffer.getvalue(), "application/zip", f"{base_name}_images.zip"
+            zip_buffer = io.BytesIO()
+            with ZipFile(zip_buffer, 'w', compression=ZIP_DEFLATED) as zipf:
+                for i, page in enumerate(doc):
+                    pct = int(25 + (i / num_pages) * 65)
+                    update_job(job_id, progress=pct, message=f"Merender halaman {i + 1} dari {num_pages}...")
+                    pix = page.get_pixmap(dpi=target_dpi)
+                    zipf.writestr(f"page_{i + 1}.{fmt}", pix.tobytes("jpeg" if fmt == "jpg" else "png"))
+            return zip_buffer.getvalue(), "application/zip", f"{base_name}_images.zip"
+        finally:
+            if doc and not doc.is_closed:
+                doc.close()
 
     res, mtype, fname = await asyncio.to_thread(_convert)
     update_job(job_id, status="done", progress=100, message="Konversi gambar selesai!", result=res, media_type=mtype, filename=fname)
@@ -408,36 +415,39 @@ async def _process_ocr(job_id: str, pdf_bytes: bytes, base_name: str, opts: dict
     def _convert():
         update_job(job_id, progress=20, message=f"Menjalankan OCR ({clean_langs})...")
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        doc_len = len(doc)
         searchable_doc = fitz.open()
-        texts = []
+        try:
+            doc_len = len(doc)
+            texts = []
 
-        for p_idx in range(doc_len):
-            pct = int(20 + (p_idx / doc_len) * 70)
-            update_job(job_id, progress=pct, message=f"Menganalisis halaman {p_idx + 1} dari {doc_len}...")
-            page = doc[p_idx]
-            textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
-            ocr_text = textpage.extractText()
-            texts.append(f"--- Halaman {p_idx + 1} ---\n" + ocr_text.strip())
+            for p_idx in range(doc_len):
+                pct = int(20 + (p_idx / doc_len) * 70)
+                update_job(job_id, progress=pct, message=f"Menganalisis halaman {p_idx + 1} dari {doc_len}...")
+                page = doc[p_idx]
+                textpage = page.get_textpage_ocr(language=clean_langs, dpi=150, full=True)
+                ocr_text = textpage.extractText()
+                texts.append(f"--- Halaman {p_idx + 1} ---\n" + ocr_text.strip())
 
-            new_p = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
-            pix = page.get_pixmap(dpi=150)
-            new_p.insert_image(page.rect, stream=pix.tobytes("png"))
+                new_p = searchable_doc.new_page(width=page.rect.width, height=page.rect.height)
+                pix = page.get_pixmap(dpi=150)
+                new_p.insert_image(page.rect, stream=pix.tobytes("png"))
 
-            for w in textpage.extractWORDS():
-                w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
-                new_p.insert_text(fitz.Point(w_rect.x0, w_rect.y1), w[4], fontsize=max(6.0, w_rect.height * 0.9), fontname="helv", render_mode=3)
+                for w in textpage.extractWORDS():
+                    w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+                    new_p.insert_text(fitz.Point(w_rect.x0, w_rect.y1), w[4], fontsize=max(6.0, w_rect.height * 0.9), fontname="helv", render_mode=3)
 
-        doc.close()
-        sample = "\n".join(texts)[:500].strip()
+            sample = "\n".join(texts)[:500].strip()
 
-        if out_fmt == "txt":
-            searchable_doc.close()
-            return "\n\n".join(texts).encode("utf-8"), "text/plain; charset=utf-8", f"ocr-{base_name}.txt", sample
+            if out_fmt == "txt":
+                return "\n\n".join(texts).encode("utf-8"), "text/plain; charset=utf-8", f"ocr-{base_name}.txt", sample
 
-        out_pdf = searchable_doc.tobytes(garbage=3, deflate=True)
-        searchable_doc.close()
-        return out_pdf, "application/pdf", f"searchable-{base_name}.pdf", sample
+            out_pdf = searchable_doc.tobytes(garbage=3, deflate=True)
+            return out_pdf, "application/pdf", f"searchable-{base_name}.pdf", sample
+        finally:
+            if doc and not doc.is_closed:
+                doc.close()
+            if searchable_doc and not searchable_doc.is_closed:
+                searchable_doc.close()
 
     res, mtype, fname, sample = await asyncio.to_thread(_convert)
     update_job(job_id, status="done", progress=100, message="OCR selesai!", result=res, media_type=mtype, filename=fname, sample=sample)
@@ -451,38 +461,40 @@ async def _process_translate(job_id: str, pdf_bytes: bytes, base_name: str, opts
     def _convert():
         update_job(job_id, progress=20, message="Menganalisis tata letak dokumen...")
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        doc_len = len(doc)
-        all_texts = []
+        try:
+            doc_len = len(doc)
+            all_texts = []
 
-        for p_idx in range(doc_len):
-            pct = int(20 + (p_idx / doc_len) * 70)
-            update_job(job_id, progress=pct, message=f"Menerjemahkan halaman {p_idx + 1} dari {doc_len}...")
-            page = doc[p_idx]
-            blocks = [b for b in page.get_text("blocks") if len(b) >= 7 and b[6] == 0 and b[4].strip()]
-            p_trans = []
-            for b in blocks:
-                orig = b[4].strip()
-                if not orig:
-                    continue
-                tr = translate_text_chunk(orig, src_l, tgt_l)
-                p_trans.append(tr)
-                if out_fmt == "pdf":
-                    rect = fitz.Rect(b[0], b[1], b[2], b[3])
-                    page.add_redact_annot(rect, fill=(1, 1, 1))
-                    page.apply_redactions()
-                    page.insert_textbox(rect, tr, fontsize=9.0, fontname="helv", color=(0, 0, 0), align=0)
-            if p_trans:
-                all_texts.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(p_trans))
+            for p_idx in range(doc_len):
+                pct = int(20 + (p_idx / doc_len) * 70)
+                update_job(job_id, progress=pct, message=f"Menerjemahkan halaman {p_idx + 1} dari {doc_len}...")
+                page = doc[p_idx]
+                blocks = [b for b in page.get_text("blocks") if len(b) >= 7 and b[6] == 0 and b[4].strip()]
+                p_trans = []
+                for b in blocks:
+                    orig = b[4].strip()
+                    if not orig:
+                        continue
+                    tr = translate_text_chunk(orig, src_l, tgt_l)
+                    p_trans.append(tr)
+                    if out_fmt == "pdf":
+                        rect = fitz.Rect(b[0], b[1], b[2], b[3])
+                        page.add_redact_annot(rect, fill=(1, 1, 1))
+                        page.apply_redactions()
+                        page.insert_textbox(rect, tr, fontsize=9.0, fontname="helv", color=(0, 0, 0), align=0)
+                if p_trans:
+                    all_texts.append(f"--- Halaman {p_idx + 1} ---\n" + "\n\n".join(p_trans))
 
-        sample = "\n".join(all_texts)[:500].strip()
+            sample = "\n".join(all_texts)[:500].strip()
 
-        if out_fmt == "txt":
-            doc.close()
-            return "\n\n".join(all_texts).encode("utf-8"), "text/plain; charset=utf-8", f"translated-{base_name}.txt", sample
+            if out_fmt == "txt":
+                return "\n\n".join(all_texts).encode("utf-8"), "text/plain; charset=utf-8", f"translated-{base_name}.txt", sample
 
-        pdf_out = doc.tobytes(garbage=3, deflate=True)
-        doc.close()
-        return pdf_out, "application/pdf", f"translated-{base_name}.pdf", sample
+            pdf_out = doc.tobytes(garbage=3, deflate=True)
+            return pdf_out, "application/pdf", f"translated-{base_name}.pdf", sample
+        finally:
+            if doc and not doc.is_closed:
+                doc.close()
 
     res, mtype, fname, sample = await asyncio.to_thread(_convert)
     update_job(job_id, status="done", progress=100, message="Terjemahan selesai!", result=res, media_type=mtype, filename=fname, sample=sample)

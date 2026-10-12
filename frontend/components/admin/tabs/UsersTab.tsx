@@ -10,10 +10,11 @@ import {
   Gift,
   Lock,
 } from 'lucide-react';
+import { AdminUser, PaymentTransaction } from '../../../types';
 
 interface UsersTabProps {
-  userList: any[];
-  transactions: any[];
+  userList: AdminUser[];
+  transactions: PaymentTransaction[];
   userSearch: string;
   setUserSearch: (val: string) => void;
   userTierFilter: string;
@@ -25,7 +26,7 @@ interface UsersTabProps {
   handleOpenEmailComposer: () => void;
   actionMessage: string | null;
   updatingUserId: string | null;
-  onAttemptChangeTier: (user: any, newTier: string) => void;
+  onAttemptChangeTier: (user: AdminUser, newTier: string) => void;
   formatIDR: (val: number) => string;
   formatDateTime: (iso?: string) => string;
 }
@@ -116,7 +117,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
             <span className="text-xs text-text-secondary">Promo:</span>
             <select
               value={userMarketingFilter}
-              onChange={(e: any) => setUserMarketingFilter(e.target.value)}
+              onChange={(e) => setUserMarketingFilter(e.target.value as 'all' | 'opted_in' | 'opted_out')}
               className="px-3 py-1.5 rounded-xl bg-elevated border border-border-subtle text-xs text-text-primary focus:outline-none cursor-pointer"
             >
               <option value="all">Semua ({userList.length})</option>

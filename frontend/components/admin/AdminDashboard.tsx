@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { View, PromoSetting } from '../../types';
+import { View, PromoSetting, AdminUser, PaymentTransaction, ToolUsageLog, AdminOverviewStats } from '../../types';
 import type { PresenceState } from '../../lib/presence';
 import { fetchPromoSettings, updatePromoSetting, DEFAULT_BASE_PRICES } from '../../lib/promo';
 import { TargetUserSelectorModal } from '../modals/TargetUserSelectorModal';
@@ -84,10 +84,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   const [error, setError] = useState<string | null>(null);
 
   // Data state
-  const [stats, setStats] = useState<any>(null);
-  const [userList, setUserList] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [toolLogs, setToolLogs] = useState<any[]>([]);
+  const [stats, setStats] = useState<AdminOverviewStats | null>(null);
+  const [userList, setUserList] = useState<AdminUser[]>([]);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
+  const [toolLogs, setToolLogs] = useState<ToolUsageLog[]>([]);
 
   // Filter state
   const [userSearch, setUserSearch] = useState<string>('');
@@ -98,9 +98,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [copiedEmailsMsg, setCopiedEmailsMsg] = useState<boolean>(false);
   const [confirmDowngradeData, setConfirmDowngradeData] = useState<{
-    user: any;
+    user: AdminUser;
     targetTier: string;
-    tx: any;
+    tx: PaymentTransaction | null | undefined;
   } | null>(null);
 
   // Promo State
@@ -155,7 +155,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     );
   }, [transactions]);
 
-  const onAttemptChangeTier = (u: any, newTier: string) => {
+  const onAttemptChangeTier = (u: AdminUser, newTier: string) => {
     const isDowngradeToFree = newTier === 'free';
     const paidTx = getUserPaymentInfo(u.email, u.id);
     const isPro = ['flash', 'monthly', 'annual'].includes((u.tier || '').toLowerCase());
@@ -465,7 +465,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
     );
   }
 
-  const getUserEffectiveTier = (u: any) => {
+  const getUserEffectiveTier = (u: AdminUser) => {
     const rawTier = (u.tier || 'free').toLowerCase();
     const isProRaw = ['flash', 'monthly', 'annual'].includes(rawTier);
     const isExpired = Boolean(u.is_expired) || (isProRaw && Boolean(u.subscription_expiry) && new Date(u.subscription_expiry) < new Date());

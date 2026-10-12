@@ -1,9 +1,10 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
 import { formatFileSize, formatDateTimeIndonesia } from '../../../lib/formatters';
+import { ToolUsageLog } from '../../../types';
 
 interface LogsTabProps {
-  toolLogs: any[];
+  toolLogs: ToolUsageLog[];
   logToolFilter: string;
   setLogToolFilter: (val: string) => void;
 }

@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-
-// Beri tahu TypeScript tentang variabel global pdfjsLib dari CDN
-declare const pdfjsLib: any;
+import { loadPdfDocument } from '../../lib/pdfWorker';
 
 interface PdfPreviewProps {
   buffer: ArrayBuffer;
@@ -14,7 +12,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer, className = '' }) => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
-    if (!buffer || typeof pdfjsLib === 'undefined') {
+    if (!buffer) {
       setStatus('error');
       return;
     }
@@ -26,9 +24,8 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ buffer, className = '' }) => {
       try {
         if (isCancelled) return;
         
-        // Salin buffer agar rendering tidak mempengaruhi data asli
-        const bufferCopy = buffer.slice(0);
-        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(bufferCopy) }).promise;
+        // Memuat dokumen PDF via loader terpusat
+        const pdf = await loadPdfDocument(buffer);
         if (isCancelled) return;
 
         // Ambil halaman pertama
