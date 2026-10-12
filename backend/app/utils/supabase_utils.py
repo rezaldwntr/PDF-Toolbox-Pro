@@ -230,6 +230,25 @@ async def fetch_payment_transactions(limit: int = 100, offset: int = 0) -> List[
         return []
 
 
+async def fetch_payment_transaction_by_id(order_id: str) -> Optional[Dict[str, Any]]:
+    """Mengambil status satu transaksi pembayaran berdasarkan order_id untuk verifikasi idempotensi."""
+    if not SUPABASE_URL or not order_id:
+        return None
+
+    endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/payment_transactions?id=eq.{order_id}&select=*"
+    headers = get_supabase_headers()
+    try:
+        client = get_supabase_client()
+        resp = await client.get(endpoint, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data[0] if data and len(data) > 0 else None
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching transaction by id {order_id}: {e}")
+        return None
+
+
 async def fetch_tool_usages(limit: int = 100, offset: int = 0, tool_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Mengambil log pemakaian alat dari Supabase."""
     if not SUPABASE_URL:

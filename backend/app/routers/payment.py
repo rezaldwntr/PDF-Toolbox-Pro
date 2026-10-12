@@ -26,7 +26,12 @@ from app.core.api_auth import (
     get_user_api_keys,
     create_api_key_record,
 )
-from app.utils.supabase_utils import record_payment_transaction, update_supabase_user_tier, get_active_promo_price
+from app.utils.supabase_utils import (
+    record_payment_transaction,
+    update_supabase_user_tier,
+    get_active_promo_price,
+    fetch_payment_transaction_by_id,
+)
 from app.utils.payment_utils import generate_order_id, parse_order_id
 
 logger = logging.getLogger("payment")
@@ -160,7 +165,10 @@ async def create_snap_token(req: CreateSnapTokenRequest, background_tasks: Backg
                 "client_key": MIDTRANS_CLIENT_KEY,
                 "is_demo": True,
             }
-        raise HTTPException(status_code=500, detail=f"Gagal membuat transaksi pembayaran: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Gagal membuat sesi transaksi pembayaran. Silakan periksa koneksi internet atau coba beberapa saat lagi."
+        )
 
 
 @router.post("/webhook")
@@ -200,6 +208,13 @@ async def midtrans_webhook(request: Request, background_tasks: BackgroundTasks):
             is_success = True
 
     if is_success:
+        # 3. IDEMPOTENCY CHECK (Cloudflare Security Audit VULN-02):
+        # Mencegah pemenuhan ganda (double top-up / double subscription) jika Midtrans mengirim webhook berulang kali
+        existing_tx = await fetch_payment_transaction_by_id(order_id)
+        if existing_tx and existing_tx.get("status") in ("settlement", "capture"):
+            logger.info(f"[Idempotency] Transaksi {order_id} sudah pernah diselesaikan ({existing_tx.get('status')}). Mengabaikan pemenuhan ganda.")
+            return {"status": "ok", "message": "Transaksi telah diproses sebelumnya"}
+
         user_id = body.get("custom_field1")
         plan_id = body.get("custom_field2")
         api_key = body.get("custom_field3")

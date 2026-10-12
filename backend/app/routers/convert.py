@@ -166,6 +166,15 @@ async def convert_pdf_to_excel(
             doc = fitz.open(tmp_pdf_path)
             num_pages = len(doc)
 
+            # Batas keamanan Denial-of-Service / Resource Exhaustion (Cloudflare Audit VULN-04)
+            MAX_EXCEL_PAGES = 150
+            if num_pages > MAX_EXCEL_PAGES:
+                doc.close()
+                raise ValueError(
+                    f"Dokumen memiliki {num_pages} halaman (Batas maksimal konversi Excel sekaligus adalah {MAX_EXCEL_PAGES} halaman untuk menjaga stabilitas RAM server). "
+                    f"Silakan gunakan alat 'Pisahkan PDF' terlebih dahulu."
+                )
+
             thin_border = Border(
                 left=Side(style='thin', color='D3D3D3'),
                 right=Side(style='thin', color='D3D3D3'),
@@ -175,49 +184,53 @@ async def convert_pdf_to_excel(
             header_fill = PatternFill(start_color='F0F4F8', end_color='F0F4F8', fill_type='solid')
             header_font = Font(bold=True, name='Calibri')
 
-            with pd.ExcelWriter(tmp_xlsx_path, engine='openpyxl') as writer:
-                wb = writer.book
+            plum_doc = None
+            try:
+                with pd.ExcelWriter(tmp_xlsx_path, engine='openpyxl') as writer:
+                    wb = writer.book
 
-                def autofit(ws):
-                    for col in ws.columns:
-                        max_len = 0
-                        col_letter = get_column_letter(col[0].column)
-                        for cell in col:
-                            if cell.value is not None:
-                                max_len = max(max_len, len(str(cell.value)))
-                        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
+                    def autofit(ws):
+                        for col in ws.columns:
+                            max_len = 0
+                            col_letter = get_column_letter(col[0].column)
+                            for cell in col:
+                                if cell.value is not None:
+                                    max_len = max(max_len, len(str(cell.value)))
+                            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
 
-                def get_page_tables_and_text(page_idx):
-                    fitz_page = doc[page_idx]
-                    tables_data = []
-                    if hasattr(fitz_page, 'find_tables'):
-                        try:
-                            tabs = fitz_page.find_tables()
-                            for tab in tabs:
-                                extracted = tab.extract()
-                                if extracted and len(extracted) > 0:
-                                    tables_data.append(extracted)
-                        except Exception as tab_err:
-                            logging.warning(f"fitz find_tables error on page {page_idx}: {tab_err}")
-                    if not tables_data:
-                        try:
-                            with pdfplumber.open(tmp_pdf_path) as plum_pdf:
-                                if page_idx < len(plum_pdf.pages):
-                                    plum_tabs = plum_pdf.pages[page_idx].extract_tables()
+                    def get_page_tables_and_text(page_idx):
+                        nonlocal plum_doc
+                        fitz_page = doc[page_idx]
+                        tables_data = []
+                        if hasattr(fitz_page, 'find_tables'):
+                            try:
+                                tabs = fitz_page.find_tables()
+                                for tab in tabs:
+                                    extracted = tab.extract()
+                                    if extracted and len(extracted) > 0:
+                                        tables_data.append(extracted)
+                            except Exception as tab_err:
+                                logging.warning(f"fitz find_tables error on page {page_idx}: {tab_err}")
+                        if not tables_data:
+                            try:
+                                if plum_doc is None:
+                                    plum_doc = pdfplumber.open(tmp_pdf_path)
+                                if plum_doc and page_idx < len(plum_doc.pages):
+                                    plum_tabs = plum_doc.pages[page_idx].extract_tables()
                                     for pt in plum_tabs:
                                         if pt and len(pt) > 0:
                                             tables_data.append(pt)
-                        except Exception as plum_err:
-                            logging.warning(f"pdfplumber fallback error on page {page_idx}: {plum_err}")
-                    text_lines = []
-                    if mode == "all_content":
-                        blocks = fitz_page.get_text("blocks")
-                        for b in blocks:
-                            if len(b) > 4 and b[6] == 0:
-                                cleaned_block = b[4].strip()
-                                if cleaned_block:
-                                    text_lines.extend(cleaned_block.split('\n'))
-                    return tables_data, text_lines
+                            except Exception as plum_err:
+                                logging.warning(f"pdfplumber fallback error on page {page_idx}: {plum_err}")
+                        text_lines = []
+                        if mode == "all_content":
+                            blocks = fitz_page.get_text("blocks")
+                            for b in blocks:
+                                if len(b) > 4 and b[6] == 0:
+                                    cleaned_block = b[4].strip()
+                                    if cleaned_block:
+                                        text_lines.extend(cleaned_block.split('\n'))
+                        return tables_data, text_lines
 
                 update_job(job_id, progress=30, message="Mendeteksi dan mengekstrak tabel...")
 
@@ -283,7 +296,17 @@ async def convert_pdf_to_excel(
                 if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
                     del wb["Sheet"]
 
-            doc.close()
+            finally:
+                if plum_doc:
+                    try:
+                        plum_doc.close()
+                    except Exception:
+                        pass
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+
             update_job(job_id, progress=90, message="Menyusun file Excel...")
             with open(tmp_xlsx_path, "rb") as out_f:
                 return out_f.read()
