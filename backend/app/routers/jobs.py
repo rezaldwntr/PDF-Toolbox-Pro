@@ -81,9 +81,8 @@ def download_job_result(job_id: str):
     filename   = job.get("filename", "result")
     sample     = job.get("sample")
 
-    # Hapus job dari memori setelah berhasil diunduh
-    delete_job(job_id)
-    logging.info(f"[Jobs] Downloaded and deleted job {job_id} ({filename})")
+    # Biarkan job dibersihkan oleh TTL (cleanup_expired_jobs) agar retry/unduhan ulang tidak terkena 404
+    logging.info(f"[Jobs] Downloaded job {job_id} ({filename})")
 
     extra_headers = {
         "Access-Control-Expose-Headers": "Content-Disposition, X-Extracted-Text-Sample",

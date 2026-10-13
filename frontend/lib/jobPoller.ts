@@ -41,7 +41,7 @@ export async function pollJobUntilDone(options: PollJobOptions): Promise<JobResu
 
   const startTime = Date.now();
   let notFoundRetries = 0;
-  const MAX_NOT_FOUND_RETRIES = 25;
+  const MAX_NOT_FOUND_RETRIES = 60;
 
   while (true) {
     if (signal?.aborted) {
@@ -52,11 +52,21 @@ export async function pollJobUntilDone(options: PollJobOptions): Promise<JobResu
       throw new Error('Batas waktu pengerjaan tugas terlampaui. Silakan coba kembali.');
     }
 
-    const statusRes = await fetch(`${backendUrl}/jobs/${jobId}`, { signal });
+    const cacheBuster = `${Date.now()}-${notFoundRetries}`;
+    const statusRes = await fetch(`${backendUrl}/jobs/${jobId}?_t=${cacheBuster}`, {
+      signal,
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
     if (!statusRes.ok) {
-      if (statusRes.status === 404 && notFoundRetries < MAX_NOT_FOUND_RETRIES) {
+      if ((statusRes.status === 404 || statusRes.status === 502 || statusRes.status === 503) && notFoundRetries < MAX_NOT_FOUND_RETRIES) {
         notFoundRetries++;
-        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+        // Jeda singkat teracak (450-700ms) agar cepat berpindah ke worker Uvicorn yang memegang job_id
+        const retryDelay = Math.round(450 + Math.random() * 250);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
         continue;
       }
       const errJson = await statusRes.json().catch(() => ({}));
@@ -78,10 +88,47 @@ export async function pollJobUntilDone(options: PollJobOptions): Promise<JobResu
     }
 
     if (status === 'done') {
-      // Unduh biner file hasil
-      const dlRes = await fetch(`${backendUrl}/jobs/${jobId}/download`, { signal });
-      if (!dlRes.ok) {
-        throw new Error('Gagal mengunduh file hasil konversi dari server.');
+      // Unduh biner file hasil dengan mekanisme retry multi-worker (antisipasi 404 saat request mengenai worker lain)
+      let dlRes: Response | null = null;
+      const MAX_DOWNLOAD_RETRIES = 35;
+
+      for (let dlAttempt = 0; dlAttempt < MAX_DOWNLOAD_RETRIES; dlAttempt++) {
+        if (signal?.aborted) {
+          throw new DOMException('Proses dibatalkan oleh pengguna.', 'AbortError');
+        }
+        const dlCacheBuster = `${Date.now()}-${dlAttempt}`;
+        const candidateRes = await fetch(`${backendUrl}/jobs/${jobId}/download?_t=${dlCacheBuster}`, {
+          signal,
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        });
+
+        if (candidateRes.ok) {
+          dlRes = candidateRes;
+          break;
+        }
+
+        // Jika 404 (worker lain) atau 409 (status transisi) atau 502/503, tunggu sejenak lalu ulangi
+        if (
+          candidateRes.status === 404 ||
+          candidateRes.status === 409 ||
+          candidateRes.status === 502 ||
+          candidateRes.status === 503
+        ) {
+          const dlRetryDelay = Math.round(350 + Math.random() * 250);
+          await new Promise((resolve) => setTimeout(resolve, dlRetryDelay));
+          continue;
+        }
+
+        const dlErr = await candidateRes.json().catch(() => ({}));
+        throw new Error(dlErr.detail || 'Gagal mengunduh file hasil konversi dari server.');
+      }
+
+      if (!dlRes || !dlRes.ok) {
+        throw new Error('Gagal mengunduh file hasil konversi dari server setelah beberapa percobaan.');
       }
 
       const blob = await dlRes.blob();

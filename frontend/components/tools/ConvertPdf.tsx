@@ -31,6 +31,7 @@ import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import { formatFileSize } from '../../lib/formatters';
 import { triggerFileDownload } from '../../lib/download';
 import { ensurePdfjsReady } from '../../lib/pdfWorker';
+import { convertPdfToDocxClientSide } from '../../lib/clientPdfToDocx';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -187,24 +188,57 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
     try {
       setProcessingStep(2);
-      const jobResult = await smartUploadAndProcess({
-        file: fileWithBuffer.file,
-        action: mode,
-        directEndpoint: config.endpoint,
-        formData,
-        actionOptions: {
-          mode: excelExtractionMode,
-          sheet_per_page: excelSheetStructure === 'per_page',
-          layout_mode: pptLayoutMode,
-          output_format: selectedImageFormat,
-          dpi: imageDpi,
-          extract_mode: imageExtractMode,
-        },
-        userTier: user?.tier || 'free',
-        onProgress: (pct) => {
-          if (pct > 60) setProcessingStep(3);
-        },
-      });
+      const effectiveFile =
+        fileToSend instanceof File
+          ? fileToSend
+          : new File([fileToSend], sendFilename, { type: 'application/pdf' });
+
+      let jobResult: { blob: Blob; filename: string };
+
+      try {
+        jobResult = await smartUploadAndProcess({
+          file: effectiveFile,
+          action: mode,
+          directEndpoint: config.endpoint,
+          formData,
+          actionOptions: {
+            mode: excelExtractionMode,
+            sheet_per_page: excelSheetStructure === 'per_page',
+            layout_mode: pptLayoutMode,
+            output_format: selectedImageFormat,
+            dpi: imageDpi,
+            extract_mode: imageExtractMode,
+          },
+          userTier: user?.tier || 'free',
+          onProgress: (pct) => {
+            if (pct > 60) setProcessingStep(3);
+          },
+        });
+      } catch (serverErr: any) {
+        if (serverErr?.name === 'AbortError') throw serverErr;
+        if (mode === 'word') {
+          console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal:', serverErr);
+          setProcessingStep(2);
+          const s = pageRangeMode === 'custom' ? Math.max(1, startPage) : 1;
+          const e = pageRangeMode === 'custom' ? Math.min(pageCount, Math.max(s, endPage)) : pageCount;
+          const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
+            startPage: s,
+            endPage: e,
+            onProgress: (pct) => {
+              if (pct > 60) setProcessingStep(3);
+            },
+          });
+          const base = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
+          const isRangeActive = pageRangeMode === 'custom' && (s > 1 || e < pageCount);
+          const rangeSuffix = isRangeActive ? (s === e ? `_hal_${s}` : `_hal_${s}-${e}`) : '';
+          jobResult = {
+            blob: fallbackBlob,
+            filename: `${base}${rangeSuffix}.docx`,
+          };
+        } else {
+          throw serverErr;
+        }
+      }
 
       setProcessingStep(3);
       let finalFilename = jobResult.filename;

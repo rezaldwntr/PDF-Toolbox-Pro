@@ -38,8 +38,9 @@ export async function smartUploadAndProcess(options: SmartUploadOptions): Promis
   const fileSize = file.size;
   const isLargeFile = fileSize > 25 * 1024 * 1024; // > 25 MB
 
-  // Coba GCS untuk file besar atau jika tier pro
-  if (isLargeFile || userTier === 'monthly' || userTier === 'annual') {
+  // Gunakan GCS Presigned Upload hanya untuk berkas berukuran besar (> 25 MB)
+  // agar berkas reguler (< 25 MB) diproses secara instan tanpa overhead roundtrip tambahan
+  if (isLargeFile) {
     try {
       if (onProgress) onProgress(2, 'Menghubungkan ke Google Cloud Storage...');
 
@@ -122,16 +123,48 @@ export async function smartUploadAndProcess(options: SmartUploadOptions): Promis
     }
   }
 
-  // Fallback standar: Direct Multipart Upload
-  if (onProgress) onProgress(5, 'Mengirim berkas ke server pemroses...');
+  // Direct Multipart Upload (dengan 1x auto-retry jika terjadi gangguan koneksi/worker transien)
   const directUrl = directEndpoint.startsWith('http') ? directEndpoint : `${BACKEND_URL}${directEndpoint}`;
-  const response = await fetch(directUrl, {
-    method: 'POST',
-    body: formData,
-    signal,
-  });
+  let lastError: any = null;
 
-  return await handleJobOrDirectResponse(response, BACKEND_URL, onProgress, signal);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (signal?.aborted) {
+      throw new DOMException('Proses dibatalkan oleh pengguna.', 'AbortError');
+    }
+    try {
+      if (onProgress) {
+        onProgress(
+          attempt === 0 ? 5 : 10,
+          attempt === 0 ? 'Mengirim berkas ke server pemroses...' : 'Menghubungkan ulang ke worker pemroses...'
+        );
+      }
+      const response = await fetch(directUrl, {
+        method: 'POST',
+        body: formData,
+        signal,
+        cache: 'no-store',
+      });
+
+      return await handleJobOrDirectResponse(response, BACKEND_URL, onProgress, signal);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw err;
+      lastError = err;
+      // Jangan retry jika error validasi ukuran/halaman dokumen
+      if (
+        err?.message &&
+        (err.message.includes('melebihi batas') ||
+          err.message.includes('Batas maksimal') ||
+          err.message.includes('Tidak ada gambar'))
+      ) {
+        throw err;
+      }
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+    }
+  }
+
+  throw lastError || new Error('Gagal memproses berkas di server.');
 }
 
 /**
