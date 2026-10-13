@@ -55,6 +55,198 @@ def parse_cell_value(val):
     return val_str
 
 
+_FORMAL_KEYWORDS = (
+    "lembar pengesahan",
+    "halaman pengesahan",
+    "pengesahan",
+    "lembar persetujuan",
+    "halaman persetujuan",
+    "mengetahui",
+    "menyetujui",
+    "pembimbing",
+    "penguji",
+    "dekan",
+    "rektor",
+    "ketua jurusan",
+    "ketua program studi",
+    "kaprodi",
+    "direktur",
+    "kepala",
+    "nip.",
+    "nip :",
+    "nidn",
+    "nim :",
+    "nrp",
+    "ditandatangani",
+    "tanda tangan",
+    "sertifikat",
+    "piagam",
+    "ijazah",
+    "transkrip",
+    "berita acara",
+    "surat keterangan",
+    "surat keputusan",
+    "invoice",
+    "kwitansi",
+    "faktur",
+)
+
+
+def needs_visual_photo_docx(pdf_path: str, selected_pages: Optional[list] = None) -> bool:
+    """
+    Memvalidasi apakah dokumen PDF memiliki tata letak kompleks / gambar / tanda tangan / scan / lembar pengesahan
+    yang tidak dapat diubah 100% identik menjadi teks mengalir biasa di Word.
+    """
+    try:
+        with fitz.open(pdf_path) as doc:
+            pages_to_check = selected_pages if selected_pages is not None else list(range(len(doc)))
+            for p_idx in pages_to_check:
+                if p_idx < 0 or p_idx >= len(doc):
+                    continue
+                page = doc[p_idx]
+                raw_text = page.get_text("text") or ""
+                clean_chars = re.sub(r"\s+", "", raw_text)
+                if len(clean_chars) < 120:
+                    return True
+                lower_text = raw_text.lower()
+                if any(kw in lower_text for kw in _FORMAL_KEYWORDS):
+                    return True
+                if len(page.get_images(full=True)) > 0:
+                    return True
+                if len(page.get_drawings()) > 6:
+                    return True
+                if raw_text.count(":") >= 3:
+                    return True
+        return False
+    except Exception:
+        return True
+
+
+def build_visual_photo_docx(pdf_path: str, out_docx_path: str, selected_pages: Optional[list] = None) -> None:
+    """
+    Menyusun dokumen Word (.docx OpenXML) berisi foto halaman utuh beresolusi tinggi (margin 0)
+    agar hasil konversi 100% sama persis dengan dokumen PDF aslinya.
+    """
+    with fitz.open(pdf_path) as doc:
+        pages_to_render = selected_pages if selected_pages is not None else list(range(len(doc)))
+        if not pages_to_render:
+            pages_to_render = [0]
+
+        first_page = doc[pages_to_render[0]]
+        doc_w_twips = int(round(first_page.rect.width * 20))
+        doc_h_twips = int(round(first_page.rect.height * 20))
+
+        body_parts = []
+        rel_entries = [
+            '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        ]
+
+        with ZipFile(out_docx_path, "w", compression=ZIP_DEFLATED) as zf:
+            for idx, p_idx in enumerate(pages_to_render, start=1):
+                if p_idx < 0 or p_idx >= len(doc):
+                    continue
+                page = doc[p_idx]
+                pix = page.get_pixmap(dpi=180)
+                img_bytes = pix.tobytes("jpeg")
+                img_filename = f"page_{idx}.jpg"
+                r_id = f"rIdImg{idx}"
+
+                zf.writestr(f"word/media/{img_filename}", img_bytes)
+                rel_entries.append(
+                    f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/{img_filename}"/>'
+                )
+
+                cx = int(round(page.rect.width * 0.994 * 12700))
+                cy = int(round(page.rect.height * 0.990 * 12700))
+                page_break_xml = "<w:pageBreakBefore/>" if idx > 1 else ""
+
+                body_parts.append(
+                    f"""<w:p>
+                      <w:pPr>
+                        {page_break_xml}
+                        <w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>
+                        <w:jc w:val="center"/>
+                        <w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>
+                      </w:pPr>
+                      <w:r>
+                        <w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>
+                        <w:drawing>
+                          <wp:inline distT="0" distB="0" distL="0" distR="0">
+                            <wp:extent cx="{cx}" cy="{cy}"/>
+                            <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                            <wp:docPr id="{idx}" name="Halaman {idx}"/>
+                            <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                                  <pic:nvPicPr>
+                                    <pic:cNvPr id="{idx}" name="{img_filename}"/>
+                                    <pic:cNvPicPr/>
+                                  </pic:nvPicPr>
+                                  <pic:blipFill>
+                                    <a:blip r:embed="{r_id}"/>
+                                    <a:stretch><a:fillRect/></a:stretch>
+                                  </pic:blipFill>
+                                  <pic:spPr>
+                                    <a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>
+                                    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                                  </pic:spPr>
+                                </pic:pic>
+                              </a:graphicData>
+                            </a:graphic>
+                          </wp:inline>
+                        </w:drawing>
+                      </w:r>
+                    </w:p>"""
+                )
+
+            content_types_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>"""
+
+            root_rels_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>"""
+
+            doc_rels_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  {"".join(rel_entries)}
+</Relationships>"""
+
+            styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+</w:styles>"""
+
+            document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+  <w:body>
+    {"".join(body_parts)}
+    <w:sectPr>
+      <w:pgSz w:w="{doc_w_twips}" w:h="{doc_h_twips}"/>
+      <w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>"""
+
+            zf.writestr("[Content_Types].xml", content_types_xml)
+            zf.writestr("_rels/.rels", root_rels_xml)
+            zf.writestr("word/_rels/document.xml.rels", doc_rels_xml)
+            zf.writestr("word/styles.xml", styles_xml)
+            zf.writestr("word/document.xml", document_xml)
+
+
 # === 1. PDF KE DOCX (ASYNC JOB) ===
 @router.post("/pdf-to-docx", status_code=202)
 async def convert_pdf_to_docx(
@@ -93,9 +285,14 @@ async def convert_pdf_to_docx(
                     e_page = min(e_page, actual_total)
                     selected_pages = list(range(s_page, e_page))
 
-            update_job(job_id, progress=30, message="Menganalisis tata letak dan tabel...")
+            update_job(job_id, progress=30, message="Memvalidasi presisi tata letak dokumen...")
 
             def _do_convert():
+                # Validasi otomatis: jika tidak bisa 100% sama lewat teks biasa, gunakan mode foto halaman utuh di Word
+                if needs_visual_photo_docx(tmp_pdf_path, selected_pages):
+                    build_visual_photo_docx(tmp_pdf_path, tmp_docx_path, selected_pages)
+                    return
+
                 cv = Converter(tmp_pdf_path)
                 try:
                     if selected_pages is not None:
@@ -113,7 +310,7 @@ async def convert_pdf_to_docx(
                 finally:
                     cv.close()
 
-            update_job(job_id, progress=50, message="Mengkonversi teks dan gambar ke format Word...")
+            update_job(job_id, progress=50, message="Menyusun halaman ke format Word presisi tinggi...")
             await asyncio.to_thread(_do_convert)
 
             update_job(job_id, progress=90, message="Menyusun dokumen Word final...")

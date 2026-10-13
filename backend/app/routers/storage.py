@@ -245,16 +245,22 @@ async def _process_word(job_id: str, pdf_bytes: bytes, base_name: str, opts: dic
         with open(tmp_pdf, "wb") as f:
             f.write(pdf_bytes)
 
-        update_job(job_id, progress=25, message="Menganalisis layout dan tabel dokumen...")
-        cpu_cores = max(1, multiprocessing.cpu_count())
-        use_multi = cpu_cores > 1
+        update_job(job_id, progress=25, message="Memvalidasi presisi tata letak dokumen...")
+        from app.routers.convert import needs_visual_photo_docx, build_visual_photo_docx
 
-        cv = Converter(tmp_pdf)
-        try:
-            update_job(job_id, progress=50, message="Mengonversi halaman ke format Word...")
-            cv.convert(tmp_docx, multi_processing=use_multi, cpu_count=cpu_cores)
-        finally:
-            cv.close()
+        if needs_visual_photo_docx(tmp_pdf):
+            update_job(job_id, progress=50, message="Menyusun halaman ke format Word presisi visual 100%...")
+            build_visual_photo_docx(tmp_pdf, tmp_docx)
+        else:
+            cpu_cores = max(1, multiprocessing.cpu_count())
+            use_multi = cpu_cores > 1
+
+            cv = Converter(tmp_pdf)
+            try:
+                update_job(job_id, progress=50, message="Mengonversi halaman ke format Word...")
+                cv.convert(tmp_docx, multi_processing=use_multi, cpu_count=cpu_cores)
+            finally:
+                cv.close()
 
         update_job(job_id, progress=90, message="Merakit berkas Word final...")
         with open(tmp_docx, "rb") as out_f:

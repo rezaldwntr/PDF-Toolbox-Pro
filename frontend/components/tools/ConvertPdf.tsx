@@ -31,7 +31,7 @@ import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import { formatFileSize } from '../../lib/formatters';
 import { triggerFileDownload } from '../../lib/download';
 import { ensurePdfjsReady } from '../../lib/pdfWorker';
-import { convertPdfToDocxClientSide } from '../../lib/clientPdfToDocx';
+import { convertPdfToDocxClientSide, validatePdfNeedsVisualDocx } from '../../lib/clientPdfToDocx';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -193,50 +193,76 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           ? fileToSend
           : new File([fileToSend], sendFilename, { type: 'application/pdf' });
 
+      const s = pageRangeMode === 'custom' ? Math.max(1, startPage) : 1;
+      const e = pageRangeMode === 'custom' ? Math.min(pageCount, Math.max(s, endPage)) : pageCount;
+      const base = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
+      const isRangeActive = pageRangeMode === 'custom' && (s > 1 || e < pageCount);
+      const rangeSuffix = isRangeActive ? (s === e ? `_hal_${s}` : `_hal_${s}-${e}`) : '';
+
       let jobResult: { blob: Blob; filename: string };
 
-      try {
-        jobResult = await smartUploadAndProcess({
-          file: effectiveFile,
-          action: mode,
-          directEndpoint: config.endpoint,
-          formData,
-          actionOptions: {
-            mode: excelExtractionMode,
-            sheet_per_page: excelSheetStructure === 'per_page',
-            layout_mode: pptLayoutMode,
-            output_format: selectedImageFormat,
-            dpi: imageDpi,
-            extract_mode: imageExtractMode,
-          },
-          userTier: user?.tier || 'free',
+      // Validasi Otomatis 100% Presisi untuk PDF ke Word:
+      // Jika dokumen memiliki tata letak kompleks / tanda tangan / logo / lembar pengesahan / hasil scan
+      // yang tidak dapat diubah 100% identik sebagai teks biasa, otomatis ubah menjadi foto halaman utuh di dalam Word.
+      let useAutoVisualDocx = false;
+      if (mode === 'word') {
+        const fidelityCheck = await validatePdfNeedsVisualDocx(fileWithBuffer.buffer, s, e);
+        useAutoVisualDocx = fidelityCheck.needsVisual;
+      }
+
+      if (mode === 'word' && useAutoVisualDocx) {
+        const visualBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
+          startPage: s,
+          endPage: e,
+          forceVisualMode: true,
           onProgress: (pct) => {
             if (pct > 60) setProcessingStep(3);
           },
         });
-      } catch (serverErr: any) {
-        if (serverErr?.name === 'AbortError') throw serverErr;
-        if (mode === 'word') {
-          console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal:', serverErr);
-          setProcessingStep(2);
-          const s = pageRangeMode === 'custom' ? Math.max(1, startPage) : 1;
-          const e = pageRangeMode === 'custom' ? Math.min(pageCount, Math.max(s, endPage)) : pageCount;
-          const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
-            startPage: s,
-            endPage: e,
+        jobResult = {
+          blob: visualBlob,
+          filename: `${base}${rangeSuffix}.docx`,
+        };
+      } else {
+        try {
+          jobResult = await smartUploadAndProcess({
+            file: effectiveFile,
+            action: mode,
+            directEndpoint: config.endpoint,
+            formData,
+            actionOptions: {
+              mode: excelExtractionMode,
+              sheet_per_page: excelSheetStructure === 'per_page',
+              layout_mode: pptLayoutMode,
+              output_format: selectedImageFormat,
+              dpi: imageDpi,
+              extract_mode: imageExtractMode,
+            },
+            userTier: user?.tier || 'free',
             onProgress: (pct) => {
               if (pct > 60) setProcessingStep(3);
             },
           });
-          const base = fileWithBuffer.file.name.replace(/\.[^/.]+$/, '');
-          const isRangeActive = pageRangeMode === 'custom' && (s > 1 || e < pageCount);
-          const rangeSuffix = isRangeActive ? (s === e ? `_hal_${s}` : `_hal_${s}-${e}`) : '';
-          jobResult = {
-            blob: fallbackBlob,
-            filename: `${base}${rangeSuffix}.docx`,
-          };
-        } else {
-          throw serverErr;
+        } catch (serverErr: any) {
+          if (serverErr?.name === 'AbortError') throw serverErr;
+          if (mode === 'word') {
+            console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal:', serverErr);
+            setProcessingStep(2);
+            const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
+              startPage: s,
+              endPage: e,
+              forceVisualMode: true,
+              onProgress: (pct) => {
+                if (pct > 60) setProcessingStep(3);
+              },
+            });
+            jobResult = {
+              blob: fallbackBlob,
+              filename: `${base}${rangeSuffix}.docx`,
+            };
+          } else {
+            throw serverErr;
+          }
         }
       }
 
