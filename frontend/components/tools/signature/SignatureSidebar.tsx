@@ -15,19 +15,15 @@ export type { SignatureItem, SignatureMode, TypeFont };
 
 interface SignatureSidebarProps {
   signatures: SignatureItem[];
-  pageCount: number;
-  targetPageSelection: 'all' | number;
-  onTargetPageChange: (selection: 'all' | number) => void;
-  onAddAndPlaceSignature: (sig: SignatureItem, target: 'all' | number) => void;
-  onPlaceSignature: (sig: SignatureItem, target: 'all' | number) => void;
+  activePageIndex: number;
+  onAddAndPlaceSignature: (sig: SignatureItem) => void;
+  onPlaceSignature: (sig: SignatureItem) => void;
   onDeleteSignature: (sigId: string) => void;
 }
 
 export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
   signatures,
-  pageCount,
-  targetPageSelection,
-  onTargetPageChange,
+  activePageIndex,
   onAddAndPlaceSignature,
   onPlaceSignature,
   onDeleteSignature,
@@ -153,9 +149,9 @@ export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
       mode: 'draw',
     };
 
-    onAddAndPlaceSignature(newSig, targetPageSelection);
+    onAddAndPlaceSignature(newSig);
     clearCanvas();
-    addToast('Tanda tangan berhasil dibuat dan ditempatkan!', 'success');
+    addToast(`Tanda tangan dibuat dan ditempatkan di Halaman ${activePageIndex + 1}!`, 'success');
   };
 
   const handleSaveTypedSignature = () => {
@@ -188,9 +184,9 @@ export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
       mode: 'type',
     };
 
-    onAddAndPlaceSignature(newSig, targetPageSelection);
+    onAddAndPlaceSignature(newSig);
     setTypedText('');
-    addToast('Tanda tangan teks berhasil dibuat dan ditempatkan!', 'success');
+    addToast(`Tanda tangan teks ditempatkan di Halaman ${activePageIndex + 1}!`, 'success');
   };
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,8 +234,8 @@ export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
           mode: 'upload',
         };
 
-        onAddAndPlaceSignature(newSig, targetPageSelection);
-        addToast('Tanda tangan gambar berhasil dimuat!', 'success');
+        onAddAndPlaceSignature(newSig);
+        addToast(`Tanda tangan gambar ditempatkan di Halaman ${activePageIndex + 1}!`, 'success');
       };
       img.src = dataUrl;
     };
@@ -453,9 +449,7 @@ export const SignatureSidebar: React.FC<SignatureSidebarProps> = ({
       {/* Gallery of Saved Signatures */}
       <SavedSignaturesGallery
         signatures={signatures}
-        pageCount={pageCount}
-        targetPageSelection={targetPageSelection}
-        onTargetPageChange={onTargetPageChange}
+        activePageIndex={activePageIndex}
         onPlaceSignature={onPlaceSignature}
         onDeleteSignature={onDeleteSignature}
       />

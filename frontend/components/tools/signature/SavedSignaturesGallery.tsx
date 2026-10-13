@@ -1,26 +1,28 @@
 // frontend/components/tools/signature/SavedSignaturesGallery.tsx
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical } from 'lucide-react';
 import { SignatureItem } from './SignatureTypes';
 
 interface SavedSignaturesGalleryProps {
   signatures: SignatureItem[];
-  pageCount: number;
-  targetPageSelection: 'all' | number;
-  onTargetPageChange: (selection: 'all' | number) => void;
-  onPlaceSignature: (sig: SignatureItem, target: 'all' | number) => void;
+  activePageIndex: number;
+  onPlaceSignature: (sig: SignatureItem) => void;
   onDeleteSignature: (sigId: string) => void;
 }
 
 export const SavedSignaturesGallery: React.FC<SavedSignaturesGalleryProps> = ({
   signatures,
-  pageCount,
-  targetPageSelection,
-  onTargetPageChange,
+  activePageIndex,
   onPlaceSignature,
   onDeleteSignature,
 }) => {
   if (signatures.length === 0) return null;
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, sig: SignatureItem) => {
+    e.dataTransfer.setData('application/x-pdf-signature-id', sig.id);
+    e.dataTransfer.setData('text/plain', sig.id);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
   return (
     <div className="bg-surface border border-border-subtle p-4 rounded-2xl shadow-xs transition-colors space-y-3">
@@ -31,53 +33,45 @@ export const SavedSignaturesGallery: React.FC<SavedSignaturesGalleryProps> = ({
         </span>
       </div>
 
-      {/* Target Page Selector Dropdown */}
-      <div className="flex items-center justify-between gap-2 p-2 bg-elevated rounded-xl border border-border-subtle">
-        <span className="text-xs font-semibold text-text-secondary">Target Lembar:</span>
-        <select
-          value={targetPageSelection}
-          onChange={e => {
-            const val = e.target.value;
-            onTargetPageChange(val === 'all' ? 'all' : Number(val));
-          }}
-          className="text-xs font-bold bg-surface text-accent-primary border border-border-subtle rounded-lg px-2.5 py-1 outline-none cursor-pointer shadow-xs"
-        >
-          {Array.from({ length: pageCount }).map((_, i) => (
-            <option key={i} value={i}>Halaman {i + 1}</option>
-          ))}
-          {pageCount > 1 && (
-            <option value="all">Semua Halaman (Paraf / Stempel)</option>
-          )}
-        </select>
-      </div>
-
       <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
-        {signatures.map(sig => (
+        {signatures.map((sig) => (
           <div
             key={sig.id}
-            className="group flex items-center justify-between p-2 rounded-xl border border-border-subtle bg-surface hover:border-accent-primary transition-colors"
+            draggable
+            onDragStart={(e) => handleDragStart(e, sig)}
+            title="Klik untuk menaruh atau seret (drag & drop) langsung ke lembar halaman"
+            className="group flex items-center justify-between p-2 rounded-xl border border-border-subtle bg-surface hover:border-accent-primary transition-colors cursor-grab active:cursor-grabbing select-none"
           >
             <button
-              onClick={() => onPlaceSignature(sig, targetPageSelection)}
-              className="flex-1 flex items-center gap-3 text-left overflow-hidden cursor-pointer"
+              type="button"
+              onClick={() => onPlaceSignature(sig)}
+              className="flex-1 flex items-center gap-2.5 text-left overflow-hidden cursor-grab active:cursor-grabbing"
             >
-              <div className="w-16 h-10 bg-white rounded-lg border border-border-subtle p-1 flex items-center justify-center shrink-0">
-                <img src={sig.dataUrl} alt={sig.name} className="max-w-full max-h-full object-contain" />
+              <GripVertical className="w-3.5 h-3.5 text-text-muted group-hover:text-accent-primary shrink-0 transition-colors" />
+              <div className="w-16 h-10 bg-white rounded-lg border border-border-subtle p-1 flex items-center justify-center shrink-0 pointer-events-none">
+                <img
+                  src={sig.dataUrl}
+                  alt={sig.name}
+                  draggable={false}
+                  className="max-w-full max-h-full object-contain"
+                />
               </div>
               <div className="truncate">
                 <p className="text-xs font-bold text-text-primary truncate">{sig.name}</p>
                 <span className="text-[10px] text-accent-primary font-semibold flex items-center gap-1">
-                  <Plus className="w-3 h-3" />
-                  {targetPageSelection === 'all'
-                    ? 'Taruh di Semua Halaman'
-                    : `Taruh di Halaman ${Number(targetPageSelection) + 1}`}
+                  <Plus className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Taruh / Seret ke Halaman {activePageIndex + 1}</span>
                 </span>
               </div>
             </button>
             <button
-              onClick={() => onDeleteSignature(sig.id)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteSignature(sig.id);
+              }}
               title="Hapus dari Galeri"
-              className="p-1.5 text-text-secondary hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-text-secondary hover:text-rose-500 rounded-lg transition-colors cursor-pointer shrink-0"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -85,8 +79,8 @@ export const SavedSignaturesGallery: React.FC<SavedSignaturesGalleryProps> = ({
         ))}
       </div>
 
-      <p className="text-[10px] text-text-secondary italic text-center">
-        Tip: Anda juga bisa mengklik langsung pada lembar halaman di kanvas untuk menempelkan tanda tangan.
+      <p className="text-[10px] text-text-secondary italic text-center leading-relaxed">
+        Tip: Seret (drag &amp; drop) tanda tangan langsung ke posisi mana pun pada lembar halaman aktif, atau klik untuk menaruhnya di Halaman {activePageIndex + 1}.
       </p>
     </div>
   );

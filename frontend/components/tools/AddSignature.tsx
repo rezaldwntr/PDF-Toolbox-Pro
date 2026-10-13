@@ -56,7 +56,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [signatures, setSignatures] = useState<SignatureItem[]>([]);
   const [placedSignatures, setPlacedSignatures] = useState<PlacedSignature[]>([]);
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null);
-  const [targetPageSelection, setTargetPageSelection] = useState<'all' | number>(1);
+  const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
   // Navigasi & Zoom
   const [activePageIndex, setActivePageIndex] = useState(0);
@@ -86,6 +86,14 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fileWithBuffer, placedSignatures, isProcessing, outputUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (outputUrl) {
+        URL.revokeObjectURL(outputUrl);
+      }
+    };
+  }, [outputUrl]);
+
   const resetState = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     setFileWithBuffer(null);
@@ -94,6 +102,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSignatures([]);
     setPlacedSignatures([]);
     setSelectedPlacedId(null);
+    setIsDragOverCanvas(false);
     setActivePageIndex(0);
     setZoom(0.85);
     setOutputUrl(null);
@@ -135,21 +144,6 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const placeOnAllPages = (signature: SignatureItem) => {
-    if (pagePreviews.length === 0) return;
-    const newPlacedList: PlacedSignature[] = pagePreviews.map((page, pageIndex) => ({
-      id: `placed-${Date.now()}-${pageIndex}-${Math.random().toString(36).substring(2, 6)}`,
-      signatureId: signature.id,
-      pageIndex,
-      x: Math.round(page.width - signature.width - 30),
-      y: Math.round(page.height - signature.height - 30),
-      width: signature.width,
-      height: signature.height,
-    }));
-    setPlacedSignatures((prev) => [...prev, ...newPlacedList]);
-    addToast(`Tanda tangan dipasang di semua ${pagePreviews.length} halaman!`, 'success');
   };
 
   const placeSignatureOnPage = (signature: SignatureItem, pageIndex: number, customX?: number, customY?: number) => {
@@ -394,20 +388,64 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Document Paper Preview with Signatures Overlay */}
+            {/* Document Paper Preview with Signatures Overlay (Drop Zone) */}
             <div
               data-page-index={activePageIndex}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                if (!isDragOverCanvas) setIsDragOverCanvas(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setIsDragOverCanvas(true);
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setIsDragOverCanvas(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragOverCanvas(false);
+                const sigId =
+                  e.dataTransfer.getData('application/x-pdf-signature-id') ||
+                  e.dataTransfer.getData('text/plain');
+                const sig = signatures.find((s) => s.id === sigId);
+                if (sig && currentPage) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const dropX = (e.clientX - rect.left) / zoom - sig.width / 2;
+                  const dropY = (e.clientY - rect.top) / zoom - sig.height / 2;
+                  placeSignatureOnPage(sig, activePageIndex, dropX, dropY);
+                  addToast(
+                    `Tanda tangan ditempatkan pada posisi pilihan di Halaman ${activePageIndex + 1}!`,
+                    'success'
+                  );
+                }
+              }}
               style={{
                 width: `${currentPage.width * zoom}px`,
                 height: `${currentPage.height * zoom}px`,
               }}
-              className="relative border border-border-subtle rounded-xl shadow-lg bg-white overflow-hidden my-auto select-none"
+              className={`relative border rounded-xl shadow-lg bg-white overflow-hidden my-auto select-none transition-all ${
+                isDragOverCanvas
+                  ? 'border-2 border-accent-primary ring-4 ring-accent-primary/25'
+                  : 'border-border-subtle'
+              }`}
             >
               <img
                 src={currentPage.url}
                 alt={`Halaman ${activePageIndex + 1}`}
+                draggable={false}
                 className="w-full h-full object-contain pointer-events-none"
               />
+
+              {isDragOverCanvas && (
+                <div className="absolute inset-0 bg-accent-primary/5 flex items-start justify-center pt-4 pointer-events-none z-20">
+                  <span className="px-3 py-1.5 rounded-full bg-accent-primary text-white text-xs font-bold shadow-md">
+                    Lepaskan untuk menempel tanda tangan di Halaman {activePageIndex + 1}
+                  </span>
+                </div>
+              )}
 
               {/* Placed Signatures on this page */}
               {placedSignatures
@@ -435,6 +473,7 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <img
                           src={sigItem.dataUrl}
                           alt="Tanda tangan"
+                          draggable={false}
                           className="w-full h-full object-contain pointer-events-none"
                         />
                       )}
@@ -496,23 +535,14 @@ const AddSignature: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         fileWithBuffer && !isProcessing && !outputUrl ? (
           <SignatureSidebar
             signatures={signatures}
-            pageCount={pagePreviews.length}
-            targetPageSelection={targetPageSelection}
-            onTargetPageChange={setTargetPageSelection}
-            onAddAndPlaceSignature={(sig, target) => {
+            activePageIndex={activePageIndex}
+            onAddAndPlaceSignature={(sig) => {
               setSignatures((prev) => [...prev, sig]);
-              if (target === 'all') {
-                placeOnAllPages(sig);
-              } else {
-                placeSignatureOnPage(sig, typeof target === 'number' ? target - 1 : activePageIndex);
-              }
+              placeSignatureOnPage(sig, activePageIndex);
             }}
-            onPlaceSignature={(sig, target) => {
-              if (target === 'all') {
-                placeOnAllPages(sig);
-              } else {
-                placeSignatureOnPage(sig, typeof target === 'number' ? target - 1 : activePageIndex);
-              }
+            onPlaceSignature={(sig) => {
+              placeSignatureOnPage(sig, activePageIndex);
+              addToast(`Tanda tangan ditempatkan di Halaman ${activePageIndex + 1}!`, 'success');
             }}
             onDeleteSignature={(sigId) => {
               setSignatures((prev) => prev.filter((s) => s.id !== sigId));
