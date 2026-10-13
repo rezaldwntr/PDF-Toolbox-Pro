@@ -437,6 +437,8 @@ async def _process_ppt(job_id: str, pdf_bytes: bytes, base_name: str, opts: dict
         update_job(job_id, progress=30, message="Menyusun slide presentasi PowerPoint...")
         prs = Presentation()
         doc = fitz.open(tmp_pdf)
+        clean_doc = fitz.open(tmp_pdf)
+        layout_mode = opts.get("layout_mode", "editable")
         try:
             if len(doc) > 0:
                 prs.slide_width = int((doc[0].rect.width / 72) * 914400)
@@ -445,11 +447,90 @@ async def _process_ppt(job_id: str, pdf_bytes: bytes, base_name: str, opts: dict
             blank = prs.slide_layouts[6]
             for i, page in enumerate(doc):
                 slide = prs.slides.add_slide(blank)
-                pix = page.get_pixmap(dpi=150)
-                img_p = os.path.join(tmp_dir, f"bg_{i}.png")
-                pix.save(img_p)
-                slide.shapes.add_picture(img_p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+                if layout_mode == "visual":
+                    pix = page.get_pixmap(dpi=150)
+                    img_p = os.path.join(tmp_dir, f"bg_{i}.png")
+                    pix.save(img_p)
+                    slide.shapes.add_picture(img_p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+                else:
+                    # 1. Ekstrak latar belakang vektor/grafis jika ada
+                    drawings = page.get_drawings()
+                    if drawings and len(drawings) > 0 and clean_doc and i < len(clean_doc):
+                        try:
+                            clean_page = clean_doc[i]
+                            for w in clean_page.get_text("words"):
+                                clean_page.add_redact_annot(fitz.Rect(w[:4]), fill=False)
+                            for img_info in clean_page.get_images():
+                                for img_rect in clean_page.get_image_rects(img_info[0]):
+                                    clean_page.add_redact_annot(img_rect, fill=False)
+                            clean_page.apply_redactions()
+
+                            bg_pix = clean_page.get_pixmap(dpi=180)
+                            bg_p = os.path.join(tmp_dir, f"bg_vec_{i}.png")
+                            bg_pix.save(bg_p)
+                            slide.shapes.add_picture(bg_p, 0, 0, width=prs.slide_width, height=prs.slide_height)
+                        except Exception as vec_err:
+                            logging.warning(f"Gagal mengekstrak background vektor slide {i+1}: {vec_err}")
+
+                    # 2. Ekstrak gambar bitmap terpisah
+                    img_blocks = [b for b in page.get_text("dict", flags=fitz.TEXT_PRESERVE_IMAGES)["blocks"] if b['type'] == 1]
+                    for b in img_blocks:
+                        img_path = os.path.join(tmp_dir, f"img_{os.urandom(4).hex()}.{b.get('ext', 'png')}")
+                        with open(img_path, "wb") as f:
+                            f.write(b["image"])
+                        x0, y0, x1, y1 = b["bbox"]
+                        try:
+                            slide.shapes.add_picture(
+                                img_path,
+                                Inches(x0 / 72),
+                                Inches(y0 / 72),
+                                width=Inches((x1 - x0) / 72),
+                                height=Inches((y1 - y0) / 72)
+                            )
+                        except Exception:
+                            pass
+
+                    # 3. Ekstrak blok teks yang dapat diedit
+                    text_blocks = [b for b in page.get_text("dict")["blocks"] if b['type'] == 0]
+                    for b in text_blocks:
+                        bx0, by0, bx1, by1 = b["bbox"]
+                        width = max(bx1 - bx0, 30)
+                        height = max(by1 - by0, 15)
+                        txBox = slide.shapes.add_textbox(
+                            Inches(bx0 / 72),
+                            Inches(by0 / 72),
+                            Inches(width / 72),
+                            Inches(height / 72)
+                        )
+                        tf = txBox.text_frame
+                        tf.word_wrap = True
+                        tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+                        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+
+                        first_p = True
+                        for line in b["lines"]:
+                            p = tf.paragraphs[0] if first_p else tf.add_paragraph()
+                            first_p = False
+                            for span in line["spans"]:
+                                if not span["text"]:
+                                    continue
+                                run = p.add_run()
+                                run.text = span["text"]
+                                run.font.size = Pt(max(span["size"], 9))
+                                try:
+                                    c = span["color"]
+                                    run.font.color.rgb = RGBColor((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF)
+                                except Exception:
+                                    pass
+                                if span.get("flags", 0) & 16:
+                                    run.font.bold = True
+                                if span.get("flags", 0) & 2:
+                                    run.font.italic = True
+                                if "bold" in span.get("font", "").lower():
+                                    run.font.bold = True
         finally:
+            if clean_doc and not clean_doc.is_closed:
+                clean_doc.close()
             if doc and not doc.is_closed:
                 doc.close()
 

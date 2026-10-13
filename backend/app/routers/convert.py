@@ -518,6 +518,7 @@ async def convert_pdf_to_ppt(
             update_job(job_id, status="processing", progress=15, message="Membaca struktur slide...")
             prs = Presentation()
             doc = fitz.open(tmp_pdf_path)
+            clean_doc = fitz.open(tmp_pdf_path)
             try:
                 num_pages = len(doc)
                 if num_pages > 0:
@@ -561,6 +562,28 @@ async def convert_pdf_to_ppt(
                                         run.text = text + " "
                                         run.font.size = Pt(max(span["size"], 8))
                     else:
+                        # 1. Ekstrak dan pertahankan grafik background, bentuk vektor, garis, dan grid di layer dasar (z-index 0)
+                        drawings = page.get_drawings()
+                        if drawings and len(drawings) > 0 and clean_doc and i < len(clean_doc):
+                            try:
+                                clean_page = clean_doc[i]
+                                # Hapus teks dari kanvas vektor agar tidak dobel/kabur
+                                for w in clean_page.get_text("words"):
+                                    clean_page.add_redact_annot(fitz.Rect(w[:4]), fill=False)
+                                # Hapus gambar bitmap dari kanvas vektor agar tidak dobel dengan objek gambar terpisah
+                                for img_info in clean_page.get_images():
+                                    for img_rect in clean_page.get_image_rects(img_info[0]):
+                                        clean_page.add_redact_annot(img_rect, fill=False)
+                                clean_page.apply_redactions()
+
+                                bg_pix = clean_page.get_pixmap(dpi=180)
+                                bg_vec_path = os.path.join(tmp_dir, f"bg_vec_{i}.png")
+                                bg_pix.save(bg_vec_path)
+                                slide.shapes.add_picture(bg_vec_path, 0, 0, width=prs.slide_width, height=prs.slide_height)
+                            except Exception as vec_err:
+                                logging.warning(f"Gagal mengekstrak background vektor slide {i+1}: {vec_err}")
+
+                        # 2. Ekstrak gambar bitmap (foto / logo) sebagai objek gambar terpisah yang bisa dipindah/diedit
                         img_blocks = [b for b in page.get_text("dict", flags=fitz.TEXT_PRESERVE_IMAGES)["blocks"] if b['type'] == 1]
                         for b in img_blocks:
                             img_path = os.path.join(tmp_dir, f"img_{os.urandom(4).hex()}.{b.get('ext', 'png')}")
@@ -578,6 +601,7 @@ async def convert_pdf_to_ppt(
                             except Exception:
                                 pass
 
+                        # 3. Ekstrak blok teks sebagai kotak teks yang dapat diedit (editable text boxes)
                         text_blocks = [b for b in page.get_text("dict")["blocks"] if b['type'] == 0]
                         for b in text_blocks:
                             bx0, by0, bx1, by1 = b["bbox"]
@@ -616,6 +640,8 @@ async def convert_pdf_to_ppt(
                                     if "bold" in span.get("font", "").lower():
                                         run.font.bold = True
             finally:
+                if clean_doc and not clean_doc.is_closed:
+                    clean_doc.close()
                 if doc and not doc.is_closed:
                     doc.close()
 
