@@ -1,30 +1,55 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { UploadIcon } from "../icons";
 import { useQuota } from "../../contexts/QuotaContext";
 import { useToast } from "../../contexts/ToastContext";
 import { pickFileFromGoogleDrive, pickFileFromDropbox } from "../../lib/cloudStorage";
+import { consumePendingHandoffFile } from "../../lib/pipelineHandoff";
 
 interface FileUploaderProps {
   onFileSelect: (files: FileList | null) => void;
-  accept?: string;
+  accept?: string | Record<string, string[]>;
   multiple?: boolean;
+  maxFiles?: number;
   label?: string;
   description?: string;
+  title?: string;
+  subtitle?: string;
 }
 
 const FileUploader: React.FC<FileUploaderProps> = ({
   onFileSelect,
   accept = ".pdf",
   multiple = false,
-  label = "Upload File PDF",
-  description = "Seret file ke sini atau klik untuk memilih",
+  label,
+  description,
+  title,
+  subtitle,
 }) => {
+  const effectiveLabel = title || label || "Upload File PDF";
+  const effectiveDescription = subtitle || description || "Seret file ke sini atau klik untuk memilih";
+  const effectiveAccept = typeof accept === "string" ? accept : ".pdf";
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [cloudMsg, setCloudMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { checkFileSizeLimit, maxFileSizeMB } = useQuota();
   const { addToast } = useToast();
+
+  // Otomatis muat berkas dari perkakas sebelumnya jika pengguna mengklik rekomendasi lanjutan
+  useEffect(() => {
+    const handoffFile = consumePendingHandoffFile();
+    if (handoffFile) {
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(handoffFile);
+        onFileSelect(dt.files);
+        addToast(`Berkas "${handoffFile.name}" otomatis dimuat dari proses sebelumnya!`, 'success');
+      } catch (err) {
+        console.warn('Gagal memuat berkas handoff otomatis:', err);
+      }
+    }
+  }, [onFileSelect, addToast]);
 
   const handlePickGoogleDrive = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,7 +147,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         type="file"
         ref={fileInputRef}
         className="hidden"
-        accept={accept}
+        accept={effectiveAccept}
         multiple={multiple}
         onChange={(e) => validateAndSelect(e.target.files)}
       />
@@ -142,10 +167,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       </div>
 
       <h3 className="relative font-serif text-xl sm:text-2xl font-bold text-text-primary mb-1.5 text-center tracking-tight">
-        {label}
+        {effectiveLabel}
       </h3>
       <p className="relative text-text-secondary text-center max-w-sm mb-4 text-xs sm:text-sm leading-relaxed">
-        {description}
+        {effectiveDescription}
       </p>
       <p className="relative text-[11px] text-text-secondary mb-5">
         Batas ukuran berkas:{" "}

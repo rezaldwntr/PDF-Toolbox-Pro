@@ -27,14 +27,17 @@ router = APIRouter(tags=["Tools - Privacy & PDP"])
 # Pola Regex Berbasis Regulasi Indonesia (UU PDP, UU Adminduk, PMK NPWP, POJK)
 PATTERNS = {
     # 1. Identitas Kependudukan (UU Adminduk & UU PDP Pasal 4 Ayat 3)
-    "nik": re.compile(r"\b(1[1-9]|21|[37][1-6]|5[1-3]|6[1-5]|[89][12])\d{2}\d{2}([04][1-9]|[1256][0-9]|[37][01])(0[1-9]|1[0-2])\d{2}\d{4}\b"),
+    # Menggunakan non-capturing group (?:...) agar findall() mengembalikan string 16 digit penuh, bukan tuple potongan 2 digit
+    "nik": re.compile(r"\b(?:1[1-9]|21|[37][1-6]|5[1-3]|6[1-5]|[89][12])\d{2}\d{2}(?:[04][1-9]|[1256][0-9]|[37][01])(?:0[1-9]|1[0-2])\d{2}\d{4}\b"),
     "id_general": re.compile(r"\b\d{16}\b"),
     "paspor": re.compile(r"\b[A-Za-z]\d{7}\b"),
     "sim": re.compile(r"\b\d{12}\b"),
     
     # 2. Finansial & Pajak (PMK 112/2022 & POJK 22/2023)
     "npwp_dots": re.compile(r"\b\d{2}\.\d{3}\.\d{3}\.\d{1}-\d{3}\.\d{3}\b"),
-    "card": re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b"),
+    "npwp_labeled": re.compile(r"(?i)(?:npwp\s*[:.\-]?\s*)(\d{15,16})\b"),
+    # Kartu kredit/debit wajib memiliki pemisah spasi/strip antar 4 digit agar tidak salah mendeteksi NIK 16 digit di KTP sebagai NPWP/Bank
+    "card": re.compile(r"\b(?:\d{4}[ -]){3}\d{4}\b"),
     
     # 3. Kontak & Komunikasi (UU PDP Pasal 4 Ayat 3)
     "phone": re.compile(r"\b(?:\+?62|0)8[1-9]\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{3,5}\b"),
@@ -53,7 +56,7 @@ def _collect_target_strings(
     redact_health: bool,
     custom_keywords: List[str]
 ) -> Dict[str, List[str]]:
-    """Mengumpulkan seluruh string teks sensitif pada halaman berdasarkan kategori aktif."""
+    """Mengumpulkan seluruh string teks sensitif pada halaman berdasarkan kategori aktif tanpa tumpang-tindih."""
     collected: Dict[str, List[str]] = {
         "id": [],
         "financial": [],
@@ -61,35 +64,63 @@ def _collect_target_strings(
         "health": [],
         "custom": []
     }
+    seen_tokens = set()
+
+    # Identifikasi semua NIK di halaman terlebih dahulu agar tidak pernah salah diklasifikasikan sebagai NPWP/Kartu
+    known_niks = set(PATTERNS["nik"].findall(page_text))
 
     if redact_id:
-        niks = PATTERNS["nik"].findall(page_text)
-        nik_strs = [m[0] if isinstance(m, tuple) else m for m in niks]
         other_ids = PATTERNS["id_general"].findall(page_text)
         paspors = PATTERNS["paspor"].findall(page_text)
         sims = PATTERNS["sim"].findall(page_text)
-        collected["id"].extend(set(nik_strs + other_ids + paspors + sims))
+        for token in sorted(set(list(known_niks) + other_ids + paspors + sims), key=len, reverse=True):
+            if token and token not in seen_tokens:
+                collected["id"].append(token)
+                seen_tokens.add(token)
 
     if redact_financial:
         npwps = PATTERNS["npwp_dots"].findall(page_text)
+        npwp_labeled = PATTERNS["npwp_labeled"].findall(page_text)
         cards = PATTERNS["card"].findall(page_text)
-        collected["financial"].extend(set(npwps + cards))
+        for token in sorted(set(npwps + npwp_labeled + cards), key=len, reverse=True):
+            # Jangan masukkan ke kategori finansial jika token sudah terdeteksi sebagai NIK/ID
+            if token and token not in seen_tokens and token not in known_niks:
+                collected["financial"].append(token)
+                seen_tokens.add(token)
 
     if redact_contact:
         phones = PATTERNS["phone"].findall(page_text)
         emails = PATTERNS["email"].findall(page_text)
-        collected["contact"].extend(set(phones + emails))
+        for token in sorted(set(phones + emails), key=len, reverse=True):
+            if token and token not in seen_tokens:
+                collected["contact"].append(token)
+                seen_tokens.add(token)
 
     if redact_health:
         bpjs_matches = PATTERNS["bpjs"].findall(page_text)
-        collected["health"].extend(set(bpjs_matches))
+        for token in sorted(set(bpjs_matches), key=len, reverse=True):
+            if token and token not in seen_tokens:
+                collected["health"].append(token)
+                seen_tokens.add(token)
 
     if custom_keywords:
         for kw in custom_keywords:
-            if kw and kw.lower() in page_text.lower():
+            if kw and kw not in seen_tokens and kw.lower() in page_text.lower():
                 collected["custom"].append(kw)
+                seen_tokens.add(kw)
 
     return collected
+
+
+def _is_overlapping_rect(rect: fitz.Rect, existing_rects: List[fitz.Rect]) -> bool:
+    """Mengecek apakah kotak sensor berhimpitan/tumpang-tindih dengan kotak yang sudah dihitung."""
+    for ex in existing_rects:
+        if rect.intersects(ex):
+            inter = rect & ex
+            min_area = min(rect.get_area(), ex.get_area())
+            if min_area > 0 and (inter.get_area() / min_area) > 0.5:
+                return True
+    return False
 
 
 def _apply_redactions_to_page(
@@ -101,9 +132,10 @@ def _apply_redactions_to_page(
 ) -> Dict[str, int]:
     """Membubuhkan dan membakar True Binary Redactions pada sebuah lembar PDF."""
     counts = {"id": 0, "financial": 0, "contact": 0, "health": 0, "custom": 0}
+    applied_rects: List[fitz.Rect] = []
 
     for cat, strings in targets.items():
-        for s in set(strings):
+        for s in strings:
             if not s:
                 continue
             rects = page.search_for(s)
@@ -116,10 +148,13 @@ def _apply_redactions_to_page(
                     fontsize=7,
                     align=fitz.TEXT_ALIGN_CENTER
                 )
-                counts[cat] += 1
+                if not _is_overlapping_rect(r, applied_rects):
+                    applied_rects.append(r)
+                    counts[cat] += 1
 
     # Eksekusi True Binary Redaction (Hapus data vektor dan gambar secara permanen)
-    page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
+    if applied_rects:
+        page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
     return counts
 
 
@@ -135,47 +170,60 @@ def sanitize_and_redact_pdf(
 ) -> Tuple[bytes, Dict[str, int]]:
     """Proses utama True Binary Redaction dan sanitasi metadata dokumen."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    fill_rgb = hex_to_rgb(redact_color_hex)
+    try:
+        fill_rgb = hex_to_rgb(redact_color_hex)
 
-    # Warna teks label: putih untuk background gelap, hitam untuk background terang
-    luminance = 0.299 * fill_rgb[0] + 0.587 * fill_rgb[1] + 0.114 * fill_rgb[2]
-    text_rgb = (1.0, 1.0, 1.0) if luminance < 0.6 else (0.0, 0.0, 0.0)
+        # Warna teks label: putih untuk background gelap, hitam untuk background terang
+        luminance = 0.299 * fill_rgb[0] + 0.587 * fill_rgb[1] + 0.114 * fill_rgb[2]
+        text_rgb = (1.0, 1.0, 1.0) if luminance < 0.6 else (0.0, 0.0, 0.0)
 
-    total_counts = {"id": 0, "financial": 0, "contact": 0, "health": 0, "custom": 0}
+        total_counts = {"id": 0, "financial": 0, "contact": 0, "health": 0, "custom": 0}
 
-    for page in doc:
-        page_text = page.get_text() or ""
-        if not page_text.strip():
-            continue
+        for page in doc:
+            page_text = page.get_text() or ""
+            if not page_text.strip():
+                continue
 
-        targets = _collect_target_strings(
-            page_text,
-            redact_id,
-            redact_financial,
-            redact_contact,
-            redact_health,
-            custom_keywords
-        )
+            targets = _collect_target_strings(
+                page_text,
+                redact_id,
+                redact_financial,
+                redact_contact,
+                redact_health,
+                custom_keywords
+            )
 
-        page_counts = _apply_redactions_to_page(page, targets, fill_rgb, redact_label, text_rgb)
-        for k in total_counts:
-            total_counts[k] += page_counts[k]
+            page_counts = _apply_redactions_to_page(page, targets, fill_rgb, redact_label, text_rgb)
+            for k in total_counts:
+                total_counts[k] += page_counts[k]
 
-    # Kepatuhan UU PDP Pasal 39: Hapus metadata dokumen (Author, Creator, Producer)
-    doc.set_metadata({
-        "author": "",
-        "creator": "PDF Toolbox Pro - Privacy Shield",
-        "producer": "PyMuPDF True Redaction Engine",
-        "title": "Dokumen Terlindungi UU PDP",
-        "subject": "Redacted Document",
-        "keywords": "UU PDP 27/2022, True Redaction"
-    })
+        # Kepatuhan UU PDP Pasal 39: Hapus metadata dokumen (Author, Creator, Producer)
+        doc.set_metadata({
+            "author": "",
+            "creator": "PDF Toolbox Pro - Privacy Shield",
+            "producer": "PyMuPDF True Redaction Engine",
+            "title": "Dokumen Terlindungi UU PDP",
+            "subject": "Redacted Document",
+            "keywords": "UU PDP 27/2022, True Redaction"
+        })
 
-    # Simpan dengan pembersihan total stream biner mati (garbage=4)
-    output_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
-    doc.close()
+        # Simpan dengan pembersihan total stream biner mati (garbage=4)
+        output_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
 
-    return output_bytes, total_counts
+        # Cegah pembengkakan ukuran ekstrem akibat konversi piksel gambar JPEG ke Flate/PNG mentah
+        if len(output_bytes) > len(pdf_bytes) * 1.5 and hasattr(doc, "rewrite_images"):
+            try:
+                doc.rewrite_images(dpi_threshold=250, dpi_target=150, quality=82, lossy=True, lossless=True)
+                compressed_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
+                if len(compressed_bytes) < len(output_bytes):
+                    output_bytes = compressed_bytes
+            except Exception as rw_err:
+                logging.warning(f"Optimasi gambar pasca-redaksi dilewati: {rw_err}")
+
+        return output_bytes, total_counts
+    finally:
+        if doc and not doc.is_closed:
+            doc.close()
 
 
 @router.post("/redact-pdf")
