@@ -115,10 +115,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const dismissGoogleOneTap = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.google?.accounts?.id?.cancel?.();
+      } catch {
+        // Abaikan jika script GIS belum siap
+      }
+      const pickerContainer = document.getElementById('credential_picker_container');
+      if (pickerContainer) {
+        pickerContainer.remove();
+      }
+    }
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        dismissGoogleOneTap();
         const profile = await mapSupabaseUser(session.user);
         setUser(profile);
       } else {
@@ -127,38 +142,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       setUser(null);
     }
-  }, []);
+  }, [dismissGoogleOneTap]);
 
   useEffect(() => {
     // Cek session aktif saat pertama kali mount
     const initAuth = async () => {
       setIsLoading(true);
-      await refreshUser();
-      setIsLoading(false);
+      try {
+        await refreshUser();
+      } finally {
+        setIsLoading(false);
+      }
     };
     initAuth();
 
     // Subscribe ke perubahan auth state (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
+        dismissGoogleOneTap();
         const profile = await mapSupabaseUser(session.user);
         setUser(profile);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        const profile = await mapSupabaseUser(session.user);
-        setUser(profile);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [refreshUser]);
+  }, [refreshUser, dismissGoogleOneTap]);
 
-  // Inisialisasi Google Identity Services (GIS) untuk login langsung via domain pdftoolbox.app
+  // Inisialisasi Google Identity Services (GIS) khusus untuk pengguna tamu (belum login)
   useEffect(() => {
-    if (user) return; // Jika sudah login, tidak perlu inisialisasi One Tap
+    // Jika masih mengecek session awal atau user sudah login, batalkan dan jangan tampilkan One Tap
+    if (isLoading || user) {
+      dismissGoogleOneTap();
+      return;
+    }
 
-    const initGoogleGsi = () => {
+    let isCancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const initGoogleGsi = async () => {
+      if (isCancelled) return;
+
+      // Jangan tampilkan One Tap jika sedang memproses callback OAuth di URL
+      if (
+        typeof window !== 'undefined' &&
+        (window.location.hash.includes('access_token=') || window.location.search.includes('code='))
+      ) {
+        return;
+      }
+
+      // Pastikan sekali lagi ke Supabase bahwa tidak ada sesi aktif sebelum memunculkan popup
+      const { data: { session } } = await supabase.auth.getSession();
+      if (isCancelled || session?.user) {
+        dismissGoogleOneTap();
+        return;
+      }
+
       if (typeof window !== 'undefined' && window.google?.accounts?.id && GOOGLE_CLIENT_ID) {
         try {
           window.google.accounts.id.initialize({
@@ -179,6 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       options: { redirectTo: window.location.origin },
                     });
                   } else if (data?.user) {
+                    dismissGoogleOneTap();
                     const profile = await mapSupabaseUser(data.user);
                     setUser(profile);
                   }
@@ -193,8 +234,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cancel_on_tap_outside: true,
           });
 
-          // Tampilkan Google One Tap di pdftoolbox.app secara otomatis untuk pengguna tamu
-          window.google.accounts.id.prompt();
+          if (!isCancelled) {
+            // Tampilkan Google One Tap di pdftoolbox.app hanya jika benar-benar pengguna tamu
+            window.google.accounts.id.prompt();
+          }
         } catch (e) {
           console.warn('[GIS] Inisialisasi gagal:', e);
         }
@@ -204,15 +247,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (window.google?.accounts?.id) {
       initGoogleGsi();
     } else {
-      const interval = setInterval(() => {
+      intervalId = setInterval(() => {
         if (window.google?.accounts?.id) {
-          clearInterval(interval);
+          if (intervalId) clearInterval(intervalId);
+          intervalId = null;
           initGoogleGsi();
         }
       }, 500);
-      return () => clearInterval(interval);
     }
-  }, [user]);
+
+    return () => {
+      isCancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      dismissGoogleOneTap();
+    };
+  }, [user, isLoading, dismissGoogleOneTap]);
 
   const signInWithGoogle = useCallback(async () => {
     // 1. Coba tampilkan prompt Google Identity Services (One Tap/Account Picker langsung di domain pdftoolbox.app)
