@@ -1,10 +1,11 @@
 // frontend/lib/userFileHistory.ts
 import { supabase } from './supabase';
-import { getOrCreateSessionId } from './telemetry';
+import { getOrCreateSessionId, getLastExecutionId } from './telemetry';
 import type { UserTier } from '../types';
 
 export interface UserHistoryItem {
   id: string;
+  executionId?: string;
   userId: string | null;
   userEmail: string | null;
   userTier?: UserTier;
@@ -26,8 +27,18 @@ const DB_VERSION = 1;
 const STORE_NAME = 'recent_files';
 const MAX_STORED_BLOBS = 25;
 
+let lastSavedExecutionId = '';
 let lastSavedSignature = '';
 let lastSavedAt = 0;
+
+/**
+ * Normalisasi nama berkas untuk mendeteksi duplikasi akibat timestamp dinamis (misal merged-1791872141594.pdf)
+ */
+function normalizeFileKey(fileName: string): string {
+  return (fileName || '')
+    .toLowerCase()
+    .replace(/-\d{10,15}(?=\.[a-z0-9]+$)/i, '');
+}
 
 /**
  * Mengembalikan durasi aktif tautan unduh (dalam jam) sesuai paket (tier) pengguna:
@@ -106,11 +117,18 @@ export async function saveUserFileHistory(params: {
 }): Promise<void> {
   try {
     const now = Date.now();
-    const sig = `${params.fileName}_${params.outputBytes}_${params.toolName}`;
-    if (sig === lastSavedSignature && now - lastSavedAt < 5000) {
-      return; // Cegah duplikasi penyimpanan saat re-render
+    const executionId = getLastExecutionId();
+    const normKey = `${normalizeFileKey(params.fileName)}_${params.outputBytes}_${params.toolName.toLowerCase()}`;
+
+    // Cegah duplikasi jika berasal dari siklus eksekusi alat yang sama atau tanda tangan berkas identik dalam 60 detik
+    if (
+      (executionId && executionId === lastSavedExecutionId) ||
+      (normKey === lastSavedSignature && now - lastSavedAt < 60_000)
+    ) {
+      return;
     }
-    lastSavedSignature = sig;
+    lastSavedExecutionId = executionId;
+    lastSavedSignature = normKey;
     lastSavedAt = now;
 
     let effectiveUserId = params.userId || null;
@@ -158,6 +176,7 @@ export async function saveUserFileHistory(params: {
     const db = await openHistoryDb();
     const item: UserHistoryItem = {
       id: `hist_${now}_${Math.random().toString(36).substring(2, 8)}`,
+      executionId,
       userId: effectiveUserId,
       userEmail: effectiveUserEmail,
       userTier: effectiveTier,
@@ -167,7 +186,7 @@ export async function saveUserFileHistory(params: {
       toolName: params.toolName,
       inputBytes: params.inputBytes || params.blob.size,
       outputBytes: params.outputBytes || params.blob.size,
-      durationMs: params.durationMs || 850,
+      durationMs: params.durationMs || 780,
       createdAt: new Date(now).toISOString(),
       expiresAt: now + retentionMs,
       hasBlobAvailable: canRetainBlob,
@@ -182,7 +201,7 @@ export async function saveUserFileHistory(params: {
       tx.onerror = () => reject(tx.error);
     });
 
-    await pruneExpiredBlobs(db);
+    await pruneAndDeduplicateHistory(db);
     db.close();
   } catch (err) {
     console.debug('[UserFileHistory] Gagal menyimpan riwayat berkas:', err);
@@ -190,10 +209,10 @@ export async function saveUserFileHistory(params: {
 }
 
 /**
- * Menghapus Blob dari item yang sudah melewati batas waktu retensi paketnya,
- * namun tetap mempertahankan metadata riwayatnya.
+ * Membersihkan Blob yang sudah kedaluwarsa SERTA menghapus duplikat riwayat lokal
+ * yang disebabkan oleh re-render (memiliki toolName, inputBytes, outputBytes, dan pola nama berkas yang sama dalam rentang 5 menit).
  */
-async function pruneExpiredBlobs(db: IDBDatabase): Promise<void> {
+async function pruneAndDeduplicateHistory(db: IDBDatabase): Promise<void> {
   return new Promise((resolve) => {
     try {
       const now = Date.now();
@@ -201,10 +220,48 @@ async function pruneExpiredBlobs(db: IDBDatabase): Promise<void> {
       const store = tx.objectStore(STORE_NAME);
       const req = store.getAll();
       req.onsuccess = () => {
-        const all: UserHistoryItem[] = (req.result || []).sort(
+        // Urutkan dari yang paling awal dibuat (ascending) agar record asli pertama (yang sesuai log Admin) dipertahankan
+        const chronological: UserHistoryItem[] = (req.result || []).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+
+        const keptItems: UserHistoryItem[] = [];
+        for (const entry of chronological) {
+          const entryTime = new Date(entry.createdAt).getTime();
+          const entryNormFile = normalizeFileKey(entry.fileName);
+          const entryTool = (entry.toolName || '').toLowerCase().trim();
+
+          const duplicateOfExisting = keptItems.find((kept) => {
+            if (entry.executionId && kept.executionId && entry.executionId === kept.executionId) {
+              return true;
+            }
+            const keptTime = new Date(kept.createdAt).getTime();
+            const sameTool = (kept.toolName || '').toLowerCase().trim() === entryTool;
+            const sameSize =
+              kept.inputBytes === entry.inputBytes && kept.outputBytes === entry.outputBytes;
+            const sameBaseFile = normalizeFileKey(kept.fileName) === entryNormFile;
+            const withinWindow = Math.abs(entryTime - keptTime) < 5 * 60 * 1000; // 5 menit
+            return sameTool && sameSize && sameBaseFile && withinWindow;
+          });
+
+          if (duplicateOfExisting) {
+            // Jika entry duplikat memiliki blob yang masih valid sedangkan yang lama tidak, pindahkan blob-nya lalu hapus duplikatnya
+            if (entry.blob && !duplicateOfExisting.blob) {
+              duplicateOfExisting.blob = entry.blob;
+              duplicateOfExisting.hasBlobAvailable = true;
+              store.put(duplicateOfExisting);
+            }
+            store.delete(entry.id);
+          } else {
+            keptItems.push(entry);
+          }
+        }
+
+        // Urutkan dari terbaru ke terlama untuk pengecekan batas jumlah blob & kedaluwarsa
+        const newestFirst = keptItems.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        all.forEach((entry, idx) => {
+        newestFirst.forEach((entry, idx) => {
           const isExpired = now > entry.expiresAt || idx >= MAX_STORED_BLOBS;
           if (isExpired && entry.blob) {
             store.put({
@@ -225,7 +282,7 @@ async function pruneExpiredBlobs(db: IDBDatabase): Promise<void> {
 
 /**
  * Mengambil daftar riwayat pemrosesan dokumen milik pengguna saat ini
- * (gabungan dari IndexedDB lokal yang memiliki link unduhan aktif sesuai paket + riwayat Supabase).
+ * (gabungan yang disinkronkan 1:1 antara riwayat Supabase/Admin dan Blob lokal di IndexedDB).
  */
 export async function getUserFileHistory(
   userId?: string | null,
@@ -240,7 +297,7 @@ export async function getUserFileHistory(
 
   try {
     const db = await openHistoryDb();
-    await pruneExpiredBlobs(db);
+    await pruneAndDeduplicateHistory(db);
 
     const rawItems: UserHistoryItem[] = await new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
@@ -259,7 +316,6 @@ export async function getUserFileHistory(
 
       if (matchesUser) {
         const createdMs = new Date(item.createdAt).getTime();
-        // Sesuaikan batas waktu kedaluwarsa dengan paket aktif pengguna saat ini
         const effectiveRetentionMs =
           currentTier !== undefined && currentTier !== null
             ? tierRetentionMs
@@ -287,7 +343,7 @@ export async function getUserFileHistory(
     // Abaikan jika IndexedDB tidak dapat diakses
   }
 
-  // Ambil juga riwayat dari tabel tool_usages di Supabase jika user login
+  // Sinkronkan dengan riwayat tabel tool_usages di Supabase (sumber kebenaran yang sama dengan Admin Dashboard)
   if (supabase && (userId || userEmail)) {
     try {
       let query = supabase
@@ -307,12 +363,6 @@ export async function getUserFileHistory(
       if (data && Array.isArray(data)) {
         for (const row of data) {
           const rowTime = new Date(row.created_at).getTime();
-          // Cek apakah sudah ada di localItems (toleransi waktu 15 detik)
-          const alreadyInLocal = localItems.some(
-            (loc) => Math.abs(new Date(loc.createdAt).getTime() - rowTime) < 15000
-          );
-          if (alreadyInLocal) continue;
-
           let meta: any = null;
           if (typeof row.error_message === 'string' && row.error_message.trim().startsWith('{')) {
             try {
@@ -324,11 +374,25 @@ export async function getUserFileHistory(
 
           const inBytes = Number(meta?.input_bytes || row.file_size_bytes || 0);
           const outBytes = Number(meta?.output_bytes || row.output_size_bytes || inBytes || 0);
-          const durMs = Number(meta?.duration_ms || row.duration_ms || 850);
+          const durMs = Number(meta?.duration_ms || row.duration_ms || 780);
           const fName = meta?.file_name || `${row.tool_name || 'dokumen'}.pdf`;
 
+          // Cari apakah sudah ada item lokal yang cocok dengan eksekusi ini
+          const matchingLocal = localItems.find(
+            (loc) =>
+              Math.abs(new Date(loc.createdAt).getTime() - rowTime) < 120_000 &&
+              (loc.inputBytes === inBytes || normalizeFileKey(loc.fileName) === normalizeFileKey(fName))
+          );
+
+          if (matchingLocal) {
+            // Selaraskan nama berkas dan durasi proses dengan yang tercatat di Admin Telemetry
+            matchingLocal.fileName = fName || matchingLocal.fileName;
+            matchingLocal.durationMs = durMs || matchingLocal.durationMs;
+            continue;
+          }
+
           localItems.push({
-            id: String(row.id),
+            id: `remote-${row.id}`,
             userId: row.user_id || userId || null,
             userEmail: row.user_email || userEmail || null,
             userTier: currentTier || 'free',

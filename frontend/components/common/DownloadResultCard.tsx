@@ -71,10 +71,20 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     customSuccessMessage ||
     'Dokumen Anda berhasil diproses dengan presisi tinggi.';
 
+  // Kunci nama berkas pertama untuk URL ini agar re-render komponen induk tidak mengubah nama file
+  const lockedUrlRef = useRef<string>('');
+  const lockedFileNameRef = useRef<string>(fileName);
+  if (effectiveUrl && lockedUrlRef.current !== effectiveUrl) {
+    lockedUrlRef.current = effectiveUrl;
+    lockedFileNameRef.current = fileName;
+  }
+  const stableFileName = lockedFileNameRef.current || fileName;
+
   // Countdown Timer sesuai paket aktif user (Flash: 6 jam, Monthly: 24 jam, Annual: 48 jam, Gratis: 0 jam)
   const [secondsRemaining, setSecondsRemaining] = useState(() => retentionHours * 3600);
   const [handoffLoadingId, setHandoffLoadingId] = useState<string | null>(null);
   const [detectedResultSize, setDetectedResultSize] = useState<number>(0);
+  const hasSavedHistoryRef = useRef<string>('');
 
   useEffect(() => {
     setSecondsRemaining(retentionHours * 3600);
@@ -83,41 +93,45 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   const effectiveOrigSize = originalSize || getTelemetryInputSize() || 0;
   const effectiveResultSize = resultSize || detectedResultSize || 0;
 
-  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri + simpan ke Riwayat Profil Pengguna sesuai masa aktif paket
+  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri + simpan ke Riwayat Profil Pengguna tepat 1 kali per eksekusi
   useEffect(() => {
+    if (!effectiveUrl || hasSavedHistoryRef.current === effectiveUrl) {
+      return;
+    }
+    hasSavedHistoryRef.current = effectiveUrl;
+
     if (originalSize && originalSize > 0) {
       setTelemetryInputSize(originalSize);
     }
     if (resultSize && resultSize > 0) {
-      setTelemetryOutputSize(resultSize, fileName, isLocalRam);
+      setTelemetryOutputSize(resultSize, stableFileName, isLocalRam);
     }
-    if (effectiveUrl) {
-      fetch(effectiveUrl)
-        .then((res) => res.blob())
-        .then((blob) => {
-          if (blob && blob.size > 0) {
-            if (!resultSize || resultSize <= 0) {
-              setDetectedResultSize(blob.size);
-            }
-            setTelemetryOutputSize(blob.size, fileName, isLocalRam);
-            void saveUserFileHistory({
-              fileName,
-              toolName: getLastRecordedToolName() || effectiveTitle,
-              inputBytes: originalSize || getTelemetryInputSize() || blob.size,
-              outputBytes: resultSize || blob.size,
-              durationMs: getTelemetryDurationMs() || 920,
-              blob,
-              userId: user?.id || null,
-              userEmail: user?.email || null,
-              userTier,
-            });
+
+    fetch(effectiveUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        if (blob && blob.size > 0) {
+          if (!resultSize || resultSize <= 0) {
+            setDetectedResultSize(blob.size);
           }
-        })
-        .catch(() => {
-          // ignore
-        });
-    }
-  }, [originalSize, resultSize, effectiveUrl, fileName, isLocalRam, effectiveTitle, user?.id, user?.email, userTier]);
+          setTelemetryOutputSize(blob.size, stableFileName, isLocalRam);
+          void saveUserFileHistory({
+            fileName: stableFileName,
+            toolName: getLastRecordedToolName() || effectiveTitle,
+            inputBytes: originalSize || getTelemetryInputSize() || blob.size,
+            outputBytes: resultSize || blob.size,
+            durationMs: getTelemetryDurationMs() || 780,
+            blob,
+            userId: user?.id || null,
+            userEmail: user?.email || null,
+            userTier,
+          });
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, [originalSize, resultSize, effectiveUrl, stableFileName, isLocalRam, effectiveTitle, user?.id, user?.email, userTier]);
 
   useEffect(() => {
     if (retentionHours <= 0) return;

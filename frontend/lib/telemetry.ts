@@ -39,8 +39,10 @@ export interface RecordUsageParams {
 let activeInputSizeBytes = 0;
 let activeOutputSizeBytes = 0;
 let activeProcessStartMs = 0;
+let lastCapturedDurationMs = 0;
 let activeOutputFileName = '';
 let activeIsLocalRam = false;
+let lastExecutionId = '';
 let pendingFlushTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingUsageRecord: RecordUsageParams | null = null;
 
@@ -59,6 +61,7 @@ export const getTelemetryInputSize = (): number => activeInputSizeBytes;
 export const markTelemetryProcessStart = (): void => {
   activeProcessStartMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
   activeOutputSizeBytes = 0;
+  lastExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 };
 
 /** Menandai waktu mulai hanya jika belum diset pada siklus saat ini */
@@ -68,11 +71,19 @@ export const markTelemetryProcessStartIfUnset = (): void => {
   }
 };
 
-/** Mengambil durasi pemrosesan dalam milidetik sejak proses dimulai */
+/** Mengambil durasi pemrosesan dalam milidetik sejak proses dimulai (atau durasi terakhir yang ditangkap) */
 export const getTelemetryDurationMs = (): number => {
-  if (!activeProcessStartMs) return 0;
+  if (!activeProcessStartMs) return lastCapturedDurationMs;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
   return Math.max(50, Math.round(now - activeProcessStartMs));
+};
+
+/** Mengambil ID unik dari siklus eksekusi alat terakhir untuk mencegah duplikasi di riwayat profil */
+export const getLastExecutionId = (): string => {
+  if (!lastExecutionId) {
+    lastExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  }
+  return lastExecutionId;
 };
 
 /**
@@ -130,7 +141,11 @@ export const scheduleToolUsageLog = (params: RecordUsageParams): void => {
   }
   lastRecordedToolName = params.toolName || 'Alat PDF';
   const capturedDuration = params.durationMs || getTelemetryDurationMs() || 850;
+  lastCapturedDurationMs = capturedDuration;
   activeProcessStartMs = 0;
+  if (!lastExecutionId) {
+    lastExecutionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  }
 
   pendingUsageRecord = {
     ...params,

@@ -27,6 +27,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
   const [isMerging, setIsMerging] = useState(false);
   const [mergeStatusText, setMergeStatusText] = useState<string>('');
   const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
+  const [mergedFileName, setMergedFileName] = useState<string>('merged.pdf');
   const fileInputRef = useRef<HTMLInputElement>(null); // Kept for "Tambah File" button logic
   const { addToast } = useToast();
 
@@ -196,6 +197,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       try {
         const mergedPdfBytes = await mergeDocuments(files.map((item) => item.buffer));
         const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+        setMergedFileName(`merged-${Date.now()}.pdf`);
         setMergedPdfUrl(URL.createObjectURL(blob));
         consumeQuota();
         addToast('PDF berhasil digabungkan secara instan di browser!', 'success');
@@ -232,6 +234,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
       }
 
       const blob = await response.blob();
+      setMergedFileName(`merged-${Date.now()}.pdf`);
       setMergedPdfUrl(URL.createObjectURL(blob));
       consumeQuota();
       addToast('PDF berhasil digabungkan di server!', 'success');
@@ -275,7 +278,7 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     return (
       <ToolContainer title="PDF Berhasil Digabungkan!" onBack={onBack} currentStep={3}>
         <DownloadResultCard
-          fileName={`merged-${Date.now()}.pdf`}
+          fileName={mergedFileName}
           downloadUrl={mergedPdfUrl}
           originalSize={totalSize}
           resultSize={totalSize}
