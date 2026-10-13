@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import { UploadIcon } from "../icons";
 import { useQuota } from "../../contexts/QuotaContext";
 import { useToast } from "../../contexts/ToastContext";
-import { pickFileFromGoogleDrive, pickFileFromDropbox } from "../../lib/cloudStorage";
+import { pickFileFromGoogleDrive } from "../../lib/cloudStorage";
 import { consumePendingHandoffFile } from "../../lib/pipelineHandoff";
 import { setTelemetryInputSize } from "../../lib/telemetry";
 
@@ -68,27 +68,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       }
     } catch (err: any) {
       addToast(err.message || 'Gagal memilih berkas dari Google Drive.', 'error');
-    } finally {
-      setIsLoadingCloud(false);
-      setCloudMsg('');
-    }
-  };
-
-  const handlePickDropbox = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsLoadingCloud(true);
-    setCloudMsg('Menghubungkan ke Dropbox...');
-    try {
-      const file = await pickFileFromDropbox();
-      if (checkFileSizeLimit(file.size)) {
-        setTelemetryInputSize(file.size);
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        onFileSelect(dt.files);
-        addToast(`Berkas ${file.name} berhasil diimpor dari Dropbox!`, 'success');
-      }
-    } catch (err: any) {
-      addToast(err.message || 'Gagal memilih berkas dari Dropbox.', 'error');
     } finally {
       setIsLoadingCloud(false);
       setCloudMsg('');
@@ -194,7 +173,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         Pilih File {multiple && "(Multi)"}
       </button>
 
-      {/* Baris Tombol Cloud Storage (Google Drive & Dropbox) */}
+      {/* Baris Tombol Cloud Storage (Google Drive) */}
       <div 
         onClick={(e) => e.stopPropagation()} 
         className="relative mt-6 pt-5 border-t border-border-subtle flex flex-col items-center gap-2.5 w-full max-w-xs"
@@ -209,11 +188,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             <span>{cloudMsg}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 w-full">
+          <div className="flex items-center justify-center w-full">
             <button
               type="button"
               onClick={handlePickGoogleDrive}
-              className="flex-1 min-h-[38px] px-3.5 py-1.5 rounded-full bg-surface hover:bg-elevated border border-border-subtle text-text-primary font-medium text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              className="w-full min-h-[38px] px-4 py-1.5 rounded-full bg-surface hover:bg-elevated border border-border-subtle text-text-primary font-medium text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer"
               title="Pilih dokumen PDF dari Google Drive Anda"
             >
               <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
@@ -222,19 +201,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
                 <path fill="#FBBC05" d="M6.4 14.2c-.2-.7-.3-1.4-.3-2.2s.1-1.5.3-2.2V6.9H2.6C1.9 8.3 1.5 10.1 1.5 12s.4 3.7 1.1 5.1l3.8-2.9z"/>
                 <path fill="#EA4335" d="M12 5.3c1.6 0 3 .5 4.1 1.6l3.1-3.1C17.3 2 14.9 1.3 12 1.3 7.9 1.3 4.4 3.7 2.6 7l3.8 2.9c.8-2.4 3-4.6 5.6-4.6z"/>
               </svg>
-              <span>Drive</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePickDropbox}
-              className="flex-1 min-h-[38px] px-3.5 py-1.5 rounded-full bg-surface hover:bg-elevated border border-border-subtle text-text-primary font-medium text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-95 cursor-pointer"
-              title="Pilih dokumen PDF dari Dropbox Anda"
-            >
-              <svg className="w-3.5 h-3.5 shrink-0 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 3.5L0 8.25l6 4.75 6-4.75L6 3.5zm12 0l-6 4.75 6 4.75 6-4.75-6-4.75zM0 17.75l6 4.75 6-4.75-6-4.75-6 4.75zm24 0l-6-4.75-6 4.75 6 4.75 6-4.75zM12 18.5l-6-4.75-6 4.75L6 23.25l6-4.75 6 4.75 6-4.75-6-4.75-6 4.75z"/>
-              </svg>
-              <span>Dropbox</span>
+              <span>Google Drive</span>
             </button>
           </div>
         )}

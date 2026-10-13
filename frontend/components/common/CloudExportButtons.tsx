@@ -1,8 +1,8 @@
 // frontend/components/common/CloudExportButtons.tsx
 import React, { useState } from 'react';
-import { ExternalLink, Check, Cloud, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Cloud, ShieldCheck } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
-import { saveFileToGoogleDrive, saveFileToDropbox } from '../../lib/cloudStorage';
+import { saveFileToGoogleDrive } from '../../lib/cloudStorage';
 
 interface CloudExportButtonsProps {
   fileUrl: string;
@@ -19,7 +19,6 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
 }) => {
   const { addToast } = useToast();
   const [isSavingGDrive, setIsSavingGDrive] = useState(false);
-  const [isSavingDropbox, setIsSavingDropbox] = useState(false);
   const [gDriveLink, setGDriveLink] = useState<string | null>(null);
 
   const getBlob = async (): Promise<Blob> => {
@@ -44,22 +43,8 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
     }
   };
 
-  const handleSaveToDropbox = async () => {
-    setIsSavingDropbox(true);
-    try {
-      const result = await saveFileToDropbox(fileUrl, fileName);
-      if (result.success) {
-        addToast(result.message, 'success');
-      }
-    } catch (err: any) {
-      addToast(err.message || 'Gagal menyimpan ke Dropbox.', 'error');
-    } finally {
-      setIsSavingDropbox(false);
-    }
-  };
-
   return (
-    <div className={`flex flex-col items-center gap-3 w-full max-w-md ${className}`}>
+    <div className={`flex flex-col items-center gap-3 w-full max-w-md mx-auto ${className}`}>
       <div className="flex items-center gap-2 w-full text-text-secondary text-xs font-semibold my-1">
         <div className="h-px bg-border-subtle flex-1" />
         <span className="flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
@@ -69,13 +54,13 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
         <div className="h-px bg-border-subtle flex-1" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+      <div className="w-full">
         {/* Tombol Google Drive */}
         <button
           type="button"
           onClick={handleSaveToGoogleDrive}
-          disabled={isSavingGDrive || isSavingDropbox}
-          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-border-subtle hover:border-accent-primary bg-surface text-text-primary font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
+          disabled={isSavingGDrive}
+          className="w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-border-subtle hover:border-accent-primary bg-surface text-text-primary font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           {isSavingGDrive ? (
             <svg className="animate-spin h-4 w-4 text-accent-primary" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -87,24 +72,7 @@ const CloudExportButtons: React.FC<CloudExportButtonsProps> = ({
               <path fill="#EA4335" d="M12 5.3c1.6 0 3 .5 4.1 1.6l3.1-3.1C17.3 2 14.9 1.3 12 1.3 7.9 1.3 4.4 3.7 2.6 7l3.8 2.9c.8-2.4 3-4.6 5.6-4.6z"/>
             </svg>
           )}
-          <span>{isSavingGDrive ? 'Menyimpan...' : 'Google Drive'}</span>
-        </button>
-
-        {/* Tombol Dropbox */}
-        <button
-          type="button"
-          onClick={handleSaveToDropbox}
-          disabled={isSavingGDrive || isSavingDropbox}
-          className="min-h-[44px] px-4 py-2.5 rounded-xl border border-border-subtle hover:border-accent-primary bg-surface text-text-primary font-bold text-xs flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
-        >
-          {isSavingDropbox ? (
-            <svg className="animate-spin h-4 w-4 text-accent-primary" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 3.5L0 8.25l6 4.75 6-4.75L6 3.5zm12 0l-6 4.75 6 4.75 6-4.75-6-4.75zM0 17.75l6 4.75 6-4.75-6-4.75-6 4.75zm24 0l-6-4.75-6 4.75 6 4.75 6-4.75zM12 18.5l-6-4.75-6 4.75L6 23.25l6-4.75 6 4.75 6-4.75-6-4.75-6 4.75z"/>
-            </svg>
-          )}
-          <span>{isSavingDropbox ? 'Menyimpan...' : 'Dropbox'}</span>
+          <span>{isSavingGDrive ? 'Menyimpan ke Google Drive...' : 'Simpan ke Google Drive'}</span>
         </button>
       </div>
 

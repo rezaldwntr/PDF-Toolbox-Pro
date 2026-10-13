@@ -149,7 +149,14 @@ export async function saveFileToGoogleDrive(
         if (resp.error) return reject(new Error(resp.error));
 
         try {
-          const metadata = { name: fileName, mimeType: 'application/pdf' };
+          const detectedMime = blob.type || (fileName.toLowerCase().endsWith('.docx')
+            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : fileName.toLowerCase().endsWith('.xlsx')
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : fileName.toLowerCase().endsWith('.pptx')
+            ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            : 'application/pdf');
+          const metadata = { name: fileName, mimeType: detectedMime };
           const form = new FormData();
           form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
           form.append('file', blob);
@@ -179,27 +186,3 @@ export async function saveFileToGoogleDrive(
   });
 }
 
-/**
- * Menyimpan berkas ke Dropbox menggunakan Dropbox Saver Drop-in.
- */
-export async function saveFileToDropbox(
-  fileUrl: string,
-  fileName: string
-): Promise<{ success: boolean; message: string }> {
-  if (!DROPBOX_APP_KEY) {
-    throw new Error('Dropbox belum terhubung: Kredensial VITE_DROPBOX_APP_KEY belum dikonfigurasi di Environment Variables.');
-  }
-
-  await loadExternalScript('https://www.dropbox.com/static/api/2/dropins.js', 'dropboxjs');
-
-  return new Promise((resolve, reject) => {
-    if (!window.Dropbox) return reject(new Error('Dropbox SDK tidak tersedia.'));
-    window.Dropbox.appKey = DROPBOX_APP_KEY;
-    window.Dropbox.save({
-      files: [{ url: fileUrl, filename: fileName }],
-      success: () => resolve({ success: true, message: `Berkas ${fileName} berhasil disimpan ke Dropbox!` }),
-      cancel: () => reject(new Error('Penyimpanan ke Dropbox dibatalkan.')),
-      error: (errorMessage: string) => reject(new Error(errorMessage)),
-    });
-  });
-}
