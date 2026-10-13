@@ -94,32 +94,22 @@ _FORMAL_KEYWORDS = (
 
 def needs_visual_photo_docx(pdf_path: str, selected_pages: Optional[list] = None) -> bool:
     """
-    Memvalidasi apakah dokumen PDF memiliki tata letak kompleks / gambar / tanda tangan / scan / lembar pengesahan
-    yang tidak dapat diubah 100% identik menjadi teks mengalir biasa di Word.
+    Memeriksa apakah halaman PDF murni berupa pindaian gambar tanpa teks digital (< 10 karakter),
+    sehingga perlu disematkan sebagai citra halaman agar tidak menghasilkan dokumen kosong.
     """
     try:
         with fitz.open(pdf_path) as doc:
             pages_to_check = selected_pages if selected_pages is not None else list(range(len(doc)))
+            total_chars = 0
             for p_idx in pages_to_check:
                 if p_idx < 0 or p_idx >= len(doc):
                     continue
                 page = doc[p_idx]
                 raw_text = page.get_text("text") or ""
-                clean_chars = re.sub(r"\s+", "", raw_text)
-                if len(clean_chars) < 120:
-                    return True
-                lower_text = raw_text.lower()
-                if any(kw in lower_text for kw in _FORMAL_KEYWORDS):
-                    return True
-                if len(page.get_images(full=True)) > 0:
-                    return True
-                if len(page.get_drawings()) > 6:
-                    return True
-                if raw_text.count(":") >= 3:
-                    return True
-        return False
+                total_chars += len(re.sub(r"\s+", "", raw_text))
+            return total_chars < 10
     except Exception:
-        return True
+        return False
 
 
 def build_visual_photo_docx(pdf_path: str, out_docx_path: str, selected_pages: Optional[list] = None) -> None:
@@ -253,6 +243,7 @@ async def convert_pdf_to_docx(
     file: UploadFile = File(...),
     start_page: Optional[int] = Form(None),
     end_page: Optional[int] = Form(None),
+    layout_mode: str = Form("editable"),
 ):
     validate_file(file)
     safe_basename = get_safe_base_name(file.filename, default="document")
@@ -285,22 +276,36 @@ async def convert_pdf_to_docx(
                     e_page = min(e_page, actual_total)
                     selected_pages = list(range(s_page, e_page))
 
-            update_job(job_id, progress=30, message="Memvalidasi presisi tata letak dokumen...")
+            update_job(job_id, progress=30, message="Menganalisis tata letak teks dan tabel...")
 
             def _do_convert():
-                # Validasi otomatis: jika tidak bisa 100% sama lewat teks biasa, gunakan mode foto halaman utuh di Word
-                if needs_visual_photo_docx(tmp_pdf_path, selected_pages):
+                if layout_mode == "visual" or needs_visual_photo_docx(tmp_pdf_path, selected_pages):
                     build_visual_photo_docx(tmp_pdf_path, tmp_docx_path, selected_pages)
                     return
 
                 cv = Converter(tmp_pdf_path)
                 try:
                     if selected_pages is not None:
-                        cv.convert(tmp_docx_path, pages=selected_pages)
+                        cv.convert(
+                            tmp_docx_path,
+                            pages=selected_pages,
+                            connected_border_tolerance=0.5,
+                            line_overlap_threshold=0.9,
+                            line_break_free_space_ratio=0.1,
+                            line_separate_threshold=5.0,
+                            new_paragraph_free_space_ratio=0.85,
+                        )
                     else:
-                        cv.convert(tmp_docx_path, multi_processing=use_multiprocess, cpu_count=cpu_cores)
+                        cv.convert(
+                            tmp_docx_path,
+                            connected_border_tolerance=0.5,
+                            line_overlap_threshold=0.9,
+                            line_break_free_space_ratio=0.1,
+                            line_separate_threshold=5.0,
+                            new_paragraph_free_space_ratio=0.85,
+                        )
                 except Exception as conv_err:
-                    logging.warning(f"pdf2docx multi_processing failed, fallback: {conv_err}")
+                    logging.warning(f"pdf2docx tuned convert failed, fallback: {conv_err}")
                     cv.close()
                     cv = Converter(tmp_pdf_path)
                     if selected_pages is not None:
@@ -310,7 +315,7 @@ async def convert_pdf_to_docx(
                 finally:
                     cv.close()
 
-            update_job(job_id, progress=50, message="Menyusun halaman ke format Word presisi tinggi...")
+            update_job(job_id, progress=50, message="Mengonversi teks, tabel, dan gambar ke format Word yang dapat diedit...")
             await asyncio.to_thread(_do_convert)
 
             update_job(job_id, progress=90, message="Menyusun dokumen Word final...")

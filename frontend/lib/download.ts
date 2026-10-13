@@ -1,11 +1,11 @@
 /**
  * frontend/lib/download.ts
- * Utilitas pengunduhan berkas yang aman, konsisten, anti-duplikat (debounce), dan bebas memory leak.
+ * Utilitas pengunduhan berkas yang aman, konsisten, anti-duplikat (debounce 2 detik), dan bebas memory leak.
  */
 
 let lastDownloadKey = '';
 let lastDownloadTime = 0;
-const DOWNLOAD_DEBOUNCE_MS = 600;
+const DOWNLOAD_DEBOUNCE_MS = 2000;
 
 function shouldBlockDuplicateDownload(key: string): boolean {
   const now = Date.now();
@@ -28,6 +28,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
 
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
+  anchor.style.display = 'none';
   anchor.href = url;
   anchor.download = safeName;
   document.body.appendChild(anchor);
@@ -37,7 +38,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
   // Bersihkan memori object URL setelah jeda singkat
   setTimeout(() => {
     URL.revokeObjectURL(url);
-  }, 1000);
+  }, 1500);
 }
 
 /**
@@ -50,6 +51,7 @@ export function triggerFileDownload(url: string, filename: string): void {
   }
 
   const anchor = document.createElement('a');
+  anchor.style.display = 'none';
   anchor.href = url;
   anchor.download = safeName;
   document.body.appendChild(anchor);

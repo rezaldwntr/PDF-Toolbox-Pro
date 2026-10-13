@@ -25,8 +25,9 @@ export function registerServiceWorker(): void {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('/sw.js', { updateViaCache: 'none' })
         .then((reg) => {
+          reg.update().catch(() => {});
           console.log('[PWA] Service Worker berhasil didaftarkan. Scope:', reg.scope);
         })
         .catch((err) => {

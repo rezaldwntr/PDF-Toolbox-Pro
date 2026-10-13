@@ -245,20 +245,25 @@ async def _process_word(job_id: str, pdf_bytes: bytes, base_name: str, opts: dic
         with open(tmp_pdf, "wb") as f:
             f.write(pdf_bytes)
 
-        update_job(job_id, progress=25, message="Memvalidasi presisi tata letak dokumen...")
+        update_job(job_id, progress=25, message="Menganalisis layout dan tabel dokumen...")
         from app.routers.convert import needs_visual_photo_docx, build_visual_photo_docx
 
-        if needs_visual_photo_docx(tmp_pdf):
+        layout_mode = str(opts.get("layout_mode", "editable")).lower()
+        if layout_mode == "visual" or needs_visual_photo_docx(tmp_pdf):
             update_job(job_id, progress=50, message="Menyusun halaman ke format Word presisi visual 100%...")
             build_visual_photo_docx(tmp_pdf, tmp_docx)
         else:
-            cpu_cores = max(1, multiprocessing.cpu_count())
-            use_multi = cpu_cores > 1
-
             cv = Converter(tmp_pdf)
             try:
-                update_job(job_id, progress=50, message="Mengonversi halaman ke format Word...")
-                cv.convert(tmp_docx, multi_processing=use_multi, cpu_count=cpu_cores)
+                update_job(job_id, progress=50, message="Mengonversi halaman ke format Word yang dapat diedit...")
+                cv.convert(
+                    tmp_docx,
+                    connected_border_tolerance=0.5,
+                    line_overlap_threshold=0.9,
+                    line_break_free_space_ratio=0.1,
+                    line_separate_threshold=5.0,
+                    new_paragraph_free_space_ratio=0.85,
+                )
             finally:
                 cv.close()
 

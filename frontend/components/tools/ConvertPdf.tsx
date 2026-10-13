@@ -29,9 +29,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { BACKEND_URL } from '../../config';
 import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import { formatFileSize } from '../../lib/formatters';
-import { triggerFileDownload } from '../../lib/download';
 import { ensurePdfjsReady } from '../../lib/pdfWorker';
-import { convertPdfToDocxClientSide, validatePdfNeedsVisualDocx } from '../../lib/clientPdfToDocx';
+import { convertPdfToDocxClientSide } from '../../lib/clientPdfToDocx';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -59,6 +58,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [pageRangeMode, setPageRangeMode] = useState<'all' | 'custom'>('all');
   const [startPage, setStartPage] = useState<number>(1);
   const [endPage, setEndPage] = useState<number>(1);
+
+  // Opsi Khusus Word (Default: 'editable' agar hasil teks & tabel dapat diedit penuh di MS Word)
+  const [wordLayoutMode, setWordLayoutMode] = useState<'editable' | 'visual'>('editable');
 
   // Opsi Khusus Excel
   const [excelExtractionMode, setExcelExtractionMode] = useState<'tables_only' | 'all_content'>('tables_only');
@@ -97,7 +99,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fileWithBuffer, isProcessing, outputUrl, pageRangeMode, startPage, endPage, excelExtractionMode, excelSheetStructure, pptLayoutMode, selectedImageFormat, imageDpi, imageExtractMode]);
+  }, [fileWithBuffer, isProcessing, outputUrl, pageRangeMode, startPage, endPage, wordLayoutMode, excelExtractionMode, excelSheetStructure, pptLayoutMode, selectedImageFormat, imageDpi, imageExtractMode]);
 
   const resetState = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
@@ -109,6 +111,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setPageRangeMode('all');
     setStartPage(1);
     setEndPage(1);
+    setWordLayoutMode('editable');
     setExcelExtractionMode('tables_only');
     setExcelSheetStructure('combined');
     setPptLayoutMode('editable');
@@ -172,9 +175,12 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     const formData = new FormData();
     formData.append('file', fileToSend, sendFilename);
 
-    if (mode === 'word' && pageRangeMode === 'custom' && !didClientSlice) {
-      formData.append('start_page', String(Math.max(1, startPage)));
-      formData.append('end_page', String(Math.min(pageCount, endPage)));
+    if (mode === 'word') {
+      formData.append('layout_mode', wordLayoutMode);
+      if (pageRangeMode === 'custom' && !didClientSlice) {
+        formData.append('start_page', String(Math.max(1, startPage)));
+        formData.append('end_page', String(Math.min(pageCount, endPage)));
+      }
     } else if (mode === 'excel') {
       formData.append('mode', excelExtractionMode);
       formData.append('sheet_per_page', String(excelSheetStructure === 'per_page'));
@@ -201,16 +207,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
       let jobResult: { blob: Blob; filename: string };
 
-      // Validasi Otomatis 100% Presisi untuk PDF ke Word:
-      // Jika dokumen memiliki tata letak kompleks / tanda tangan / logo / lembar pengesahan / hasil scan
-      // yang tidak dapat diubah 100% identik sebagai teks biasa, otomatis ubah menjadi foto halaman utuh di dalam Word.
-      let useAutoVisualDocx = false;
-      if (mode === 'word') {
-        const fidelityCheck = await validatePdfNeedsVisualDocx(fileWithBuffer.buffer, s, e);
-        useAutoVisualDocx = fidelityCheck.needsVisual;
-      }
-
-      if (mode === 'word' && useAutoVisualDocx) {
+      if (mode === 'word' && wordLayoutMode === 'visual') {
         const visualBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
           startPage: s,
           endPage: e,
@@ -233,7 +230,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
             actionOptions: {
               mode: excelExtractionMode,
               sheet_per_page: excelSheetStructure === 'per_page',
-              layout_mode: pptLayoutMode,
+              layout_mode: mode === 'word' ? wordLayoutMode : pptLayoutMode,
               output_format: selectedImageFormat,
               dpi: imageDpi,
               extract_mode: imageExtractMode,
@@ -246,12 +243,12 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
         } catch (serverErr: any) {
           if (serverErr?.name === 'AbortError') throw serverErr;
           if (mode === 'word') {
-            console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal:', serverErr);
+            console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal (editable):', serverErr);
             setProcessingStep(2);
             const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
               startPage: s,
               endPage: e,
-              forceVisualMode: true,
+              forceVisualMode: false,
               onProgress: (pct) => {
                 if (pct > 60) setProcessingStep(3);
               },
@@ -403,13 +400,48 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
             {/* Mode-Specific Settings */}
             {mode === 'word' && (
-              <div className="p-3.5 rounded-xl bg-canvas border border-border-subtle flex items-start gap-2.5">
-                <Cpu className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-text-primary">Akselerasi Multi-Core Aktif</h4>
-                  <p className="text-[11px] text-text-secondary leading-relaxed">
-                    Memproses teks, font, dan perataan paragraf secara paralel di memory engine.
-                  </p>
+              <div className="space-y-3 pt-2 border-t border-border-subtle">
+                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block">
+                  Mode Hasil Dokumen Word
+                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setWordLayoutMode('editable')}
+                    className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all ${
+                      wordLayoutMode === 'editable'
+                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
+                        : 'border-border-subtle bg-canvas text-text-secondary'
+                    }`}
+                  >
+                    Dapat Diedit (Teks, Paragraf & Tabel)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWordLayoutMode('visual')}
+                    className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all ${
+                      wordLayoutMode === 'visual'
+                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
+                        : 'border-border-subtle bg-canvas text-text-secondary'
+                    }`}
+                  >
+                    Presisi Visual 100% (Gambar Halaman Utuh)
+                  </button>
+                </div>
+                <div className="p-3 rounded-xl bg-canvas border border-border-subtle flex items-start gap-2.5">
+                  <Cpu className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-text-primary">
+                      {wordLayoutMode === 'editable'
+                        ? 'Mode Teks & Tabel Dapat Diedit Aktif'
+                        : 'Mode Foto Halaman Utuh Aktif'}
+                    </h4>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      {wordLayoutMode === 'editable'
+                        ? 'Mengekstrak seluruh kalimat, tabel, dan kolom menjadi teks Microsoft Word asli yang dapat diketik dan diedit.'
+                        : 'Menjaga kemiripan visual 100% dengan menyematkan halaman sebagai citra resolusi tinggi di dalam Word.'}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -630,7 +662,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
             fileName={outputFilename || `hasil-${mode}.${config.ext}`}
             originalSize={fileWithBuffer.file.size}
             resultSize={outputSize || fileWithBuffer.file.size}
-            onDownload={() => triggerFileDownload(outputUrl, outputFilename || `hasil-${mode}.${config.ext}`)}
             onReset={resetState}
             resetLabel="Konversi Berkas Lain"
             successTitle={`Konversi ke ${mode.toUpperCase()} Selesai!`}

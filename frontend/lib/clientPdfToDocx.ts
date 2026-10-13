@@ -12,6 +12,15 @@ interface TextRunItem {
   italic: boolean;
 }
 
+interface ColumnSegment {
+  x: number;
+  maxX: number;
+  text: string;
+  bold: boolean;
+  italic: boolean;
+  fontSize: number;
+}
+
 interface VisualLine {
   y: number;
   minX: number;
@@ -20,45 +29,8 @@ interface VisualLine {
   bold: boolean;
   italic: boolean;
   text: string;
-  hasHorizontalColumns: boolean;
+  segments: ColumnSegment[];
 }
-
-const FORMAL_LAYOUT_KEYWORDS = [
-  'lembar pengesahan',
-  'halaman pengesahan',
-  'pengesahan',
-  'lembar persetujuan',
-  'halaman persetujuan',
-  'mengetahui',
-  'menyetujui',
-  'pembimbing',
-  'penguji',
-  'dekan',
-  'rektor',
-  'ketua jurusan',
-  'ketua program studi',
-  'kaprodi',
-  'koorprodi',
-  'direktur',
-  'kepala',
-  'nip.',
-  'nip :',
-  'nidn',
-  'nim :',
-  'nrp',
-  'ditandatangani',
-  'tanda tangan',
-  'sertifikat',
-  'piagam',
-  'ijazah',
-  'transkrip',
-  'berita acara',
-  'surat keterangan',
-  'surat keputusan',
-  'invoice',
-  'kwitansi',
-  'faktur',
-];
 
 const escapeXml = (str: string): string =>
   str
@@ -70,222 +42,11 @@ const escapeXml = (str: string): string =>
     .replace(/'/g, '&apos;');
 
 /**
- * Mengevaluasi apakah sebuah halaman PDF dapat dikonversi 100% identik sebagai teks mengalir biasa,
- * atau memiliki tata letak kompleks (scan, tanda tangan, logo, multi-kolom, tabel, lembar pengesahan)
- * sehingga wajib dijadikan foto halaman utuh di dalam Word agar 100% sama dengan aslinya.
- */
-async function evaluatePageNeedsPhotoMode(
-  page: any,
-  pdfjs: any
-): Promise<{
-  needsPhoto: boolean;
-  reason: string;
-  lines: VisualLine[];
-  pageWidthPt: number;
-  pageHeightPt: number;
-}> {
-  const viewport = page.getViewport({ scale: 1.0 });
-  const pageWidthPt = viewport.width || 595.28;
-  const pageHeightPt = viewport.height || 841.89;
-
-  const textContent = await page.getTextContent();
-  const rawItems: TextRunItem[] = [];
-
-  for (const item of textContent.items as any[]) {
-    const str = typeof item.str === 'string' ? item.str : '';
-    if (!str.trim()) continue;
-    const tx = item.transform || [12, 0, 0, 12, 72, 72];
-    const fontSize = Math.max(8, Math.min(36, Math.round(Math.hypot(tx[0], tx[1]) || Math.abs(tx[3]) || 11)));
-    const x = tx[4] || 0;
-    const y = tx[5] || 0;
-    const width = item.width || str.length * fontSize * 0.5;
-    const fontName = String(item.fontName || '').toLowerCase();
-    const bold = fontName.includes('bold') || fontName.includes('black') || fontName.includes('heavy');
-    const italic = fontName.includes('italic') || fontName.includes('oblique');
-
-    rawItems.push({ text: str, x, y, width, fontSize, bold, italic });
-  }
-
-  rawItems.sort((a, b) => {
-    if (Math.abs(b.y - a.y) > 4) return b.y - a.y;
-    return a.x - b.x;
-  });
-
-  const lines: VisualLine[] = [];
-  for (const item of rawItems) {
-    const lastLine = lines[lines.length - 1];
-    if (lastLine && Math.abs(lastLine.y - item.y) <= Math.max(4, lastLine.fontSize * 0.45)) {
-      const gap = item.x - lastLine.maxX;
-      const isColumnGap = gap > Math.max(18, lastLine.fontSize * 1.4);
-      const separator = isColumnGap ? '    ' : gap > 2 ? ' ' : '';
-      lastLine.text += separator + item.text;
-      lastLine.minX = Math.min(lastLine.minX, item.x);
-      lastLine.maxX = Math.max(lastLine.maxX, item.x + item.width);
-      lastLine.fontSize = Math.max(lastLine.fontSize, item.fontSize);
-      lastLine.bold = lastLine.bold || item.bold;
-      lastLine.italic = lastLine.italic || item.italic;
-      if (isColumnGap) {
-        lastLine.hasHorizontalColumns = true;
-      }
-    } else {
-      lines.push({
-        y: item.y,
-        minX: item.x,
-        maxX: item.x + item.width,
-        fontSize: item.fontSize,
-        bold: item.bold,
-        italic: item.italic,
-        text: item.text,
-        hasHorizontalColumns: false,
-      });
-    }
-  }
-
-  const fullPageText = lines.map((l) => l.text.trim()).join('\n');
-  const lowerText = fullPageText.toLowerCase();
-  const totalChars = fullPageText.replace(/\s+/g, '').length;
-
-  // 1. Jika halaman scan / minim teks (< 120 karakter)
-  if (totalChars < 120) {
-    return {
-      needsPhoto: true,
-      reason: 'Halaman hasil pindaian (scan) atau berbasis visual penuh',
-      lines,
-      pageWidthPt,
-      pageHeightPt,
-    };
-  }
-
-  // 2. Cek kata kunci dokumen formal / Lembar Pengesahan / Tanda Tangan / Sertifikat
-  for (const kw of FORMAL_LAYOUT_KEYWORDS) {
-    if (lowerText.includes(kw)) {
-      return {
-        needsPhoto: true,
-        reason: `Terdeteksi tata letak dokumen presisi (${kw})`,
-        lines,
-        pageWidthPt,
-        pageHeightPt,
-      };
-    }
-  }
-
-  // 3. Cek keberadaan objek gambar (logo kop surat, tanda tangan basah, stempel, foto) atau garis vektor/tabel
-  try {
-    const opList = await page.getOperatorList();
-    const OPS = pdfjs.OPS || {};
-    let imageOpsCount = 0;
-    let vectorOpsCount = 0;
-
-    for (const fnId of opList.fnArray as number[]) {
-      if (
-        fnId === OPS.paintImageXObject ||
-        fnId === OPS.paintInlineImageXObject ||
-        fnId === OPS.paintImageMaskXObject ||
-        fnId === OPS.paintJpegXObject ||
-        fnId === 85 || // paintImageXObject fallback code
-        fnId === 86    // paintInlineImageXObject fallback code
-      ) {
-        imageOpsCount++;
-      } else if (
-        fnId === OPS.constructPath ||
-        fnId === OPS.stroke ||
-        fnId === OPS.fill ||
-        fnId === OPS.eoFill
-      ) {
-        vectorOpsCount++;
-      }
-    }
-
-    if (imageOpsCount > 0) {
-      return {
-        needsPhoto: true,
-        reason: 'Terdeteksi objek gambar/logo/stempel/tanda tangan yang memerlukan posisi presisi 100%',
-        lines,
-        pageWidthPt,
-        pageHeightPt,
-      };
-    }
-
-    if (vectorOpsCount > 6) {
-      return {
-        needsPhoto: true,
-        reason: 'Terdeteksi garis tabel, bingkai, atau elemen grafis vektor kompleks',
-        lines,
-        pageWidthPt,
-        pageHeightPt,
-      };
-    }
-  } catch {
-    // Jika gagal membaca operatorList, lanjutkan ke pemeriksaan struktur kolom teks
-  }
-
-  // 4. Cek struktur multi-kolom horizontal / titik dua sejajar (seperti Nama : ... / blok tanda tangan kiri-kanan)
-  const columnLinesCount = lines.filter((l) => l.hasHorizontalColumns || /\s:\s/.test(l.text)).length;
-  if (columnLinesCount >= 2) {
-    return {
-      needsPhoto: true,
-      reason: 'Terdeteksi tata letak kolom sejajar atau tabulasi formulir',
-      lines,
-      pageWidthPt,
-      pageHeightPt,
-    };
-  }
-
-  // 5. Cek variasi indentasi kiri (indikasi tata letak bertingkat/kolom tanda tangan)
-  const distinctLeftMargins = new Set(lines.map((l) => Math.round(l.minX / 20))).size;
-  if (distinctLeftMargins >= 3) {
-    return {
-      needsPhoto: true,
-      reason: 'Terdeteksi multi-indentasi / posisi blok teks kustom',
-      lines,
-      pageWidthPt,
-      pageHeightPt,
-    };
-  }
-
-  return {
-    needsPhoto: false,
-    reason: 'Teks paragraf standar',
-    lines,
-    pageWidthPt,
-    pageHeightPt,
-  };
-}
-
-/**
- * Memvalidasi apakah dokumen PDF memerlukan konversi mode Foto Halaman Utuh di dalam Word
- * agar hasilnya 100% identik dengan dokumen PDF asli tanpa pergeseran tata letak.
- */
-export async function validatePdfNeedsVisualDocx(
-  pdfBuffer: ArrayBuffer,
-  startPage?: number,
-  endPage?: number
-): Promise<{ needsVisual: boolean; reason: string }> {
-  try {
-    const pdfjs = await ensurePdfjsReady();
-    const pdfDoc = await pdfjs.getDocument({ data: new Uint8Array(pdfBuffer.slice(0)) }).promise;
-    const totalPages = pdfDoc.numPages;
-    const sPage = Math.max(1, startPage || 1);
-    const ePage = Math.min(totalPages, Math.max(sPage, endPage || totalPages));
-
-    for (let pNum = sPage; pNum <= ePage; pNum++) {
-      const page = await pdfDoc.getPage(pNum);
-      const evalRes = await evaluatePageNeedsPhotoMode(page, pdfjs);
-      if (evalRes.needsPhoto) {
-        return { needsVisual: true, reason: evalRes.reason };
-      }
-    }
-    return { needsVisual: false, reason: 'Dokumen teks standar' };
-  } catch {
-    return { needsVisual: true, reason: 'Validasi fallback ke presisi visual 100%' };
-  }
-}
-
-/**
- * Konverter PDF ke Word (.docx OpenXML asli) dengan Validasi Presisi Visual Otomatis:
- * - Jika halaman tidak dapat diubah 100% identik menjadi teks mengalir biasa (misal: Lembar Pengesahan,
- *   ada tanda tangan/stempel/logo, tabel, multi-kolom, atau hasil scan), halaman otomatis dirender
- *   menjadi foto beresolusi tinggi (Full-Page 0-Margin) di dalam lembar Word agar 100% sama persis dengan aslinya.
+ * Konverter PDF ke Word (.docx OpenXML):
+ * - Mode Default (forceVisualMode = false): Menghasilkan dokumen Word (.docx) yang 100% DAPAT DIEDIT
+ *   (teks, paragraf, perataan judul, serta tabel tanpa garis otomatis untuk kolom sejajar/titik dua/tanda tangan).
+ *   Hanya merender gambar halaman jika halaman tersebut murni hasil scan kosong (< 10 karakter teks digital).
+ * - Mode Visual (forceVisualMode = true): Menyematkan foto halaman utuh beresolusi tinggi (margin 0) di dalam Word.
  */
 export async function convertPdfToDocxClientSide(
   pdfBuffer: ArrayBuffer,
@@ -309,29 +70,108 @@ export async function convertPdfToDocxClientSide(
     `<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`,
   ];
   let imageCounter = 0;
-  let anyVisualPage = false;
+  let allPagesVisual = true;
   let docWidthTwips = 11906; // Default A4 width (595.28pt * 20)
   let docHeightTwips = 16838; // Default A4 height (841.89pt * 20)
 
   for (let pNum = sPage; pNum <= ePage; pNum++) {
     const progressPct = Math.round(20 + ((pNum - sPage) / Math.max(1, ePage - sPage + 1)) * 72);
-    options?.onProgress?.(progressPct, `Menyusun halaman ${pNum} dengan presisi visual 100%...`);
+    options?.onProgress?.(progressPct, `Menyusun halaman ${pNum} ke format Word (.docx)...`);
 
     const page = await pdfDoc.getPage(pNum);
-    const evalRes = await evaluatePageNeedsPhotoMode(page, pdfjs);
-    const { lines, pageWidthPt, pageHeightPt } = evalRes;
-    const usePhotoMode = Boolean(options?.forceVisualMode || evalRes.needsPhoto);
+    const viewport = page.getViewport({ scale: 1.0 });
+    const pageWidthPt = viewport.width || 595.28;
+    const pageHeightPt = viewport.height || 841.89;
 
     if (pNum === sPage) {
       docWidthTwips = Math.round(pageWidthPt * 20);
       docHeightTwips = Math.round(pageHeightPt * 20);
     }
 
+    const textContent = await page.getTextContent();
+    const rawItems: TextRunItem[] = [];
+
+    for (const item of textContent.items as any[]) {
+      const str = typeof item.str === 'string' ? item.str : '';
+      if (!str.trim()) continue;
+      const tx = item.transform || [12, 0, 0, 12, 72, 72];
+      const fontSize = Math.max(8, Math.min(36, Math.round(Math.hypot(tx[0], tx[1]) || Math.abs(tx[3]) || 11)));
+      const x = tx[4] || 0;
+      const y = tx[5] || 0;
+      const width = item.width || str.length * fontSize * 0.5;
+      const fontName = String(item.fontName || '').toLowerCase();
+      const bold = fontName.includes('bold') || fontName.includes('black') || fontName.includes('heavy');
+      const italic = fontName.includes('italic') || fontName.includes('oblique');
+
+      rawItems.push({ text: str, x, y, width, fontSize, bold, italic });
+    }
+
+    rawItems.sort((a, b) => {
+      if (Math.abs(b.y - a.y) > 4) return b.y - a.y;
+      return a.x - b.x;
+    });
+
+    const lines: VisualLine[] = [];
+    for (const item of rawItems) {
+      const lastLine = lines[lines.length - 1];
+      if (lastLine && Math.abs(lastLine.y - item.y) <= Math.max(4, lastLine.fontSize * 0.45)) {
+        const gap = item.x - lastLine.maxX;
+        const isColumnGap = gap > Math.max(22, lastLine.fontSize * 1.6);
+        const separator = isColumnGap ? '    ' : gap > 1.5 ? ' ' : '';
+        lastLine.text += separator + item.text;
+        lastLine.minX = Math.min(lastLine.minX, item.x);
+        lastLine.maxX = Math.max(lastLine.maxX, item.x + item.width);
+        lastLine.fontSize = Math.max(lastLine.fontSize, item.fontSize);
+        lastLine.bold = lastLine.bold || item.bold;
+        lastLine.italic = lastLine.italic || item.italic;
+
+        const lastSeg = lastLine.segments[lastLine.segments.length - 1];
+        if (isColumnGap || !lastSeg) {
+          lastLine.segments.push({
+            x: item.x,
+            maxX: item.x + item.width,
+            text: item.text,
+            bold: item.bold,
+            italic: item.italic,
+            fontSize: item.fontSize,
+          });
+        } else {
+          lastSeg.text += (gap > 1.5 ? ' ' : '') + item.text;
+          lastSeg.maxX = Math.max(lastSeg.maxX, item.x + item.width);
+          lastSeg.bold = lastSeg.bold || item.bold;
+          lastSeg.italic = lastSeg.italic || item.italic;
+          lastSeg.fontSize = Math.max(lastSeg.fontSize, item.fontSize);
+        }
+      } else {
+        lines.push({
+          y: item.y,
+          minX: item.x,
+          maxX: item.x + item.width,
+          fontSize: item.fontSize,
+          bold: item.bold,
+          italic: item.italic,
+          text: item.text,
+          segments: [
+            {
+              x: item.x,
+              maxX: item.x + item.width,
+              text: item.text,
+              bold: item.bold,
+              italic: item.italic,
+              fontSize: item.fontSize,
+            },
+          ],
+        });
+      }
+    }
+
+    const totalChars = lines.reduce((acc, l) => acc + l.text.replace(/\s+/g, '').length, 0);
     const isSubsequentPage = pNum > sPage;
 
+    // Hanya gunakan foto halaman utuh jika forceVisualMode === true ATAU halaman murni scan tanpa teks (< 10 karakter)
+    const usePhotoMode = Boolean(options?.forceVisualMode || totalChars < 10);
+
     if (usePhotoMode && typeof document !== 'undefined') {
-      anyVisualPage = true;
-      // Render halaman pada resolusi tinggi (2.4x scale ~ 175-200 DPI) agar teks, logo, dan tanda tangan sangat tajam
       const renderScale = 2.4;
       const renderVp = page.getViewport({ scale: renderScale });
       const canvas = document.createElement('canvas');
@@ -355,8 +195,6 @@ export async function convertPdfToDocxClientSide(
             `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgFilename}"/>`
           );
 
-          // Ukuran EMU (1 pt = 12700 EMU). Gunakan 99.4% lebar & 99.0% tinggi kertas pada margin 0
-          // agar mengisi halaman Word 100% presisi tanpa memicu halaman kosong tambahan di MS Word.
           const cx = Math.round(pageWidthPt * 0.994 * 12700);
           const cy = Math.round(pageHeightPt * 0.990 * 12700);
 
@@ -415,12 +253,78 @@ export async function convertPdfToDocxClientSide(
       }
     }
 
-    // Mode Teks Mengalir (hanya untuk halaman paragraf biasa yang lolos validasi 100%)
+    // Mode Teks & Tabel yang Dapat Diedit Penuh di Word
+    allPagesVisual = false;
     let prevY: number | null = null;
     let isFirstLineOnPage = true;
+    const usablePageWidthTwips = Math.max(4000, docWidthTwips - 2268); // Kurangi margin kiri-kanan (2 x 1134 twips)
+
     for (const line of lines) {
       const cleanText = escapeXml(line.text.trim());
       if (!cleanText) continue;
+
+      const verticalGap = prevY !== null ? Math.max(0, prevY - line.y) : 14;
+      prevY = line.y;
+      const spaceAfterTwips = verticalGap > line.fontSize * 1.8 ? 180 : 80;
+      const halfPtSize = Math.round(line.fontSize * 2);
+
+      // Jika baris memiliki multi-kolom horizontal (misal: blok tanda tangan kiri-kanan atau Nama : Nilai),
+      // susun sebagai tabel Word tanpa garis (borderless table) agar 100% bisa diedit sekaligus sejajar rapi!
+      if (line.segments.length >= 2 && line.segments.length <= 4) {
+        if (isSubsequentPage && isFirstLineOnPage) {
+          bodyParts.push(`<w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>`);
+          isFirstLineOnPage = false;
+        }
+        const colCount = line.segments.length;
+        const cellWidthTwips = Math.floor(usablePageWidthTwips / colCount);
+        const cellsXml = line.segments
+          .map((seg) => {
+            const segText = escapeXml(seg.text.trim());
+            const segHalfPt = Math.round(seg.fontSize * 2);
+            return `
+              <w:tc>
+                <w:tcPr>
+                  <w:tcW w:w="${cellWidthTwips}" w:type="dxa"/>
+                </w:tcPr>
+                <w:p>
+                  <w:pPr>
+                    <w:spacing w:after="${spaceAfterTwips}" w:line="260" w:lineRule="auto"/>
+                  </w:pPr>
+                  <w:r>
+                    <w:rPr>
+                      <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+                      ${seg.bold ? '<w:b/>' : ''}
+                      ${seg.italic ? '<w:i/>' : ''}
+                      <w:sz w:val="${segHalfPt}"/>
+                      <w:szCs w:val="${segHalfPt}"/>
+                    </w:rPr>
+                    <w:t xml:space="preserve">${segText}</w:t>
+                  </w:r>
+                </w:p>
+              </w:tc>
+            `;
+          })
+          .join('');
+
+        bodyParts.push(`
+          <w:tbl>
+            <w:tblPr>
+              <w:tblW w:w="${usablePageWidthTwips}" w:type="dxa"/>
+              <w:tblBorders>
+                <w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+                <w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+                <w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+                <w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+                <w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+                <w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>
+              </w:tblBorders>
+            </w:tblPr>
+            <w:tr>${cellsXml}</w:tr>
+          </w:tbl>
+        `);
+        isFirstLineOnPage = false;
+        continue;
+      }
 
       const lineCenter = (line.minX + line.maxX) / 2;
       const pageCenter = pageWidthPt / 2;
@@ -430,16 +334,15 @@ export async function convertPdfToDocxClientSide(
         line.minX > pageWidthPt * 0.14 &&
         Math.abs(lineCenter - pageCenter) < pageWidthPt * 0.08;
 
-      const verticalGap = prevY !== null ? Math.max(0, prevY - line.y) : 14;
-      prevY = line.y;
-      const spaceAfterTwips = verticalGap > line.fontSize * 1.8 ? 200 : 100;
-      const halfPtSize = Math.round(line.fontSize * 2);
+      const leftIndentTwips =
+        !isCentered && line.minX > 90 ? Math.min(5000, Math.round((line.minX - 72) * 20)) : 0;
 
       bodyParts.push(`
         <w:p>
           <w:pPr>
             ${isSubsequentPage && isFirstLineOnPage ? '<w:pageBreakBefore/>' : ''}
             ${isCentered ? '<w:jc w:val="center"/>' : '<w:jc w:val="left"/>'}
+            ${leftIndentTwips > 0 ? `<w:ind w:left="${leftIndentTwips}"/>` : ''}
             <w:spacing w:after="${spaceAfterTwips}" w:line="276" w:lineRule="auto"/>
           </w:pPr>
           <w:r>
@@ -495,8 +398,7 @@ export async function convertPdfToDocxClientSide(
   </w:style>
 </w:styles>`;
 
-  // Jika menggunakan mode foto visual, gunakan margin 0 agar ukuran foto 100% sama persis dengan halaman PDF asli
-  const marginAttr = anyVisualPage
+  const marginAttr = allPagesVisual
     ? `w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"`
     : `w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"`;
 

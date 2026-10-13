@@ -1,15 +1,13 @@
 // frontend/public/sw.js
 /**
  * Service Worker untuk PDF Toolbox Pro PWA.
- * Mendukung offline caching untuk Shell Aplikasi & In-Memory Client Tools (Merge/Split/Organize).
+ * Menggunakan strategi Network-First untuk seluruh bundel JS/CSS/HTML agar pengguna
+ * selalu mendapatkan pembaruan kode terbaru secara langsung tanpa terjebak cache lama.
  */
 
-const CACHE_NAME = 'pdf-toolbox-v1.1';
+const CACHE_NAME = 'pdf-toolbox-v2.1';
 
-// Aset statis inti yang langsung dicache saat Service Worker dipasang
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -21,22 +19,24 @@ const PRECACHE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    }).then(() => self.skipWaiting())
+      return cache.addAll(PRECACHE_ASSETS).catch(() => {});
+    })
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
+        );
+      })
+      .then(() => self.clients.claim())
   );
 });
 
@@ -49,11 +49,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Abaikan endpoint API & backend server (selalu Network-First / Network-Only)
+  // 2. Abaikan endpoint API & backend server
   if (
     url.pathname.startsWith('/tools/') ||
     url.pathname.startsWith('/convert/') ||
+    url.pathname.startsWith('/jobs/') ||
+    url.pathname.startsWith('/storage/') ||
     url.pathname.startsWith('/api/') ||
+    url.hostname.includes('run.app') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('midtrans.com') ||
     url.hostname.includes('googlesyndication.com') ||
@@ -62,40 +65,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Strategi untuk Navigasi Halaman HTML: Network-First dengan Fallback ke Cache index.html
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
-        })
-    );
-    return;
-  }
-
-  // 4. Strategi untuk Aset Statis (JS chunks, CSS, Icons, Fonts): Stale-While-Revalidate
+  // 3. Strategi Network-First untuk semua navigasi HTML dan aset JS/CSS
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(request).then((cached) => {
+          if (cached) return cached;
+          if (request.mode === 'navigate') {
+            return caches.match('/index.html') || caches.match('/');
           }
-          return networkResponse;
-        })
-        .catch(() => {
-          // Jika offline dan tidak ada di cache, biarkan cachedResponse yang menangani
+          return Response.error();
         });
-
-      return cachedResponse || fetchPromise;
-    })
+      })
   );
 });
