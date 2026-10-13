@@ -98,6 +98,14 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fileWithBuffer, isProcessing, outputUrl, pageRangeMode, startPage, endPage, excelExtractionMode, excelSheetStructure, pptLayoutMode, selectedImageFormat, imageDpi, imageExtractMode]);
 
+  useEffect(() => {
+    return () => {
+      if (outputUrl) {
+        URL.revokeObjectURL(outputUrl);
+      }
+    };
+  }, [outputUrl]);
+
   const resetState = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     setFileWithBuffer(null);

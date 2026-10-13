@@ -28,7 +28,7 @@ import {
   getTelemetryDurationMs,
 } from '../../lib/telemetry';
 import { saveUserFileHistory, getRetentionHoursForTier } from '../../lib/userFileHistory';
-import { triggerFileDownload } from '../../lib/download';
+import { triggerFileDownload, isSafeDownloadUrl, sanitizeDownloadFilename } from '../../lib/download';
 import { useAuth, TIER_CONFIGS } from '../../contexts/AuthContext';
 
 interface DownloadResultCardProps {
@@ -64,7 +64,8 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   const retentionHours = getRetentionHoursForTier(userTier);
   const tierLabel = (TIER_CONFIGS[userTier] || TIER_CONFIGS.free).label;
 
-  const effectiveUrl = downloadUrl || resultUrl || '';
+  const rawUrl = downloadUrl || resultUrl || '';
+  const effectiveUrl = isSafeDownloadUrl(rawUrl) ? rawUrl : '';
   const effectiveTitle = successTitle || 'Pemrosesan Berhasil!';
   const effectiveMessage =
     successDescription ||
@@ -73,12 +74,12 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
 
   // Kunci nama berkas pertama untuk URL ini agar re-render komponen induk tidak mengubah nama file
   const lockedUrlRef = useRef<string>('');
-  const lockedFileNameRef = useRef<string>(fileName);
+  const lockedFileNameRef = useRef<string>(sanitizeDownloadFilename(fileName));
   if (effectiveUrl && lockedUrlRef.current !== effectiveUrl) {
     lockedUrlRef.current = effectiveUrl;
-    lockedFileNameRef.current = fileName;
+    lockedFileNameRef.current = sanitizeDownloadFilename(fileName);
   }
-  const stableFileName = lockedFileNameRef.current || fileName;
+  const stableFileName = lockedFileNameRef.current || sanitizeDownloadFilename(fileName);
 
   // Countdown Timer sesuai paket aktif user (Flash: 6 jam, Monthly: 24 jam, Annual: 48 jam, Gratis: 0 jam)
   const [secondsRemaining, setSecondsRemaining] = useState(() => retentionHours * 3600);
@@ -99,6 +100,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
       return;
     }
     hasSavedHistoryRef.current = effectiveUrl;
+    let isCancelled = false;
 
     if (originalSize && originalSize > 0) {
       setTelemetryInputSize(originalSize);
@@ -110,27 +112,30 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     fetch(effectiveUrl)
       .then((res) => res.blob())
       .then((blob) => {
-        if (blob && blob.size > 0) {
-          if (!resultSize || resultSize <= 0) {
-            setDetectedResultSize(blob.size);
-          }
-          setTelemetryOutputSize(blob.size, stableFileName, isLocalRam);
-          void saveUserFileHistory({
-            fileName: stableFileName,
-            toolName: getLastRecordedToolName() || effectiveTitle,
-            inputBytes: originalSize || getTelemetryInputSize() || blob.size,
-            outputBytes: resultSize || blob.size,
-            durationMs: getTelemetryDurationMs() || 780,
-            blob,
-            userId: user?.id || null,
-            userEmail: user?.email || null,
-            userTier,
-          });
+        if (isCancelled || !blob || blob.size <= 0) return;
+        if (!resultSize || resultSize <= 0) {
+          setDetectedResultSize(blob.size);
         }
+        setTelemetryOutputSize(blob.size, stableFileName, isLocalRam);
+        void saveUserFileHistory({
+          fileName: stableFileName,
+          toolName: getLastRecordedToolName() || effectiveTitle,
+          inputBytes: originalSize || getTelemetryInputSize() || blob.size,
+          outputBytes: resultSize || blob.size,
+          durationMs: getTelemetryDurationMs() || 780,
+          blob,
+          userId: user?.id || null,
+          userEmail: user?.email || null,
+          userTier,
+        });
       })
       .catch(() => {
         // ignore
       });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [originalSize, resultSize, effectiveUrl, stableFileName, isLocalRam, effectiveTitle, user?.id, user?.email, userTier]);
 
   useEffect(() => {

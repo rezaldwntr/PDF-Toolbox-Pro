@@ -1,6 +1,7 @@
 // frontend/lib/userFileHistory.ts
 import { supabase } from './supabase';
 import { getOrCreateSessionId, getLastExecutionId } from './telemetry';
+import { sanitizeDownloadFilename } from './download';
 import type { UserTier } from '../types';
 
 export interface UserHistoryItem {
@@ -174,6 +175,7 @@ export async function saveUserFileHistory(params: {
     const canRetainBlob = retentionMs > 0;
 
     const db = await openHistoryDb();
+    const safeFileName = sanitizeDownloadFilename(params.fileName, 'dokumen.pdf');
     const item: UserHistoryItem = {
       id: `hist_${now}_${Math.random().toString(36).substring(2, 8)}`,
       executionId,
@@ -182,7 +184,7 @@ export async function saveUserFileHistory(params: {
       userTier: effectiveTier,
       retentionHours,
       sessionId: getOrCreateSessionId(),
-      fileName: params.fileName,
+      fileName: safeFileName,
       toolName: params.toolName,
       inputBytes: params.inputBytes || params.blob.size,
       outputBytes: params.outputBytes || params.blob.size,
@@ -210,7 +212,7 @@ export async function saveUserFileHistory(params: {
 
 /**
  * Membersihkan Blob yang sudah kedaluwarsa SERTA menghapus duplikat riwayat lokal
- * yang disebabkan oleh re-render (memiliki toolName, inputBytes, outputBytes, dan pola nama berkas yang sama dalam rentang 5 menit).
+ * yang disebabkan oleh re-render (memiliki pemilik, toolName, inputBytes, outputBytes, dan pola nama berkas yang sama dalam rentang 5 menit).
  */
 async function pruneAndDeduplicateHistory(db: IDBDatabase): Promise<void> {
   return new Promise((resolve) => {
@@ -230,8 +232,11 @@ async function pruneAndDeduplicateHistory(db: IDBDatabase): Promise<void> {
           const entryTime = new Date(entry.createdAt).getTime();
           const entryNormFile = normalizeFileKey(entry.fileName);
           const entryTool = (entry.toolName || '').toLowerCase().trim();
+          const entryOwner = (entry.userId || entry.userEmail || entry.sessionId || '').toLowerCase();
 
           const duplicateOfExisting = keptItems.find((kept) => {
+            const keptOwner = (kept.userId || kept.userEmail || kept.sessionId || '').toLowerCase();
+            if (entryOwner !== keptOwner) return false;
             if (entry.executionId && kept.executionId && entry.executionId === kept.executionId) {
               return true;
             }
@@ -308,11 +313,20 @@ export async function getUserFileHistory(
     });
     db.close();
 
+    const isAuthenticatedUser = Boolean(userId || userEmail);
     for (const item of rawItems) {
+      const itemBelongsToSomeoneElse =
+        (item.userId && userId && item.userId !== userId) ||
+        (item.userEmail && userEmail && item.userEmail.toLowerCase() !== userEmail.toLowerCase()) ||
+        (!isAuthenticatedUser && Boolean(item.userId || item.userEmail));
+
       const matchesUser =
-        (userId && item.userId === userId) ||
-        (userEmail && item.userEmail?.toLowerCase() === userEmail.toLowerCase()) ||
-        item.sessionId === sessionId;
+        !itemBelongsToSomeoneElse &&
+        (isAuthenticatedUser
+          ? (Boolean(userId && item.userId === userId) ||
+              Boolean(userEmail && item.userEmail?.toLowerCase() === userEmail.toLowerCase()) ||
+              (!item.userId && !item.userEmail && item.sessionId === sessionId))
+          : !item.userId && !item.userEmail && item.sessionId === sessionId);
 
       if (matchesUser) {
         const createdMs = new Date(item.createdAt).getTime();
@@ -328,6 +342,7 @@ export async function getUserFileHistory(
 
         localItems.push({
           ...item,
+          fileName: sanitizeDownloadFilename(item.fileName, 'dokumen.pdf'),
           userTier: currentTier || item.userTier || 'free',
           retentionHours:
             currentTier !== undefined && currentTier !== null

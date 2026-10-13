@@ -259,6 +259,14 @@ const MergePdf: React.FC<MergePdfProps> = ({ onBack }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [files.length, isMerging, mergedPdfUrl, handleMerge]);
 
+  useEffect(() => {
+    return () => {
+      if (mergedPdfUrl) {
+        URL.revokeObjectURL(mergedPdfUrl);
+      }
+    };
+  }, [mergedPdfUrl]);
+
   const reset = () => {
     setFiles([]);
     setIsMerging(false);
