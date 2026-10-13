@@ -37,21 +37,47 @@ def sanitize_filename(name: str) -> str:
     return get_safe_base_name(name, default="document")
 
 def parse_cell_value(val):
-    """Mengonversi nilai string ke tipe numerik (int/float) jika memungkinkan agar formula Excel berfungsi."""
+    """
+    Mengonversi nilai string ke tipe numerik HANYA jika aman.
+    Semua nomor identitas (NIP 18 digit, NIK 16 digit, No HP, No Rekening, Kode berawalan 0)
+    WAJIB DIPERTAHANKAN SEBAGAI STRING agar Excel tidak merusaknya menjadi notasi ilmiah (2,00112E+17)
+    atau memotong digit-digit terakhirnya.
+    """
     if val is None:
         return ""
     val_str = str(val).strip()
     if not val_str:
         return ""
-    # Cek apakah string merupakan angka (misal: "12500", "-45.67", "12,500.00")
+
+    # 1. Awalan '0' dengan panjang > 1 (Nomor HP, Kode Wilayah, dll) -> SELALU STRING
+    if val_str.startswith("0") and len(val_str) > 1:
+        return val_str
+
+    # 2. Identifier panjang (NIP 18 digit, NIK 16 digit, No Rekening >= 10 digit) -> SELALU STRING
+    digits_only = re.sub(r'\D', '', val_str)
+    if len(digits_only) >= 10:
+        return val_str
+
+    # 3. String dengan spasi/strip di antara angka (misal format NIP: 19980420 202305 1 002) -> STRING
+    if (" " in val_str or "-" in val_str) and any(c.isdigit() for c in val_str):
+        if not re.match(r'^-?\d+(\.\d+)?$', val_str):
+            return val_str
+
+    # 4. Bilangan bulat pendek aman (1 s/d 8 digit, tanpa awalan 0, misal: No Urut 1..9999, Kuantitas, Nilai 85)
     cleaned = val_str.replace(",", "")
-    if re.match(r'^-?\d+(\.\d+)?$', cleaned):
+    if re.match(r'^-?\d+$', cleaned) and len(cleaned) <= 8 and not cleaned.startswith("0"):
         try:
-            if "." in cleaned:
-                return float(cleaned)
             return int(cleaned)
         except ValueError:
             pass
+
+    # 5. Bilangan pecahan desimal pendek (misal: 85.5, 12.75)
+    if re.match(r'^-?\d+\.\d+$', cleaned) and len(cleaned) <= 9:
+        try:
+            return float(cleaned)
+        except ValueError:
+            pass
+
     return val_str
 
 
@@ -215,6 +241,69 @@ async def convert_pdf_to_excel(
                                 max_len = max(max_len, len(first_line))
                         ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
 
+                def is_table_header(row):
+                    """Mendeteksi apakah sebuah baris adalah baris judul/header tabel."""
+                    if not row or not any(row):
+                        return False
+                    row_strs = [str(c or "").strip().lower() for c in row if c is not None and str(c).strip()]
+                    if not row_strs:
+                        return False
+
+                    first_val = row_strs[0]
+                    # Jika kolom pertama adalah nomor urut numerik (>0), ini adalah data baris, BUKAN header!
+                    if re.match(r'^\d+[\.\)]?$', first_val):
+                        num = int(re.sub(r'\D', '', first_val))
+                        if num > 0:
+                            return False
+
+                    # Kata kunci umum judul kolom tabel Indonesia & Internasional
+                    header_keywords = {
+                        'no', 'no.', 'nomor', 'nip', 'nik', 'nama', 'nama lengkap', 'unit kerja', 'jabatan',
+                        'jadwal', 'tanggal', 'waktu', 'tempat', 'ruang', 'kegiatan', 'uraian', 'keterangan',
+                        'standar kompetensi', 'kompetensi', 'tujuan', 'strategi', 'metode', 'mata pelatihan',
+                        'jp', 'jumlah jp', 'hari', 'nilai', 'bobot', 'skor', 'status', 'hasil', 'predikat',
+                        'instansi', 'pelaksanaan', 'jenis penguatan', 'lokasi', 'sesi'
+                    }
+                    match_count = sum(1 for s in row_strs if any(kw in s for kw in header_keywords))
+                    if match_count >= 2 or (len(row_strs) <= 2 and match_count >= 1):
+                        return True
+
+                    # Baris nomor kolom penanda resmi (1, 2, 3, 4, 5...)
+                    if all(re.match(r'^\d+$', s) for s in row_strs) and len(row_strs) >= 3:
+                        nums = [int(s) for s in row_strs]
+                        if nums == list(range(1, len(nums) + 1)):
+                            return True
+
+                    return False
+
+                def is_same_header(header1, header2):
+                    """Mendeteksi apakah header2 adalah pengulangan dari header1 pada halaman lanjutan."""
+                    if not header1 or not header2:
+                        return False
+                    if len(header1) != len(header2):
+                        return False
+                    h1 = [str(c or "").strip().lower() for c in header1]
+                    h2 = [str(c or "").strip().lower() for c in header2]
+                    matches = sum(1 for a, b in zip(h1, h2) if a == b and a != "")
+                    return matches >= max(2, len(h1) // 2)
+
+                def write_openpyxl_cell(cell, raw_val, is_header=False):
+                    parsed = parse_cell_value(raw_val)
+                    cell.border = thin_border
+                    if is_header:
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = header_alignment
+                        cell.value = str(parsed)
+                        cell.number_format = '@'
+                    else:
+                        cell.alignment = data_alignment
+                        if isinstance(parsed, str):
+                            cell.number_format = '@'
+                            cell.value = parsed
+                        else:
+                            cell.value = parsed
+
                 def get_page_tables_and_text(page_idx):
                     nonlocal plum_doc
                     fitz_page = doc[page_idx]
@@ -263,62 +352,108 @@ async def convert_pdf_to_excel(
                         cur_row = 1
                         any_table_found = False
                         for tbl in tables:
+                            if not tbl or len(tbl) == 0:
+                                continue
                             any_table_found = True
-                            for r_idx, row_data in enumerate(tbl):
-                                is_header_row = r_idx == 0
+                            first_row = tbl[0]
+                            first_row_is_header = is_table_header(first_row)
+                            if first_row_is_header:
+                                for c_idx, val in enumerate(first_row, start=1):
+                                    cell = ws.cell(row=cur_row, column=c_idx)
+                                    write_openpyxl_cell(cell, val, is_header=True)
+                                cur_row += 1
+                                data_start = 1
+                            else:
+                                data_start = 0
+
+                            for r_idx in range(data_start, len(tbl)):
+                                row_data = tbl[r_idx]
                                 for c_idx, val in enumerate(row_data, start=1):
-                                    cell = ws.cell(row=cur_row, column=c_idx, value=parse_cell_value(val))
-                                    cell.border = thin_border
-                                    if is_header_row:
-                                        cell.fill = header_fill
-                                        cell.font = header_font
-                                        cell.alignment = header_alignment
-                                    else:
-                                        cell.alignment = data_alignment
+                                    cell = ws.cell(row=cur_row, column=c_idx)
+                                    write_openpyxl_cell(cell, val, is_header=False)
                                 cur_row += 1
                             cur_row += 2
-                        if mode == "all_content" and text_lines:
-                            ws.cell(row=cur_row, column=1, value="--- Konten Teks ---")
-                            cur_row += 1
-                            for line in text_lines:
-                                ws.cell(row=cur_row, column=1, value=line)
-                                cur_row += 1
                         if not any_table_found and mode == "tables_only":
                             ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di halaman ini.")
                         autofit(ws)
                 else:
+                    # Mode 1 Sheet Gabungan: Sambung tabel multi-halaman secara seamless
+                    page_tables = []
+                    pre_table_metadata = []
+                    for page_idx in range(num_pages):
+                        tables, text_lines = get_page_tables_and_text(page_idx)
+                        page_tables.append(tables)
+                        if page_idx == 0 and mode == "all_content" and text_lines:
+                            pre_table_metadata = text_lines[:6]
+
                     ws = default_sheet if default_sheet is not None else wb.create_sheet(title="Hasil Ekstraksi")
                     ws.title = "Hasil Ekstraksi"
                     cur_row = 1
-                    any_table_found = False
-                    for page_idx in range(num_pages):
-                        tables, text_lines = get_page_tables_and_text(page_idx)
-                        if tables or (mode == "all_content" and text_lines):
-                            ws.cell(row=cur_row, column=1, value=f"=== Halaman {page_idx + 1} ===")
+
+                    # Tulis metadata dokumen di paling atas (hanya jika mode all_content)
+                    if mode == "all_content" and pre_table_metadata:
+                        for meta_line in pre_table_metadata:
+                            ws.cell(row=cur_row, column=1, value=meta_line)
                             ws.cell(row=cur_row, column=1).font = Font(bold=True, name='Calibri')
                             cur_row += 1
-                        for tbl in tables:
-                            any_table_found = True
-                            for r_idx, row_data in enumerate(tbl):
-                                is_header_row = r_idx == 0
-                                for c_idx, val in enumerate(row_data, start=1):
-                                    cell = ws.cell(row=cur_row, column=c_idx, value=parse_cell_value(val))
-                                    cell.border = thin_border
-                                    if is_header_row:
-                                        cell.fill = header_fill
-                                        cell.font = header_font
-                                        cell.alignment = header_alignment
-                                    else:
-                                        cell.alignment = data_alignment
-                                cur_row += 1
-                            cur_row += 2
-                        if mode == "all_content" and text_lines:
-                            for line in text_lines:
-                                ws.cell(row=cur_row, column=1, value=line)
-                                cur_row += 1
-                            cur_row += 1
-                    if not any_table_found and mode == "tables_only":
-                        ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di dokumen ini. Coba gunakan opsi 'Tabel & Teks Dokumen'.")
+                        cur_row += 1
+
+                    current_table_cols = 0
+                    current_table_header = None
+                    total_detected_tables = 0
+
+                    for page_idx, tables_on_page in enumerate(page_tables):
+                        for tbl in tables_on_page:
+                            if not tbl or len(tbl) == 0:
+                                continue
+
+                            first_row = tbl[0]
+                            first_row_is_header = is_table_header(first_row)
+
+                            # Evaluasi apakah tabel ini kelanjutan dari tabel aktif sebelumnya
+                            is_continuation = False
+                            if current_table_cols > 0 and len(first_row) == current_table_cols:
+                                if first_row_is_header and current_table_header and is_same_header(current_table_header, first_row):
+                                    is_continuation = True
+                                elif not first_row_is_header:
+                                    is_continuation = True
+
+                            if is_continuation:
+                                # Lanjutan tabel sebelumnya: sambung langsung baris data
+                                start_r = 1 if first_row_is_header else 0
+                                for r_idx in range(start_r, len(tbl)):
+                                    row_data = tbl[r_idx]
+                                    for c_idx, val in enumerate(row_data, start=1):
+                                        cell = ws.cell(row=cur_row, column=c_idx)
+                                        write_openpyxl_cell(cell, val, is_header=False)
+                                    cur_row += 1
+                            else:
+                                # Tabel baru
+                                total_detected_tables += 1
+                                if cur_row > 1 and (cur_row > len(pre_table_metadata) + 2 if pre_table_metadata else True):
+                                    cur_row += 2
+
+                                current_table_cols = len(first_row)
+                                if first_row_is_header:
+                                    current_table_header = first_row
+                                    for c_idx, val in enumerate(first_row, start=1):
+                                        cell = ws.cell(row=cur_row, column=c_idx)
+                                        write_openpyxl_cell(cell, val, is_header=True)
+                                    cur_row += 1
+                                    data_start = 1
+                                else:
+                                    current_table_header = None
+                                    data_start = 0
+
+                                for r_idx in range(data_start, len(tbl)):
+                                    row_data = tbl[r_idx]
+                                    for c_idx, val in enumerate(row_data, start=1):
+                                        cell = ws.cell(row=cur_row, column=c_idx)
+                                        write_openpyxl_cell(cell, val, is_header=False)
+                                    cur_row += 1
+
+                    if total_detected_tables == 0:
+                        ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di dokumen ini.")
                     autofit(ws)
 
                 wb.save(tmp_xlsx_path)

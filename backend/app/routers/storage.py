@@ -310,25 +310,87 @@ async def _process_excel(job_id: str, pdf_bytes: bytes, base_name: str, opts: di
             header_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
             data_align = Alignment(vertical='top', wrap_text=True)
 
+            from app.routers.convert import parse_cell_value
+
+            def is_tbl_hdr(row):
+                if not row or not any(row):
+                    return False
+                r_strs = [str(c or "").strip().lower() for c in row if c is not None and str(c).strip()]
+                if not r_strs:
+                    return False
+                if re.match(r'^\d+[\.\)]?$', r_strs[0]):
+                    if int(re.sub(r'\D', '', r_strs[0])) > 0:
+                        return False
+                kws = {'no', 'no.', 'nomor', 'nip', 'nik', 'nama', 'unit kerja', 'jadwal', 'nilai', 'tujuan', 'standar'}
+                return sum(1 for s in r_strs if any(k in s for k in kws)) >= 2
+
+            def is_same_hdr(h1, h2):
+                if not h1 or not h2 or len(h1) != len(h2):
+                    return False
+                matches = sum(1 for a, b in zip(h1, h2) if str(a or '').strip().lower() == str(b or '').strip().lower() and str(a or '').strip())
+                return matches >= max(2, len(h1) // 2)
+
+            def write_cell(cell, raw, is_hdr=False):
+                p = parse_cell_value(raw)
+                cell.border = thin_border
+                if is_hdr:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = header_align
+                    cell.value = str(p)
+                    cell.number_format = '@'
+                else:
+                    cell.alignment = data_align
+                    if isinstance(p, str):
+                        cell.number_format = '@'
+                        cell.value = p
+                    else:
+                        cell.value = p
+
             cur_row = 1
+            curr_cols = 0
+            curr_hdr = None
+
             for page_idx in range(num_pages):
                 page = doc[page_idx]
                 if hasattr(page, 'find_tables'):
                     tabs = page.find_tables()
                     for tab in tabs:
-                        for r_idx, row in enumerate(tab.extract()):
-                            is_hdr = r_idx == 0
-                            for c_idx, val in enumerate(row, 1):
-                                cell = ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
-                                cell.border = thin_border
-                                if is_hdr:
-                                    cell.fill = header_fill
-                                    cell.font = header_font
-                                    cell.alignment = header_align
-                                else:
-                                    cell.alignment = data_align
-                            cur_row += 1
-                        cur_row += 1
+                        extracted = tab.extract()
+                        if not extracted or len(extracted) == 0:
+                            continue
+                        f_row = extracted[0]
+                        f_is_hdr = is_tbl_hdr(f_row)
+                        is_cont = False
+                        if curr_cols > 0 and len(f_row) == curr_cols:
+                            if f_is_hdr and curr_hdr and is_same_hdr(curr_hdr, f_row):
+                                is_cont = True
+                            elif not f_is_hdr:
+                                is_cont = True
+
+                        if is_cont:
+                            start_r = 1 if f_is_hdr else 0
+                            for r_idx in range(start_r, len(extracted)):
+                                for c_idx, val in enumerate(extracted[r_idx], 1):
+                                    write_cell(ws.cell(row=cur_row, column=c_idx), val, is_hdr=False)
+                                cur_row += 1
+                        else:
+                            if cur_row > 1:
+                                cur_row += 2
+                            curr_cols = len(f_row)
+                            if f_is_hdr:
+                                curr_hdr = f_row
+                                for c_idx, val in enumerate(f_row, 1):
+                                    write_cell(ws.cell(row=cur_row, column=c_idx), val, is_hdr=True)
+                                cur_row += 1
+                                d_start = 1
+                            else:
+                                curr_hdr = None
+                                d_start = 0
+                            for r_idx in range(d_start, len(extracted)):
+                                for c_idx, val in enumerate(extracted[r_idx], 1):
+                                    write_cell(ws.cell(row=cur_row, column=c_idx), val, is_hdr=False)
+                                cur_row += 1
 
             for col in ws.columns:
                 max_len = 0

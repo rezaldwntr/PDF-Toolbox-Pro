@@ -557,13 +557,50 @@ export async function convertPdfToExcelClientSide(
         rows: pageRows,
       });
     } else {
-      if (totalPagesToProcess > 1) {
-        combinedRows.push({
-          isMetadata: true,
-          cells: [`=== Halaman ${pageNum} ===`],
-        });
+      // Mode 1 Sheet Gabungan: Sambung tabel antar-halaman secara seamless
+      if (combinedRows.length === 0) {
+        combinedRows.push(...pageRows);
+      } else {
+        const pageMetadataRows = pageRows.filter((r) => r.isMetadata);
+        const pageHeaderRows = pageRows.filter((r) => r.isHeader);
+        const pageDataRows = pageRows.filter((r) => !r.isMetadata && !r.isHeader);
+
+        // Cari header dan jumlah kolom dari tabel aktif sebelumnya
+        const prevHeaderRow = [...combinedRows].reverse().find((r) => r.isHeader);
+        const prevDataRow = [...combinedRows].reverse().find((r) => !r.isMetadata && !r.isHeader);
+        const prevCols = prevHeaderRow?.cells.length || prevDataRow?.cells.length || 0;
+        const curCols = pageHeaderRows[0]?.cells.length || pageDataRows[0]?.cells.length || 0;
+
+        // Bandingkan apakah header halaman ini adalah pengulangan header halaman sebelumnya
+        const isSameHeader = (h1: string[], h2: string[]): boolean => {
+          if (!h1 || !h2 || h1.length !== h2.length) return false;
+          let matches = 0;
+          for (let i = 0; i < h1.length; i++) {
+            const a = (h1[i] || '').trim().toLowerCase();
+            const b = (h2[i] || '').trim().toLowerCase();
+            if (a && a === b) matches++;
+          }
+          return matches >= Math.max(2, Math.floor(h1.length / 2));
+        };
+
+        const isContinuous =
+          prevCols > 0 &&
+          curCols === prevCols &&
+          ((pageHeaderRows.length > 0 && prevHeaderRow && isSameHeader(prevHeaderRow.cells, pageHeaderRows[0].cells)) ||
+            pageHeaderRows.length === 0);
+
+        if (isContinuous) {
+          // TABEL BERKELANJUTAN: Langsung sambung data ke tabel sebelumnya tanpa pemisah dan tanpa duplikat header!
+          combinedRows.push(...pageDataRows);
+        } else {
+          // TABEL BARU: Beri jarak baris pemisah jika berbeda struktur
+          if (pageMetadataRows.length > 0 && options.mode !== 'tables_only') {
+            combinedRows.push(...pageMetadataRows);
+          }
+          combinedRows.push(...pageHeaderRows);
+          combinedRows.push(...pageDataRows);
+        }
       }
-      combinedRows.push(...pageRows);
     }
 
     if (options.onProgress) {
@@ -700,8 +737,17 @@ export async function convertPdfToExcelClientSide(
           }
 
           // Nilai data tabel biasa (s=1: dengan border tipis dan wrapText aktif)
+          // Hanya angka pendek murni (1-7 digit, tidak diawali 0) yang menjadi numerik <v>
+          // Angka panjang (>= 10 digit seperti NIP 18 digit, NIK 16 digit, No HP, No Rekening)
+          // WAJIB disimpan sebagai inlineStr agar Excel tidak mengubahnya menjadi notasi ilmiah (2,00112E+17)
+          const digitsOnly = strVal.replace(/\D/g, '');
+          const isLongIdOrLeadingZero =
+            digitsOnly.length >= 10 ||
+            (strVal.startsWith('0') && strVal.length > 1) ||
+            (strVal.includes(' ') && /\d/.test(strVal));
+
           const isPureInteger = /^\d+$/.test(strVal) && strVal.length < 8;
-          if (isPureInteger && !strVal.startsWith('0')) {
+          if (isPureInteger && !isLongIdOrLeadingZero && !strVal.startsWith('0')) {
             return `<c r="${colRef}" s="1"><v>${parseInt(strVal, 10)}</v></c>`;
           }
 
