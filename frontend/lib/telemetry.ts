@@ -208,15 +208,23 @@ export const recordToolUsage = async ({
     const finalFileName = fileName || activeOutputFileName || `${toolName.toLowerCase().replace(/\s+/g, '-')}.pdf`;
     const finalMode = processingMode || (activeIsLocalRam ? 'local_ram' : 'cloud_server');
 
-    const t1 = Math.round(finalDurationMs * 0.15);
-    const t2 = Math.round(finalDurationMs * 0.48);
-    const t3 = Math.round(finalDurationMs * 0.85);
+    const safeTotal = Math.max(10, Math.round(finalDurationMs));
+    const d1 = Math.max(1, Math.round(safeTotal * 0.1));
+    const d2 = Math.max(1, Math.round(safeTotal * 0.15));
+    const d3 = Math.max(1, Math.round(safeTotal * 0.35));
+    const d4 = Math.max(1, Math.round(safeTotal * 0.25));
+    const d5 = Math.max(1, safeTotal - (d1 + d2 + d3 + d4));
+    const fmtStep = (ms: number) =>
+      safeTotal >= 1000 ? `${(ms / 1000).toFixed(2)} dtk` : `${ms} ms`;
+    const fmtTotal =
+      safeTotal >= 1000 ? `${(safeTotal / 1000).toFixed(2)} dtk` : `${safeTotal} ms`;
+
     const defaultSteps = [
-      `[0 ms] Inisialisasi & validasi struktur berkas masuk (${(finalInputBytes / 1024).toFixed(1)} KB)`,
-      `[${t1} ms] Mengalokasikan engine "${toolName}" (${finalMode === 'local_ram' ? 'Client-Side Local RAM' : 'Cloud Server Worker'})`,
-      `[${t2} ms] Memproses objek halaman, stream teks, dan matriks dokumen`,
-      `[${t3} ms] Merakit berkas hasil "${finalFileName}" (${(finalOutputBytes / 1024).toFixed(1)} KB)`,
-      `[${finalDurationMs} ms] Verifikasi integritas selesai — Berkas siap diunduh`,
+      `[${fmtStep(d1)}] Inisialisasi & validasi struktur berkas masuk (${(finalInputBytes / 1024).toFixed(1)} KB)`,
+      `[${fmtStep(d2)}] Mengalokasikan engine "${toolName}" (${finalMode === 'local_ram' ? 'Client-Side Local RAM' : 'Cloud Server Worker'})`,
+      `[${fmtStep(d3)}] Memproses objek halaman, stream teks, dan matriks dokumen`,
+      `[${fmtStep(d4)}] Merakit berkas hasil "${finalFileName}" (${(finalOutputBytes / 1024).toFixed(1)} KB)`,
+      `[${fmtStep(d5)}] Verifikasi integritas selesai (Total: ${fmtTotal}) — Berkas siap diunduh`,
     ];
 
     // Simpan metadata ukuran masuk, ukuran hasil, waktu proses, dan detail tahapan di error_message (saat sukses)

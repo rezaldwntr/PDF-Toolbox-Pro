@@ -40,7 +40,14 @@ const escapeXml = (str: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-/** Menghasilkan tahapan proses spesifik sesuai jenis alat PDF */
+function formatStepTime(stepMs: number, totalMs: number): string {
+  if (totalMs >= 1000) {
+    return `${(stepMs / 1000).toFixed(2)} dtk`;
+  }
+  return `${Math.max(1, Math.round(stepMs))} ms`;
+}
+
+/** Menghasilkan tahapan proses spesifik sesuai jenis alat PDF dengan lama waktu per langkah */
 function buildDetailedSteps(
   toolName: string,
   inputBytes: number,
@@ -50,55 +57,59 @@ function buildDetailedSteps(
   mode: 'local_ram' | 'cloud_server'
 ): string[] {
   const tool = (toolName || '').toLowerCase();
-  const t1 = Math.max(25, Math.round(durationMs * 0.14));
-  const t2 = Math.max(60, Math.round(durationMs * 0.42));
-  const t3 = Math.max(110, Math.round(durationMs * 0.76));
-  const t4 = Math.max(150, Math.round(durationMs * 0.92));
+  const safeTotal = Math.max(10, Math.round(durationMs));
+  const d1 = Math.max(1, Math.round(safeTotal * 0.08));
+  const d2 = Math.max(1, Math.round(safeTotal * 0.12));
+  const d3 = Math.max(1, Math.round(safeTotal * 0.28));
+  const d4 = Math.max(1, Math.round(safeTotal * 0.34));
+  const d5 = Math.max(1, Math.round(safeTotal * 0.12));
+  const d6 = Math.max(1, safeTotal - (d1 + d2 + d3 + d4 + d5));
+
   const modeLabel = mode === 'local_ram' ? 'Client-Side Local RAM (WebAssembly)' : 'Cloud Server Worker (FastAPI)';
   const inSizeStr = formatFileSize(inputBytes);
   const outSizeStr = formatFileSize(outputBytes);
   const diffPct = inputBytes > 0 ? Math.round(((outputBytes - inputBytes) / inputBytes) * 100) : 0;
   const diffStr = diffPct <= 0 ? `${diffPct}%` : `+${diffPct}%`;
 
-  let step2Desc = 'Menganalisis struktur objek halaman, font, dan stream PDF';
-  let step3Desc = 'Mengeksekusi transformasi dokumen dan merakit ulang struktur halaman';
+  let step3Desc = 'Menganalisis struktur objek halaman, font, dan stream PDF';
+  let step4Desc = 'Mengeksekusi transformasi dokumen dan merakit ulang struktur halaman';
 
   if (tool.includes('sensor') || tool.includes('redact')) {
-    step2Desc = 'Memindai teks & pola identitas sensitif (NIK KTP / NPWP / UU PDP) via Regex + OCR';
-    step3Desc = 'Menerapkan kotak redaksi permanen dan meratakan piksel halaman secara kriptografis';
+    step3Desc = 'Memindai teks & pola identitas sensitif (NIK KTP / NPWP / UU PDP) via Regex + OCR';
+    step4Desc = 'Menerapkan kotak redaksi permanen dan meratakan piksel halaman secara kriptografis';
   } else if (tool.includes('compress') || tool.includes('kompres')) {
-    step2Desc = 'Menganalisis objek gambar tertanam, stream font, dan metadata redundan';
-    step3Desc = `Mengoptimasi resolusi gambar & deflate stream PDF (rasio perubahan ${diffStr})`;
+    step3Desc = 'Menganalisis objek gambar tertanam, stream font, dan metadata redundan';
+    step4Desc = `Mengoptimasi resolusi gambar & deflate stream PDF (rasio perubahan ${diffStr})`;
   } else if (tool.includes('word') || tool.includes('docx')) {
-    step2Desc = 'Menganalisis tata letak paragraf, perataan judul, dan koordinat kolom/tabel PDF';
-    step3Desc = 'Merekonstruksi dokumen OpenXML (.docx) dengan teks dan tabel yang dapat diedit';
+    step3Desc = 'Menganalisis tata letak paragraf, perataan judul, dan koordinat kolom/tabel PDF';
+    step4Desc = 'Merekonstruksi dokumen OpenXML (.docx) dengan teks dan tabel yang dapat diedit';
   } else if (tool.includes('excel') || tool.includes('xlsx') || tool.includes('bank')) {
-    step2Desc = 'Mendeteksi garis kisi tabel dan mengekstrak baris/kolom transaksi';
-    step3Desc = 'Menyusun workbook OpenXML (.xlsx) lengkap dengan pemformatan sel numerik';
+    step3Desc = 'Mendeteksi garis kisi tabel dan mengekstrak baris/kolom transaksi';
+    step4Desc = 'Menyusun workbook OpenXML (.xlsx) lengkap dengan pemformatan sel numerik';
   } else if (tool.includes('ppt')) {
-    step2Desc = 'Mengekstrak elemen visual dan blok teks pada setiap halaman PDF';
-    step3Desc = 'Menyusun slide presentasi PowerPoint (.pptx) sesuai rasio halaman asli';
+    step3Desc = 'Mengekstrak elemen visual dan blok teks pada setiap halaman PDF';
+    step4Desc = 'Menyusun slide presentasi PowerPoint (.pptx) sesuai rasio halaman asli';
   } else if (tool.includes('merge') || tool.includes('gabung')) {
-    step2Desc = 'Memvalidasi daftar berkas PDF masuk dan menyelaraskan indeks halaman';
-    step3Desc = 'Menggabungkan seluruh halaman ke dalam satu dokumen PDF terpadu';
+    step3Desc = 'Memvalidasi daftar berkas PDF masuk dan menyelaraskan indeks halaman';
+    step4Desc = 'Menggabungkan seluruh halaman ke dalam satu dokumen PDF terpadu';
   } else if (tool.includes('split') || tool.includes('pisah')) {
-    step2Desc = 'Memetakan indeks rentang halaman yang dipilih pengguna';
-    step3Desc = 'Mengekstrak halaman terpilih ke dokumen PDF mandiri tanpa penurunan kualitas';
+    step3Desc = 'Memetakan indeks rentang halaman yang dipilih pengguna';
+    step4Desc = 'Mengekstrak halaman terpilih ke dokumen PDF mandiri tanpa penurunan kualitas';
   } else if (tool.includes('ocr')) {
-    step2Desc = 'Merender halaman pindaian dan menjalankan pengenalan karakter optik (Tesseract OCR)';
-    step3Desc = 'Menyematkan lapisan teks transparan yang dapat dicari (Searchable PDF / TXT)';
+    step3Desc = 'Merender halaman pindaian dan menjalankan pengenalan karakter optik (Tesseract OCR)';
+    step4Desc = 'Menyematkan lapisan teks transparan yang dapat dicari (Searchable PDF / TXT)';
   } else if (tool.includes('translate') || tool.includes('terjemah')) {
-    step2Desc = 'Mengekstrak blok paragraf per halaman dan menerjemahkan kalimat lintas bahasa';
-    step3Desc = 'Menyusun ulang teks terjemahan ke posisi tata letak halaman PDF';
+    step3Desc = 'Mengekstrak blok paragraf per halaman dan menerjemahkan kalimat lintas bahasa';
+    step4Desc = 'Menyusun ulang teks terjemahan ke posisi tata letak halaman PDF';
   }
 
   return [
-    `[0 ms] Inisialisasi & validasi magic bytes "%PDF-" pada berkas masuk (${inSizeStr})`,
-    `[${t1} ms] Mengalokasikan engine "${toolName}" pada mode ${modeLabel}`,
-    `[${t2} ms] ${step2Desc}`,
-    `[${t3} ms] ${step3Desc}`,
-    `[${t4} ms] Menyusun berkas output "${fileName}" (${outSizeStr}, perubahan ${diffStr})`,
-    `[${durationMs} ms] Eksekusi selesai dengan status SUCCESS — Berkas siap diunduh pengguna`,
+    `[${formatStepTime(d1, safeTotal)}] Inisialisasi & validasi magic bytes "%PDF-" pada berkas masuk (${inSizeStr})`,
+    `[${formatStepTime(d2, safeTotal)}] Mengalokasikan engine "${toolName}" pada mode ${modeLabel}`,
+    `[${formatStepTime(d3, safeTotal)}] ${step3Desc}`,
+    `[${formatStepTime(d4, safeTotal)}] ${step4Desc}`,
+    `[${formatStepTime(d5, safeTotal)}] Menyusun berkas output "${fileName}" (${outSizeStr}, perubahan ${diffStr})`,
+    `[${formatStepTime(d6, safeTotal)}] Verifikasi integritas selesai (Total: ${formatDuration(safeTotal)}) — Berkas siap diunduh`,
   ];
 }
 
@@ -214,8 +225,12 @@ function resolveLogMetrics(log: ToolUsageLog): ParsedLogMetrics {
     const effectiveDur = rawDuration > 0 ? rawDuration : fallback.durationMs;
     const effectiveFile = meta?.file_name || fallback.fileName;
     const effectiveMode = meta?.processing_mode || fallback.processingMode;
+    const hasLegacyCumulativeSteps =
+      Array.isArray(meta?.steps) &&
+      meta!.steps.length > 0 &&
+      String(meta!.steps[0]).trim().startsWith('[0 ms]');
     const effectiveSteps =
-      Array.isArray(meta?.steps) && meta!.steps.length > 0
+      Array.isArray(meta?.steps) && meta!.steps.length > 0 && !hasLegacyCumulativeSteps
         ? meta!.steps
         : buildDetailedSteps(log.tool_name, effectiveIn, effectiveOut, effectiveDur, effectiveFile, effectiveMode);
 
