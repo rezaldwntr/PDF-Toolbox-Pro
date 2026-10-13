@@ -17,9 +17,17 @@ import {
   FileText,
   Mail,
   Bell,
+  Download,
+  Trash2,
+  RefreshCw,
+  History,
+  Timer,
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
+import { getUserFileHistory, deleteUserHistoryItem, UserHistoryItem } from '../../lib/userFileHistory';
+import { downloadBlob } from '../../lib/download';
+import { formatFileSize, formatDateTimeIndonesia } from '../../lib/formatters';
 
 interface ProfilePageProps {
   onSelectView?: (view: View) => void;
@@ -60,6 +68,39 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
 
   const [acceptsMarketing, setAcceptsMarketing] = React.useState<boolean>(user?.acceptsMarketingEmails ?? true);
   const [isUpdatingMarketing, setIsUpdatingMarketing] = React.useState<boolean>(false);
+  const [historyItems, setHistoryItems] = React.useState<UserHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = React.useState<boolean>(true);
+
+  const loadUserHistory = React.useCallback(async () => {
+    setIsLoadingHistory(true);
+    try {
+      const items = await getUserFileHistory(user?.id, user?.email);
+      setHistoryItems(items);
+    } catch (err) {
+      console.warn('Gagal memuat riwayat berkas user:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [user?.id, user?.email]);
+
+  React.useEffect(() => {
+    loadUserHistory();
+  }, [loadUserHistory]);
+
+  const handleDownloadHistoryItem = (item: UserHistoryItem) => {
+    if (!item.blob || !item.hasBlobAvailable) {
+      addToast('Berkas sudah kedaluwarsa (> 60 menit) dan telah dibersihkan otomatis.', 'error');
+      return;
+    }
+    downloadBlob(item.blob, item.fileName);
+    addToast(`Mengunduh berkas "${item.fileName}"...`, 'success');
+  };
+
+  const handleDeleteHistoryItem = async (id: string) => {
+    await deleteUserHistoryItem(id);
+    setHistoryItems((prev) => prev.filter((item) => item.id !== id));
+    addToast('Riwayat berkas berhasil dihapus dari penyimpanan lokal.', 'info');
+  };
 
   React.useEffect(() => {
     if (user?.acceptsMarketingEmails !== undefined) {
@@ -332,6 +373,151 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
           </div>
         </div>
       )}
+
+      {/* 3.2 RIWAYAT PEMROSESAN DOKUMEN & LINK UNDUHAN (TERSEDIA 60 MENIT) */}
+      <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border-subtle">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] flex items-center justify-center shrink-0 mt-0.5">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-serif text-lg font-bold text-text-primary">
+                  Riwayat Pemrosesan Dokumen & Unduhan
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/25">
+                  Retensi Unduhan 60 Menit
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+                Daftar dokumen yang telah Anda proses. Tautan unduhan tersedia selama <strong>60 menit</strong> setelah pemrosesan selesai sebelum dibersihkan secara otomatis demi privasi data Anda.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadUserHistory}
+            disabled={isLoadingHistory}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-elevated hover:bg-border-subtle/50 text-text-primary border border-border-subtle transition-colors cursor-pointer self-start sm:self-center shrink-0"
+          >
+            <RefreshCw size={13} className={isLoadingHistory ? 'animate-spin' : ''} />
+            <span>Muat Ulang</span>
+          </button>
+        </div>
+
+        {isLoadingHistory ? (
+          <div className="py-10 text-center text-xs text-text-secondary">
+            Memuat riwayat pemrosesan dokumen Anda...
+          </div>
+        ) : historyItems.length === 0 ? (
+          <div className="py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-elevated mx-auto flex items-center justify-center text-text-secondary mb-3 border border-border-subtle">
+              <FileText size={20} />
+            </div>
+            <p className="text-sm font-bold text-text-primary">Belum Ada Riwayat Dokumen</p>
+            <p className="text-xs text-text-secondary mt-1 max-w-md mx-auto">
+              Setiap dokumen yang selesai Anda kompres, konversi, atau sensor akan otomatis muncul di sini beserta tombol unduh ulangnya.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 divide-y divide-border-subtle/60">
+            {historyItems.map((item) => {
+              const remainingMs = Math.max(0, item.expiresAt - Date.now());
+              const remainingMinutes = Math.ceil(remainingMs / 60_000);
+              const isAvailable = item.hasBlobAvailable && Boolean(item.blob) && remainingMs > 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-elevated/30 px-2 rounded-xl transition-colors"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
+                        isAvailable
+                          ? 'bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border-[#314028]/25'
+                          : 'bg-elevated text-text-secondary border-border-subtle'
+                      }`}
+                    >
+                      <FileText size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs sm:text-sm font-bold text-text-primary truncate max-w-xs sm:max-w-md" title={item.fileName}>
+                          {item.fileName}
+                        </p>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/20">
+                          {item.toolName}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-text-secondary">
+                        <span>
+                          Ukuran:{' '}
+                          <strong className="text-text-primary">
+                            {item.inputBytes > 0 ? formatFileSize(item.inputBytes) : '-'}
+                          </strong>
+                          {' → '}
+                          <strong className="text-[#314028] dark:text-emerald-400">
+                            {item.outputBytes > 0 ? formatFileSize(item.outputBytes) : '-'}
+                          </strong>
+                        </span>
+                        {item.durationMs > 0 && (
+                          <span>
+                            • Proses: <strong className="text-text-primary">{item.durationMs >= 1000 ? `${(item.durationMs / 1000).toFixed(2)} dtk` : `${item.durationMs} ms`}</strong>
+                          </span>
+                        )}
+                        <span>• {formatDateTimeIndonesia(new Date(item.createdAt).toISOString())}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status Ketersediaan & Tombol Download */}
+                  <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                    {isAvailable ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-[#314028] dark:text-emerald-400 border border-emerald-500/25">
+                          <Timer size={11} />
+                          <span>Tersedia ({remainingMinutes} mnt)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadHistoryItem(item)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#9B4819] hover:bg-[#7E3812] text-white shadow-2xs transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Download size={13} />
+                          <span>Unduh Berkas</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-elevated text-text-secondary border border-border-subtle cursor-not-allowed"
+                        title="Berkas hasil telah melewati batas penyimpanan 60 menit atau diproses pada perangkat/sesi berbeda"
+                      >
+                        <Clock size={12} />
+                        <span>Berkas Kedaluwarsa (&gt; 60 Menit)</span>
+                      </span>
+                    )}
+
+                    {!item.id.startsWith('remote-') && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteHistoryItem(item.id)}
+                        className="p-2 rounded-xl text-text-secondary hover:text-rose-600 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors cursor-pointer"
+                        title="Hapus dari riwayat perangkat ini"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* 3.5 PREFERENSI PENAWARAN EMAIL */}
       {!isGuest && (

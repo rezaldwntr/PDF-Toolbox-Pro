@@ -355,45 +355,212 @@ const DeveloperApiHub: React.FC<DeveloperApiHubProps> = ({ onBack }) => {
 
   const currentKey = apiKeyData?.api_key || 'ptpro_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
+  const API_ENDPOINTS: Record<
+    string,
+    {
+      label: string;
+      category: string;
+      path: string;
+      outFile: string;
+      desc: string;
+      extraParams?: Record<string, string>;
+    }
+  > = {
+    // 1. Konversi Dokumen
+    pdf_to_word: {
+      label: 'PDF ke Word (.docx)',
+      category: 'Konversi Dokumen',
+      path: '/convert/pdf-to-docx',
+      outFile: 'hasil_dokumen.docx',
+      desc: 'Mengonversi berkas PDF menjadi dokumen Microsoft Word (.docx) dengan teks, paragraf, dan tabel yang dapat diedit.',
+      extraParams: { layout_mode: 'editable' },
+    },
+    pdf_to_excel: {
+      label: 'PDF ke Excel (.xlsx)',
+      category: 'Konversi Dokumen',
+      path: '/convert/pdf-to-excel',
+      outFile: 'hasil_tabel.xlsx',
+      desc: 'Mengekstrak tabel dari dokumen PDF menjadi spreadsheet Microsoft Excel (.xlsx) terstruktur.',
+      extraParams: { mode: 'tables_only', sheet_per_page: 'false' },
+    },
+    pdf_to_ppt: {
+      label: 'PDF ke PowerPoint (.pptx)',
+      category: 'Konversi Dokumen',
+      path: '/convert/pdf-to-ppt',
+      outFile: 'hasil_presentasi.pptx',
+      desc: 'Mengubah setiap halaman PDF menjadi slide presentasi PowerPoint (.pptx) yang dapat diedit.',
+      extraParams: { layout_mode: 'editable' },
+    },
+    pdf_to_image: {
+      label: 'PDF ke Gambar (JPG/PNG)',
+      category: 'Konversi Dokumen',
+      path: '/convert/pdf-to-image',
+      outFile: 'hasil_gambar.zip',
+      desc: 'Merender halaman PDF ke citra JPG/PNG resolusi tinggi (150/300 DPI) atau mengekstrak gambar tertanam.',
+      extraParams: { output_format: 'jpg', dpi: '300' },
+    },
+
+    // 2. Optimasi & Tata Letak
+    compress: {
+      label: 'Kompres PDF',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/compress-pdf',
+      outFile: 'dokumen_kompres.pdf',
+      desc: 'Memperkecil ukuran berkas PDF hingga 80% dengan tetap menjaga ketajaman teks dan grafik.',
+      extraParams: { compression_level: 'recommended' },
+    },
+    merge: {
+      label: 'Gabungkan PDF (Merge)',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/merge-pdf',
+      outFile: 'dokumen_gabungan.pdf',
+      desc: 'Menggabungkan beberapa berkas PDF sekaligus menjadi satu dokumen PDF berurutan.',
+    },
+    split: {
+      label: 'Pisahkan PDF (Split)',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/split-pdf',
+      outFile: 'dokumen_potongan.pdf',
+      desc: 'Memotong rentang halaman tertentu atau memisahkan setiap halaman PDF menjadi berkas mandiri.',
+      extraParams: { split_mode: 'range', start_page: '1', end_page: '3' },
+    },
+    organize: {
+      label: 'Atur / Putar Halaman PDF',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/organize-pdf',
+      outFile: 'dokumen_teratur.pdf',
+      desc: 'Mengurutkan ulang, memutar orientasi derajat halaman, atau menghapus halaman tertentu pada PDF.',
+    },
+    crop: {
+      label: 'Potong Margin PDF (Crop)',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/crop-pdf',
+      outFile: 'dokumen_crop.pdf',
+      desc: 'Memangkas batas margin putih di sekeliling halaman PDF secara presisi.',
+    },
+    pdf_to_pdfa: {
+      label: 'PDF ke PDF/A (Arsip ISO)',
+      category: 'Optimasi & Tata Letak',
+      path: '/tools/pdf-to-pdfa',
+      outFile: 'dokumen_pdfa.pdf',
+      desc: 'Mengonversi dokumen PDF ke standar pengarsipan jangka panjang ISO 19005 (PDF/A-2b).',
+    },
+
+    // 3. Keamanan & Privasi UU PDP
+    redact: {
+      label: 'Sensor NIK / NPWP / UU PDP',
+      category: 'Keamanan & Privasi UU PDP',
+      path: '/tools/redact-pdf',
+      outFile: 'dokumen_tersensor.pdf',
+      desc: 'Menyensor otomatis data pribadi sensitif (NIK KTP, NPWP, No HP, Email, Rekening) secara permanen sesuai UU PDP No. 27/2022.',
+      extraParams: { redact_nik: 'true', redact_npwp: 'true', redact_phone: 'true' },
+    },
+    protect: {
+      label: 'Kunci Password PDF (AES-256)',
+      category: 'Keamanan & Privasi UU PDP',
+      path: '/tools/protect-pdf',
+      outFile: 'dokumen_terkunci.pdf',
+      desc: 'Mengenkripsi dokumen PDF dengan kata sandi standar kriptografi AES-256 bit.',
+      extraParams: { password: 'RahasiaPerusahaan2026!' },
+    },
+    unlock: {
+      label: 'Buka Kunci Password PDF',
+      category: 'Keamanan & Privasi UU PDP',
+      path: '/tools/unlock-pdf',
+      outFile: 'dokumen_terbuka.pdf',
+      desc: 'Menghapus proteksi kata sandi dari dokumen PDF yang Anda miliki izin aksesnya.',
+      extraParams: { password: 'PasswordLama123' },
+    },
+    watermark: {
+      label: 'Tambah Watermark PDF',
+      category: 'Keamanan & Privasi UU PDP',
+      path: '/tools/watermark-pdf',
+      outFile: 'dokumen_watermark.pdf',
+      desc: 'Menyematkan tanda air (teks/logo) diagonal atau berulang (tiled) di seluruh halaman PDF.',
+      extraParams: { text: 'DOKUMEN RAHASIA', opacity: '0.25' },
+    },
+    signature: {
+      label: 'Tanda Tangan / Stempel PDF',
+      category: 'Keamanan & Privasi UU PDP',
+      path: '/tools/add-signature',
+      outFile: 'dokumen_bertandatangan.pdf',
+      desc: 'Menambahkan citra tanda tangan atau stempel resmi pada koordinat halaman PDF tertentu.',
+    },
+
+    // 4. Kecerdasan Dokumen & Ekstraksi
+    bank_statement: {
+      label: 'Ekstrak Rekening Koran (Bank)',
+      category: 'Kecerdasan Dokumen & AI',
+      path: '/tools/parse-bank-statement',
+      outFile: 'mutasi_rekening.xlsx',
+      desc: 'Mengekstrak mutasi transaksi rekening koran bank (BCA, Mandiri, BNI, BRI, BSI) menjadi Excel/CSV siap rekonsiliasi.',
+      extraParams: { output_format: 'xlsx' },
+    },
+    ocr: {
+      label: 'OCR Teks PDF Pindaian',
+      category: 'Kecerdasan Dokumen & AI',
+      path: '/tools/ocr-pdf',
+      outFile: 'dokumen_searchable.pdf',
+      desc: 'Mengubah PDF hasil scan/kamera menjadi Searchable PDF atau teks menggunakan mesin OCR multibahasa.',
+      extraParams: { languages: 'ind+eng', output_format: 'pdf' },
+    },
+    translate: {
+      label: 'Terjemahkan Dokumen PDF',
+      category: 'Kecerdasan Dokumen & AI',
+      path: '/tools/translate-pdf',
+      outFile: 'dokumen_terjemahan.pdf',
+      desc: 'Menerjemahkan isi dokumen PDF secara otomatis lintas bahasa (Indonesia, Inggris, Jepang, Mandarin, Arab, dll).',
+      extraParams: { source_lang: 'auto', target_lang: 'id' },
+    },
+  };
+
+  const activeEp = API_ENDPOINTS[selectedEndpoint] || API_ENDPOINTS.compress;
+
   // Contoh kode dinamis
   const getCodeSnippet = () => {
-    const epMap: Record<string, string> = {
-      compress: '/tools/compress-pdf',
-      redact: '/tools/redact-pdf',
-      bank_statement: '/tools/parse-bank-statement',
-      ocr: '/tools/ocr-pdf',
-    };
-    const targetUrl = `https://pdftoolbox.app${epMap[selectedEndpoint]}`;
+    const targetUrl = `https://pdftoolbox.app${activeEp.path}`;
+    const extraEntries = Object.entries(activeEp.extraParams || {});
 
     if (selectedLang === 'curl') {
+      const extraFlags = extraEntries
+        .map(([k, v]) => `  -F "${k}=${v}" \\\n`)
+        .join('');
       return `curl -X POST "${targetUrl}" \\
   -H "X-API-Key: ${currentKey}" \\
   -F "file=@dokumen.pdf" \\
-  -o "hasil_dokumen.pdf"`;
+${extraFlags}  -o "${activeEp.outFile}"`;
     }
     if (selectedLang === 'python') {
+      const dataStr =
+        extraEntries.length > 0
+          ? `\ndata = ${JSON.stringify(activeEp.extraParams)}`
+          : '';
+      const dataArg = extraEntries.length > 0 ? ', data=data' : '';
       return `import requests
 
 url = "${targetUrl}"
 headers = {"X-API-Key": "${currentKey}"}
-files = {"file": open("dokumen.pdf", "rb")}
+files = {"file": open("dokumen.pdf", "rb")}${dataStr}
 
-response = requests.post(url, headers=headers, files=files)
-if response.status_code == 200:
-    with open("hasil_dokumen.pdf", "wb") as f:
+response = requests.post(url, headers=headers, files=files${dataArg})
+if response.status_code in (200, 202):
+    with open("${activeEp.outFile}", "wb") as f:
         f.write(response.content)
     print("Selesai! Sisa Kredit:", response.headers.get("X-API-Credit-Remaining"))
 else:
     print("Error:", response.json())`;
     }
     if (selectedLang === 'node') {
+      const appendExtra = extraEntries
+        .map(([k, v]) => `\n  form.append('${k}', '${v}');`)
+        .join('');
       return `const fs = require('fs');
 const FormData = require('form-data');
 const axios = require('axios');
 
 async function processPdf() {
   const form = new FormData();
-  form.append('file', fs.createReadStream('dokumen.pdf'));
+  form.append('file', fs.createReadStream('dokumen.pdf'));${appendExtra}
 
   const response = await axios.post('${targetUrl}', form, {
     headers: {
@@ -403,12 +570,16 @@ async function processPdf() {
     responseType: 'arraybuffer',
   });
 
-  fs.writeFileSync('hasil_dokumen.pdf', response.data);
+  fs.writeFileSync('${activeEp.outFile}', response.data);
   console.log('Selesai! Sisa Kredit:', response.headers['x-api-credit-remaining']);
 }
 processPdf();`;
     }
     // PHP
+    const phpFields = [
+      `"file" => $file`,
+      ...extraEntries.map(([k, v]) => `"${k}" => "${v}"`),
+    ].join(', ');
     return `<?php
 $ch = curl_init();
 $file = new CURLFile('dokumen.pdf', 'application/pdf');
@@ -417,12 +588,12 @@ curl_setopt_array($ch, [
   CURLOPT_URL => "${targetUrl}",
   CURLOPT_POST => 1,
   CURLOPT_HTTPHEADER => ["X-API-Key: ${currentKey}"],
-  CURLOPT_POSTFIELDS => ["file" => $file],
+  CURLOPT_POSTFIELDS => [${phpFields}],
   CURLOPT_RETURNTRANSFER => true,
 ]);
 
 $response = curl_exec($ch);
-file_put_contents("hasil_dokumen.pdf", $response);
+file_put_contents("${activeEp.outFile}", $response);
 curl_close($ch);
 ?>`;
   };
@@ -715,32 +886,58 @@ curl_close($ch);
 
       {/* Bagian 3: Dokumentasi Cepat & Contoh Kode Multibahasa */}
       <div className="bg-[#181818] text-[#F2EFE9] rounded-3xl p-6 sm:p-8 shadow-paper border border-[#2D2D2D]">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#2D2D2D]">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-6 border-b border-[#2D2D2D]">
           <div>
-            <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-              <Code2 size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
-              <span>Contoh Kode Integrasi API</span>
-            </h2>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                <Code2 size={18} className="text-[#9B4819] dark:text-[#E06D3B]" />
+                <span>Contoh Kode Integrasi API (18 Endpoint Tersedia)</span>
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#9B4819]/25 text-[#F29F67] border border-[#9B4819]/40">
+                REST API v1
+              </span>
+            </div>
             <p className="text-xs text-[#A8A49A] mt-1">
-              Pilih endpoint dan bahasa pemrograman untuk menyalin kode siap pakai ke aplikasi Anda.
+              Pilih dari 18 endpoint alat PDF dan bahasa pemrograman untuk menyalin kode integrasi siap pakai ke aplikasi Anda.
             </p>
           </div>
 
-          {/* Endpoint Selector */}
+          {/* Endpoint Selector (18 Endpoints Grouped by Category) */}
           <select
             value={selectedEndpoint}
             onChange={(e) => setSelectedEndpoint(e.target.value)}
-            className="bg-[#242424] text-[#F2EFE9] text-xs font-semibold rounded-xl px-3 py-2 border border-[#3A3A3A] outline-none focus:ring-2 focus:ring-[#9B4819] cursor-pointer"
+            className="w-full lg:w-auto bg-[#242424] text-[#F2EFE9] text-xs font-semibold rounded-xl px-3.5 py-2.5 border border-[#3A3A3A] outline-none focus:ring-2 focus:ring-[#9B4819] cursor-pointer"
           >
-            <option value="compress">Kompres PDF (/tools/compress-pdf)</option>
-            <option value="redact">Sensor NIK / UU PDP (/tools/redact-pdf)</option>
-            <option value="bank_statement">Rekening Koran (/tools/parse-bank-statement)</option>
-            <option value="ocr">OCR Teks (/tools/ocr-pdf)</option>
+            {(['Konversi Dokumen', 'Optimasi & Tata Letak', 'Keamanan & Privasi UU PDP', 'Kecerdasan Dokumen & AI'] as const).map((cat) => (
+              <optgroup key={cat} label={`── ${cat} ──`} className="bg-[#1E1E1E] text-[#F29F67] font-bold">
+                {Object.entries(API_ENDPOINTS)
+                  .filter(([, meta]) => meta.category === cat)
+                  .map(([key, meta]) => (
+                    <option key={key} value={key} className="bg-[#242424] text-[#F2EFE9] font-normal">
+                      {meta.label} ({meta.path})
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
           </select>
         </div>
 
+        {/* Info Endpoint Aktif */}
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-xl bg-[#222222] border border-[#333333]">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-extrabold">
+              POST
+            </span>
+            <code className="font-mono text-xs text-white font-bold">{activeEp.path}</code>
+            <span className="text-[11px] text-[#A8A49A]">• {activeEp.desc}</span>
+          </div>
+          <span className="text-[10px] font-mono text-[#A8A49A] shrink-0">
+            Output: <strong className="text-[#F2EFE9]">{activeEp.outFile}</strong>
+          </span>
+        </div>
+
         {/* Tab Bahasa Pemrograman */}
-        <div className="flex items-center gap-2 mt-5">
+        <div className="flex items-center gap-2 mt-4">
           {(['curl', 'python', 'node', 'php'] as const).map((lang) => (
             <button
               key={lang}

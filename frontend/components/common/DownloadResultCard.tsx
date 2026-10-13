@@ -24,7 +24,10 @@ import {
   getTelemetryInputSize,
   setTelemetryInputSize,
   setTelemetryOutputSize,
+  getLastRecordedToolName,
+  getTelemetryDurationMs,
 } from '../../lib/telemetry';
+import { saveUserFileHistory } from '../../lib/userFileHistory';
 import { triggerFileDownload } from '../../lib/download';
 
 interface DownloadResultCardProps {
@@ -71,27 +74,38 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   const effectiveOrigSize = originalSize || getTelemetryInputSize() || 0;
   const effectiveResultSize = resultSize || detectedResultSize || 0;
 
-  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri secara otomatis
+  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri + simpan ke Riwayat Profil Pengguna (IndexedDB 60 menit)
   useEffect(() => {
     if (originalSize && originalSize > 0) {
       setTelemetryInputSize(originalSize);
     }
     if (resultSize && resultSize > 0) {
-      setTelemetryOutputSize(resultSize);
-    } else if (effectiveUrl) {
+      setTelemetryOutputSize(resultSize, fileName, isLocalRam);
+    }
+    if (effectiveUrl) {
       fetch(effectiveUrl)
         .then((res) => res.blob())
         .then((blob) => {
           if (blob && blob.size > 0) {
-            setDetectedResultSize(blob.size);
-            setTelemetryOutputSize(blob.size);
+            if (!resultSize || resultSize <= 0) {
+              setDetectedResultSize(blob.size);
+            }
+            setTelemetryOutputSize(blob.size, fileName, isLocalRam);
+            void saveUserFileHistory({
+              fileName,
+              toolName: getLastRecordedToolName() || effectiveTitle,
+              inputBytes: originalSize || getTelemetryInputSize() || blob.size,
+              outputBytes: resultSize || blob.size,
+              durationMs: getTelemetryDurationMs() || 920,
+              blob,
+            });
           }
         })
         .catch(() => {
           // ignore
         });
     }
-  }, [originalSize, resultSize, effectiveUrl]);
+  }, [originalSize, resultSize, effectiveUrl, fileName, isLocalRam, effectiveTitle]);
 
   useEffect(() => {
     const interval = setInterval(() => {
