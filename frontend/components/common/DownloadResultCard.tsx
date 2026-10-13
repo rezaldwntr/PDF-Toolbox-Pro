@@ -27,8 +27,9 @@ import {
   getLastRecordedToolName,
   getTelemetryDurationMs,
 } from '../../lib/telemetry';
-import { saveUserFileHistory } from '../../lib/userFileHistory';
+import { saveUserFileHistory, getRetentionHoursForTier } from '../../lib/userFileHistory';
 import { triggerFileDownload } from '../../lib/download';
+import { useAuth, TIER_CONFIGS } from '../../contexts/AuthContext';
 
 interface DownloadResultCardProps {
   fileName: string;
@@ -59,6 +60,10 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   customSuccessMessage,
   isLocalRam = false,
 }) => {
+  const { user, userTier } = useAuth();
+  const retentionHours = getRetentionHoursForTier(userTier);
+  const tierLabel = (TIER_CONFIGS[userTier] || TIER_CONFIGS.free).label;
+
   const effectiveUrl = downloadUrl || resultUrl || '';
   const effectiveTitle = successTitle || 'Pemrosesan Berhasil!';
   const effectiveMessage =
@@ -66,15 +71,19 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     customSuccessMessage ||
     'Dokumen Anda berhasil diproses dengan presisi tinggi.';
 
-  // Countdown Timer 60 menit (3600 detik)
-  const [secondsRemaining, setSecondsRemaining] = useState(3600);
+  // Countdown Timer sesuai paket aktif user (Flash: 6 jam, Monthly: 24 jam, Annual: 48 jam, Gratis: 0 jam)
+  const [secondsRemaining, setSecondsRemaining] = useState(() => retentionHours * 3600);
   const [handoffLoadingId, setHandoffLoadingId] = useState<string | null>(null);
   const [detectedResultSize, setDetectedResultSize] = useState<number>(0);
+
+  useEffect(() => {
+    setSecondsRemaining(retentionHours * 3600);
+  }, [retentionHours]);
 
   const effectiveOrigSize = originalSize || getTelemetryInputSize() || 0;
   const effectiveResultSize = resultSize || detectedResultSize || 0;
 
-  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri + simpan ke Riwayat Profil Pengguna (IndexedDB 60 menit)
+  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri + simpan ke Riwayat Profil Pengguna sesuai masa aktif paket
   useEffect(() => {
     if (originalSize && originalSize > 0) {
       setTelemetryInputSize(originalSize);
@@ -98,6 +107,9 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
               outputBytes: resultSize || blob.size,
               durationMs: getTelemetryDurationMs() || 920,
               blob,
+              userId: user?.id || null,
+              userEmail: user?.email || null,
+              userTier,
             });
           }
         })
@@ -105,19 +117,25 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
           // ignore
         });
     }
-  }, [originalSize, resultSize, effectiveUrl, fileName, isLocalRam, effectiveTitle]);
+  }, [originalSize, resultSize, effectiveUrl, fileName, isLocalRam, effectiveTitle, user?.id, user?.email, userTier]);
 
   useEffect(() => {
+    if (retentionHours <= 0) return;
     const interval = setInterval(() => {
       setSecondsRemaining((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [retentionHours]);
 
   const formatCountdown = (totalSeconds: number) => {
-    const minutes = Math.floor(totalSeconds / 60);
+    const hrs = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `${minutes}m:${seconds < 10 ? '0' : ''}${seconds}s`;
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    if (hrs > 0) {
+      return `${hrs}j:${pad(minutes)}m:${pad(seconds)}s`;
+    }
+    return `${minutes}m:${pad(seconds)}s`;
   };
 
   const origKb = effectiveOrigSize ? effectiveOrigSize / 1024 : 0;
@@ -344,16 +362,20 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
         </div>
       )}
 
-      {/* Countdown Timer Kedaluwarsa Berkas */}
-      {!isLocalRam && (
-        <div className="flex items-center justify-center gap-1.5 p-2.5 rounded-full bg-elevated border border-border-subtle text-[11px] text-text-secondary font-mono mb-5 select-none">
-          <Clock size={13} className="text-[#9B4819] shrink-0" />
+      {/* Info Masa Aktif Tautan Unduh Sesuai Paket Pengguna */}
+      <div className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-elevated border border-border-subtle text-[11px] text-text-secondary font-mono mb-5 select-none">
+        <Clock size={13} className="text-[#9B4819] shrink-0" />
+        {retentionHours > 0 ? (
           <span>
-            Demi keamanan data, berkas dihapus otomatis dalam{' '}
-            <strong className="text-text-primary">{formatCountdown(secondsRemaining)}</strong>
+            Paket <strong className="text-text-primary">{tierLabel}</strong>: Tautan unduh aktif di Profil selama{' '}
+            <strong className="text-[#314028] dark:text-emerald-400">{retentionHours} Jam</strong> ({formatCountdown(secondsRemaining)})
           </span>
-        </div>
-      )}
+        ) : (
+          <span>
+            Paket <strong className="text-text-primary">{tierLabel}</strong>: Tautan unduh langsung dihapus (0 jam) setelah halaman ditutup
+          </span>
+        )}
+      </div>
 
       {/* Reset / Kembali */}
       <button

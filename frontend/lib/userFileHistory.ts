@@ -1,11 +1,14 @@
 // frontend/lib/userFileHistory.ts
 import { supabase } from './supabase';
 import { getOrCreateSessionId } from './telemetry';
+import type { UserTier } from '../types';
 
 export interface UserHistoryItem {
   id: string;
   userId: string | null;
   userEmail: string | null;
+  userTier?: UserTier;
+  retentionHours?: number;
   sessionId: string;
   fileName: string;
   toolName: string;
@@ -13,7 +16,7 @@ export interface UserHistoryItem {
   outputBytes: number;
   durationMs: number;
   createdAt: string; // ISO string
-  expiresAt: number; // epoch ms (createdAt + 60 minutes)
+  expiresAt: number; // epoch ms (createdAt + retention sesuai paket)
   hasBlobAvailable?: boolean;
   blob?: Blob | null;
 }
@@ -21,11 +24,47 @@ export interface UserHistoryItem {
 const DB_NAME = 'pdf_toolbox_user_files_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'recent_files';
-const RETENTION_MS = 60 * 60 * 1000; // 60 menit sesuai kebijakan privasi
-const MAX_STORED_BLOBS = 15;
+const MAX_STORED_BLOBS = 25;
 
 let lastSavedSignature = '';
 let lastSavedAt = 0;
+
+/**
+ * Mengembalikan durasi aktif tautan unduh (dalam jam) sesuai paket (tier) pengguna:
+ * - guest / free : 0 jam (Langsung dihapus setelah sesi alat selesai)
+ * - flash        : 6 jam (24-Hour Flash Pass)
+ * - monthly      : 24 jam (Monthly Pro)
+ * - annual       : 48 jam (Annual VIP Pass)
+ */
+export function getRetentionHoursForTier(tier?: UserTier | string | null): number {
+  switch (tier) {
+    case 'annual':
+      return 48;
+    case 'monthly':
+      return 24;
+    case 'flash':
+      return 6;
+    case 'free':
+    case 'guest':
+    default:
+      return 0;
+  }
+}
+
+export function getRetentionMsForTier(tier?: UserTier | string | null): number {
+  return getRetentionHoursForTier(tier) * 60 * 60 * 1000;
+}
+
+export function formatRemainingRetention(remainingMs: number): string {
+  if (remainingMs <= 0) return '0 mnt';
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} mnt`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return mins > 0 ? `${hours}j ${mins}m` : `${hours} jam`;
+}
 
 function openHistoryDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -48,7 +87,11 @@ function openHistoryDb(): Promise<IDBDatabase> {
 
 /**
  * Menyimpan hasil eksekusi alat beserta Blob berkasnya ke IndexedDB lokal pengguna
- * agar tetap dapat diunduh ulang dari halaman Profil selama masa retensi 60 menit.
+ * dengan masa aktif tautan unduh yang menyesuaikan paket aktif pengguna:
+ * - Gratis / Tamu : 0 jam (Langsung dihapus, hanya menyimpan log riwayat tanpa file biner)
+ * - Flash Pass    : 6 jam
+ * - Monthly Pro   : 24 jam
+ * - Annual Pass   : 48 jam
  */
 export async function saveUserFileHistory(params: {
   fileName: string;
@@ -59,6 +102,7 @@ export async function saveUserFileHistory(params: {
   blob: Blob;
   userId?: string | null;
   userEmail?: string | null;
+  userTier?: UserTier | null;
 }): Promise<void> {
   try {
     const now = Date.now();
@@ -71,24 +115,53 @@ export async function saveUserFileHistory(params: {
 
     let effectiveUserId = params.userId || null;
     let effectiveUserEmail = params.userEmail || null;
+    let effectiveTier: UserTier = params.userTier || 'guest';
 
-    if (!effectiveUserId && supabase) {
+    if (supabase) {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session?.user) {
-          effectiveUserId = data.session.user.id;
-          effectiveUserEmail = data.session.user.email || null;
+        if (!effectiveUserId) {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session?.user) {
+            effectiveUserId = data.session.user.id;
+            effectiveUserEmail = data.session.user.email || null;
+          }
+        }
+        if (effectiveUserId && !params.userTier) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('tier, subscription_expiry')
+            .eq('id', effectiveUserId)
+            .single();
+          if (profile?.tier) {
+            let dbTier = profile.tier as UserTier;
+            if (
+              ['flash', 'monthly', 'annual'].includes(dbTier) &&
+              profile.subscription_expiry &&
+              new Date(profile.subscription_expiry) < new Date()
+            ) {
+              dbTier = 'free';
+            }
+            effectiveTier = dbTier;
+          } else {
+            effectiveTier = 'free';
+          }
         }
       } catch {
         // ignore
       }
     }
 
+    const retentionHours = getRetentionHoursForTier(effectiveTier);
+    const retentionMs = retentionHours * 60 * 60 * 1000;
+    const canRetainBlob = retentionMs > 0;
+
     const db = await openHistoryDb();
     const item: UserHistoryItem = {
       id: `hist_${now}_${Math.random().toString(36).substring(2, 8)}`,
       userId: effectiveUserId,
       userEmail: effectiveUserEmail,
+      userTier: effectiveTier,
+      retentionHours,
       sessionId: getOrCreateSessionId(),
       fileName: params.fileName,
       toolName: params.toolName,
@@ -96,9 +169,9 @@ export async function saveUserFileHistory(params: {
       outputBytes: params.outputBytes || params.blob.size,
       durationMs: params.durationMs || 850,
       createdAt: new Date(now).toISOString(),
-      expiresAt: now + RETENTION_MS,
-      hasBlobAvailable: true,
-      blob: params.blob,
+      expiresAt: now + retentionMs,
+      hasBlobAvailable: canRetainBlob,
+      blob: canRetainBlob ? params.blob : null,
     };
 
     await new Promise<void>((resolve, reject) => {
@@ -117,7 +190,7 @@ export async function saveUserFileHistory(params: {
 }
 
 /**
- * Menghapus Blob dari item yang sudah melewati batas waktu 60 menit,
+ * Menghapus Blob dari item yang sudah melewati batas waktu retensi paketnya,
  * namun tetap mempertahankan metadata riwayatnya.
  */
 async function pruneExpiredBlobs(db: IDBDatabase): Promise<void> {
@@ -152,15 +225,18 @@ async function pruneExpiredBlobs(db: IDBDatabase): Promise<void> {
 
 /**
  * Mengambil daftar riwayat pemrosesan dokumen milik pengguna saat ini
- * (gabungan dari IndexedDB lokal yang memiliki link unduhan aktif + riwayat Supabase).
+ * (gabungan dari IndexedDB lokal yang memiliki link unduhan aktif sesuai paket + riwayat Supabase).
  */
 export async function getUserFileHistory(
   userId?: string | null,
-  userEmail?: string | null
+  userEmail?: string | null,
+  currentTier?: UserTier | null
 ): Promise<UserHistoryItem[]> {
   const sessionId = getOrCreateSessionId();
   const now = Date.now();
   const localItems: UserHistoryItem[] = [];
+  const tierRetentionHours = getRetentionHoursForTier(currentTier);
+  const tierRetentionMs = tierRetentionHours * 60 * 60 * 1000;
 
   try {
     const db = await openHistoryDb();
@@ -182,9 +258,26 @@ export async function getUserFileHistory(
         item.sessionId === sessionId;
 
       if (matchesUser) {
-        const stillValid = Boolean(item.blob && now <= item.expiresAt);
+        const createdMs = new Date(item.createdAt).getTime();
+        // Sesuaikan batas waktu kedaluwarsa dengan paket aktif pengguna saat ini
+        const effectiveRetentionMs =
+          currentTier !== undefined && currentTier !== null
+            ? tierRetentionMs
+            : item.retentionHours !== undefined
+            ? item.retentionHours * 60 * 60 * 1000
+            : Math.max(0, item.expiresAt - createdMs);
+
+        const effectiveExpiresAt = createdMs + effectiveRetentionMs;
+        const stillValid = Boolean(item.blob && effectiveRetentionMs > 0 && now <= effectiveExpiresAt);
+
         localItems.push({
           ...item,
+          userTier: currentTier || item.userTier || 'free',
+          retentionHours:
+            currentTier !== undefined && currentTier !== null
+              ? tierRetentionHours
+              : item.retentionHours ?? 0,
+          expiresAt: effectiveExpiresAt,
           hasBlobAvailable: stillValid,
           blob: stillValid ? item.blob : null,
         });
@@ -238,6 +331,8 @@ export async function getUserFileHistory(
             id: String(row.id),
             userId: row.user_id || userId || null,
             userEmail: row.user_email || userEmail || null,
+            userTier: currentTier || 'free',
+            retentionHours: tierRetentionHours,
             sessionId: row.session_id || sessionId,
             fileName: fName,
             toolName: row.tool_name || 'Alat PDF',
@@ -245,7 +340,7 @@ export async function getUserFileHistory(
             outputBytes: outBytes,
             durationMs: durMs,
             createdAt: row.created_at,
-            expiresAt: rowTime + RETENTION_MS,
+            expiresAt: rowTime + tierRetentionMs,
             hasBlobAvailable: false,
             blob: null,
           });

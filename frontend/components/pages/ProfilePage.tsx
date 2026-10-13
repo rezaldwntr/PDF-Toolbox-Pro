@@ -25,7 +25,13 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
-import { getUserFileHistory, deleteUserHistoryItem, UserHistoryItem } from '../../lib/userFileHistory';
+import {
+  getUserFileHistory,
+  deleteUserHistoryItem,
+  getRetentionHoursForTier,
+  formatRemainingRetention,
+  UserHistoryItem,
+} from '../../lib/userFileHistory';
 import { downloadBlob } from '../../lib/download';
 import { formatFileSize, formatDateTimeIndonesia } from '../../lib/formatters';
 
@@ -71,17 +77,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
   const [historyItems, setHistoryItems] = React.useState<UserHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = React.useState<boolean>(true);
 
+  const activeRetentionHours = getRetentionHoursForTier(userTier);
+
   const loadUserHistory = React.useCallback(async () => {
     setIsLoadingHistory(true);
     try {
-      const items = await getUserFileHistory(user?.id, user?.email);
+      const items = await getUserFileHistory(user?.id, user?.email, userTier);
       setHistoryItems(items);
     } catch (err) {
       console.warn('Gagal memuat riwayat berkas user:', err);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [user?.id, user?.email]);
+  }, [user?.id, user?.email, userTier]);
 
   React.useEffect(() => {
     loadUserHistory();
@@ -89,7 +97,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
 
   const handleDownloadHistoryItem = (item: UserHistoryItem) => {
     if (!item.blob || !item.hasBlobAvailable) {
-      addToast('Berkas sudah kedaluwarsa (> 60 menit) dan telah dibersihkan otomatis.', 'error');
+      addToast(
+        activeRetentionHours > 0
+          ? `Berkas sudah melewati masa aktif paket (${activeRetentionHours} jam) dan telah dibersihkan otomatis.`
+          : 'Paket Gratis menghapus berkas secara instan (0 jam). Upgrade ke Pro untuk menyimpan tautan unduh hingga 48 jam.',
+        'error'
+      );
       return;
     }
     downloadBlob(item.blob, item.fileName);
@@ -374,7 +387,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
         </div>
       )}
 
-      {/* 3.2 RIWAYAT PEMROSESAN DOKUMEN & LINK UNDUHAN (TERSEDIA 60 MENIT) */}
+      {/* 3.2 RIWAYAT PEMROSESAN DOKUMEN & LINK UNDUHAN (SESUAI PAKET AKTIF PENGGUNA) */}
       <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-border-subtle shadow-paper mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border-subtle">
           <div className="flex items-start gap-3.5">
@@ -386,12 +399,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                 <h3 className="font-serif text-lg font-bold text-text-primary">
                   Riwayat Pemrosesan Dokumen & Unduhan
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/25">
-                  Retensi Unduhan 60 Menit
-                </span>
+                {activeRetentionHours > 0 ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#314028]/10 text-[#314028] dark:text-emerald-400 border border-[#314028]/25">
+                    Tautan Unduh Aktif {activeRetentionHours} Jam ({tierMeta.label})
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    Retensi Paket Gratis: Langsung Dihapus (0 Jam)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                Daftar dokumen yang telah Anda proses. Tautan unduhan tersedia selama <strong>60 menit</strong> setelah pemrosesan selesai sebelum dibersihkan secara otomatis demi privasi data Anda.
+                {activeRetentionHours > 0 ? (
+                  <>
+                    Sesuai paket <strong className="text-text-primary">{tierMeta.label}</strong> Anda, tautan unduhan ulang disimpan aktif selama{' '}
+                    <strong className="text-[#314028] dark:text-emerald-400">{activeRetentionHours} jam</strong> sebelum dibersihkan otomatis.
+                  </>
+                ) : (
+                  <>
+                    Pada <strong className="text-text-primary">{tierMeta.label}</strong>, berkas hasil langsung dihapus (0 jam) setelah halaman alat ditutup. Upgrade ke{' '}
+                    <strong className="text-[#9B4819] dark:text-[#E06D3B]">Flash Pass (6 Jam)</strong>,{' '}
+                    <strong className="text-[#9B4819] dark:text-[#E06D3B]">Monthly Pro (24 Jam)</strong>, atau{' '}
+                    <strong className="text-[#9B4819] dark:text-[#E06D3B]">Annual Pass (48 Jam)</strong> untuk mengunduh ulang berkas dari halaman ini.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -418,15 +449,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
             </div>
             <p className="text-sm font-bold text-text-primary">Belum Ada Riwayat Dokumen</p>
             <p className="text-xs text-text-secondary mt-1 max-w-md mx-auto">
-              Setiap dokumen yang selesai Anda kompres, konversi, atau sensor akan otomatis muncul di sini beserta tombol unduh ulangnya.
+              Setiap dokumen yang selesai Anda kompres, konversi, atau sensor akan otomatis muncul di sini beserta status tautan unduhannya.
             </p>
           </div>
         ) : (
           <div className="mt-4 divide-y divide-border-subtle/60">
             {historyItems.map((item) => {
               const remainingMs = Math.max(0, item.expiresAt - Date.now());
-              const remainingMinutes = Math.ceil(remainingMs / 60_000);
-              const isAvailable = item.hasBlobAvailable && Boolean(item.blob) && remainingMs > 0;
+              const isAvailable =
+                activeRetentionHours > 0 &&
+                item.hasBlobAvailable &&
+                Boolean(item.blob) &&
+                remainingMs > 0;
 
               return (
                 <div
@@ -474,13 +508,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                     </div>
                   </div>
 
-                  {/* Status Ketersediaan & Tombol Download */}
-                  <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                  {/* Status Ketersediaan & Tombol Download Sesuai Paket */}
+                  <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-center shrink-0">
                     {isAvailable ? (
                       <>
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-[#314028] dark:text-emerald-400 border border-emerald-500/25">
                           <Timer size={11} />
-                          <span>Tersedia ({remainingMinutes} mnt)</span>
+                          <span>Aktif ({formatRemainingRetention(remainingMs)})</span>
                         </span>
                         <button
                           type="button"
@@ -491,13 +525,32 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
                           <span>Unduh Berkas</span>
                         </button>
                       </>
+                    ) : activeRetentionHours === 0 ? (
+                      <>
+                        <span
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-elevated text-text-secondary border border-border-subtle"
+                          title="Paket Gratis menghapus berkas secara instan (0 jam) setelah halaman hasil ditutup"
+                        >
+                          <Clock size={12} />
+                          <span>Dihapus Instan (0 Jam)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowPricingModal(true)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-[#9B4819]/10 hover:bg-[#9B4819] text-[#9B4819] dark:text-[#E06D3B] hover:text-white border border-[#9B4819]/25 transition-all cursor-pointer"
+                          title="Upgrade ke Flash Pass (6 Jam), Monthly Pro (24 Jam), atau Annual Pass (48 Jam)"
+                        >
+                          <Crown size={11} />
+                          <span>Simpan s.d. 48 Jam</span>
+                        </button>
+                      </>
                     ) : (
                       <span
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-elevated text-text-secondary border border-border-subtle cursor-not-allowed"
-                        title="Berkas hasil telah melewati batas penyimpanan 60 menit atau diproses pada perangkat/sesi berbeda"
+                        title={`Berkas hasil telah melewati batas penyimpanan paket Anda (${activeRetentionHours} jam) atau diproses pada perangkat berbeda`}
                       >
                         <Clock size={12} />
-                        <span>Berkas Kedaluwarsa (&gt; 60 Menit)</span>
+                        <span>Kedaluwarsa (&gt; {activeRetentionHours} Jam)</span>
                       </span>
                     )}
 
@@ -581,9 +634,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onSelectView }) => {
           </div>
 
           <div className="p-5 rounded-2xl bg-elevated/60 dark:bg-[#252525] border border-border-subtle">
-            <h4 className="font-serif text-sm font-bold text-text-primary mb-1">Pembersihan Otomatis 60 Menit</h4>
+            <h4 className="font-serif text-sm font-bold text-text-primary mb-1">
+              Masa Aktif Tautan Unduh: {currentConfig.retentionLabel}
+            </h4>
             <p className="text-xs text-text-secondary leading-relaxed">
-              File server-side dihapus permanen secara otomatis maksimal dalam 1 jam setelah diproses.
+              {activeRetentionHours > 0
+                ? `Sesuai paket ${tierMeta.label}, berkas hasil disimpan selama ${activeRetentionHours} jam untuk unduhan ulang sebelum dihapus permanen.`
+                : 'Pada paket Gratis, berkas dihapus permanen secara instan (0 jam) segera setelah Anda menutup halaman pemrosesan.'}
             </p>
           </div>
         </div>

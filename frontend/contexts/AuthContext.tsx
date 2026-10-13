@@ -10,13 +10,13 @@ declare global {
 }
 
 // --- Tier Configs ---
-// Sesuai Matriks Kapasitas Komputasi (Alat Standar s.d. 300 MB & Alat Berat s.d. 50 MB)
+// Sesuai Matriks Kapasitas Komputasi (Alat Standar s.d. 300 MB & Alat Berat s.d. 50 MB) & Retensi Tautan Unduh
 export const TIER_CONFIGS = {
-  guest:   { dailyQuota: 3,    maxFileSizeMB: 30,  maxFileSizeHeavyMB: 10, maxBatchFiles: 1,  hasAds: true,  hasWatermark: true,  label: 'Tamu',            price: 'Gratis', priceNote: '' },
-  free:    { dailyQuota: 10,   maxFileSizeMB: 30,  maxFileSizeHeavyMB: 10, maxBatchFiles: 1,  hasAds: true,  hasWatermark: true,  label: 'Gratis (Login)',  price: 'Gratis', priceNote: '' },
-  flash:   { dailyQuota: null, maxFileSizeMB: 100, maxFileSizeHeavyMB: 35, maxBatchFiles: 10, hasAds: false, hasWatermark: false, label: '24-Hour Pass',    price: 'Rp5.000', priceNote: 'sekali bayar' },
-  monthly: { dailyQuota: null, maxFileSizeMB: 200, maxFileSizeHeavyMB: 50, maxBatchFiles: 30, hasAds: false, hasWatermark: false, label: 'Monthly Pro',     price: 'Rp29.000', priceNote: '/bulan' },
-  annual:  { dailyQuota: null, maxFileSizeMB: 300, maxFileSizeHeavyMB: 50, maxBatchFiles: 50, hasAds: false, hasWatermark: false, label: 'Annual Pass',     price: 'Rp149.000', priceNote: '/tahun' },
+  guest:   { dailyQuota: 3,    maxFileSizeMB: 30,  maxFileSizeHeavyMB: 10, maxBatchFiles: 1,  downloadRetentionHours: 0,  retentionLabel: 'Langsung dihapus (0 jam)', hasAds: true,  hasWatermark: true,  label: 'Tamu',            price: 'Gratis', priceNote: '' },
+  free:    { dailyQuota: 10,   maxFileSizeMB: 30,  maxFileSizeHeavyMB: 10, maxBatchFiles: 1,  downloadRetentionHours: 0,  retentionLabel: 'Langsung dihapus (0 jam)', hasAds: true,  hasWatermark: true,  label: 'Gratis (Login)',  price: 'Gratis', priceNote: '' },
+  flash:   { dailyQuota: null, maxFileSizeMB: 100, maxFileSizeHeavyMB: 35, maxBatchFiles: 10, downloadRetentionHours: 6,  retentionLabel: 'Aktif 6 Jam',              hasAds: false, hasWatermark: false, label: '24-Hour Pass',    price: 'Rp5.000', priceNote: 'sekali bayar' },
+  monthly: { dailyQuota: null, maxFileSizeMB: 200, maxFileSizeHeavyMB: 50, maxBatchFiles: 30, downloadRetentionHours: 24, retentionLabel: 'Aktif 24 Jam',             hasAds: false, hasWatermark: false, label: 'Monthly Pro',     price: 'Rp29.000', priceNote: '/bulan' },
+  annual:  { dailyQuota: null, maxFileSizeMB: 300, maxFileSizeHeavyMB: 50, maxBatchFiles: 50, downloadRetentionHours: 48, retentionLabel: 'Aktif 48 Jam',             hasAds: false, hasWatermark: false, label: 'Annual Pass',     price: 'Rp149.000', priceNote: '/tahun' },
 } as const;
 
 // Tingkatan level tier untuk proteksi hierarki & pencegahan downgrade tidak disengaja
