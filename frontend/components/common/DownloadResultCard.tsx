@@ -218,11 +218,30 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
           <a
             href={effectiveUrl}
             download={fileName}
-            onClick={onDownload}
+            onClick={(e) => {
+              if (onDownload) {
+                e.preventDefault();
+                onDownload();
+              }
+            }}
             className="w-full bg-[#9B4819] hover:bg-[#7E3812] text-white font-medium py-3.5 px-6 rounded-full shadow-md hover:shadow-paper transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-xs sm:text-sm"
           >
             <Download size={16} />
-            <span>Unduh Berkas PDF Sekarang</span>
+            <span>
+              {fileName.toLowerCase().endsWith('.docx')
+                ? 'Unduh Berkas Word Sekarang'
+                : fileName.toLowerCase().endsWith('.xlsx')
+                ? 'Unduh Berkas Excel Sekarang'
+                : fileName.toLowerCase().endsWith('.pptx')
+                ? 'Unduh Berkas PPT Sekarang'
+                : fileName.toLowerCase().endsWith('.zip')
+                ? 'Unduh Arsip ZIP Sekarang'
+                : fileName.toLowerCase().match(/\.(jpg|jpeg|png)$/)
+                ? 'Unduh Gambar Sekarang'
+                : fileName.toLowerCase().endsWith('.txt')
+                ? 'Unduh Berkas Teks Sekarang'
+                : 'Unduh Berkas PDF Sekarang'}
+            </span>
           </a>
         ) : (
           <button
