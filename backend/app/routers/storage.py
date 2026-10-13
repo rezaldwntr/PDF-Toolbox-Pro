@@ -31,7 +31,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_AUTO_SIZE
 import pdfplumber
 import pandas as pd
-from openpyxl.styles import Border, Side, Font, PatternFill
+from openpyxl.styles import Border, Side, Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from app.core.config import MAX_FILE_SIZE_BY_TIER, GCS_BUCKET_NAME
@@ -299,17 +299,46 @@ async def _process_excel(job_id: str, pdf_bytes: bytes, base_name: str, opts: di
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Hasil Ekstraksi"
+            thin_border = Border(
+                left=Side(style='thin', color='CBD5E1'),
+                right=Side(style='thin', color='CBD5E1'),
+                top=Side(style='thin', color='CBD5E1'),
+                bottom=Side(style='thin', color='CBD5E1')
+            )
+            header_fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+            header_font = Font(bold=True, name='Calibri')
+            header_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            data_align = Alignment(vertical='top', wrap_text=True)
+
             cur_row = 1
             for page_idx in range(num_pages):
                 page = doc[page_idx]
                 if hasattr(page, 'find_tables'):
                     tabs = page.find_tables()
                     for tab in tabs:
-                        for row in tab.extract():
+                        for r_idx, row in enumerate(tab.extract()):
+                            is_hdr = r_idx == 0
                             for c_idx, val in enumerate(row, 1):
-                                ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
+                                cell = ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
+                                cell.border = thin_border
+                                if is_hdr:
+                                    cell.fill = header_fill
+                                    cell.font = header_font
+                                    cell.alignment = header_align
+                                else:
+                                    cell.alignment = data_align
                             cur_row += 1
                         cur_row += 1
+
+            for col in ws.columns:
+                max_len = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    if cell.value is not None:
+                        first_line = str(cell.value).split('\n')[0]
+                        max_len = max(max_len, len(first_line))
+                ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
+
             wb.save(tmp_xlsx)
         finally:
             if doc and not doc.is_closed:

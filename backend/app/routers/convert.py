@@ -196,6 +196,8 @@ async def convert_pdf_to_excel(
             )
             header_fill = PatternFill(start_color='F0F4F8', end_color='F0F4F8', fill_type='solid')
             header_font = Font(bold=True, name='Calibri')
+            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            data_alignment = Alignment(vertical='top', wrap_text=True)
 
             plum_doc = None
             try:
@@ -209,7 +211,8 @@ async def convert_pdf_to_excel(
                         col_letter = get_column_letter(col[0].column)
                         for cell in col:
                             if cell.value is not None:
-                                max_len = max(max_len, len(str(cell.value)))
+                                first_line = str(cell.value).split('\n')[0]
+                                max_len = max(max_len, len(first_line))
                         ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
 
                 def get_page_tables_and_text(page_idx):
@@ -269,6 +272,9 @@ async def convert_pdf_to_excel(
                                     if is_header_row:
                                         cell.fill = header_fill
                                         cell.font = header_font
+                                        cell.alignment = header_alignment
+                                    else:
+                                        cell.alignment = data_alignment
                                 cur_row += 1
                             cur_row += 2
                         if mode == "all_content" and text_lines:
@@ -301,6 +307,9 @@ async def convert_pdf_to_excel(
                                     if is_header_row:
                                         cell.fill = header_fill
                                         cell.font = header_font
+                                        cell.alignment = header_alignment
+                                    else:
+                                        cell.alignment = data_alignment
                                 cur_row += 1
                             cur_row += 2
                         if mode == "all_content" and text_lines:
