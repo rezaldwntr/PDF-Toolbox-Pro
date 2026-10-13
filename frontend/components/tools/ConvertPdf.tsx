@@ -31,6 +31,7 @@ import { smartUploadAndProcess } from '../../lib/gcsUploader';
 import { formatFileSize } from '../../lib/formatters';
 import { ensurePdfjsReady } from '../../lib/pdfWorker';
 import { convertPdfToDocxClientSide } from '../../lib/clientPdfToDocx';
+import { convertPdfToExcelClientSide } from '../../lib/clientPdfToExcel';
 
 interface PdfFileWithBuffer {
   file: File;
@@ -245,6 +246,22 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
           jobResult = {
             blob: fallbackBlob,
             filename: `${base}${rangeSuffix}.docx`,
+          };
+        } else if (mode === 'excel') {
+          console.warn('[ConvertPdf] Server PDF-to-Excel gagal, menjalankan fallback engine Excel lokal (.xlsx):', serverErr);
+          setProcessingStep(2);
+          const fallbackBlob = await convertPdfToExcelClientSide(fileWithBuffer.buffer, {
+            startPage: s,
+            endPage: e,
+            mode: excelExtractionMode,
+            sheetPerPage: excelSheetStructure === 'per_page',
+            onProgress: (pct) => {
+              if (pct > 60) setProcessingStep(3);
+            },
+          });
+          jobResult = {
+            blob: fallbackBlob,
+            filename: `${base}${rangeSuffix}.xlsx`,
           };
         } else {
           throw serverErr;

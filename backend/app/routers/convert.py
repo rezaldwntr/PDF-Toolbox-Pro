@@ -199,51 +199,52 @@ async def convert_pdf_to_excel(
 
             plum_doc = None
             try:
-                with pd.ExcelWriter(tmp_xlsx_path, engine='openpyxl') as writer:
-                    wb = writer.book
+                import openpyxl
+                wb = openpyxl.Workbook()
+                default_sheet = wb.active
 
-                    def autofit(ws):
-                        for col in ws.columns:
-                            max_len = 0
-                            col_letter = get_column_letter(col[0].column)
-                            for cell in col:
-                                if cell.value is not None:
-                                    max_len = max(max_len, len(str(cell.value)))
-                            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
+                def autofit(ws):
+                    for col in ws.columns:
+                        max_len = 0
+                        col_letter = get_column_letter(col[0].column)
+                        for cell in col:
+                            if cell.value is not None:
+                                max_len = max(max_len, len(str(cell.value)))
+                        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
 
-                    def get_page_tables_and_text(page_idx):
-                        nonlocal plum_doc
-                        fitz_page = doc[page_idx]
-                        tables_data = []
-                        if hasattr(fitz_page, 'find_tables'):
-                            try:
-                                tabs = fitz_page.find_tables()
-                                for tab in tabs:
-                                    extracted = tab.extract()
-                                    if extracted and len(extracted) > 0:
-                                        tables_data.append(extracted)
-                            except Exception as tab_err:
-                                logging.warning(f"fitz find_tables error on page {page_idx}: {tab_err}")
-                        if not tables_data:
-                            try:
-                                if plum_doc is None:
-                                    plum_doc = pdfplumber.open(tmp_pdf_path)
-                                if plum_doc and page_idx < len(plum_doc.pages):
-                                    plum_tabs = plum_doc.pages[page_idx].extract_tables()
-                                    for pt in plum_tabs:
-                                        if pt and len(pt) > 0:
-                                            tables_data.append(pt)
-                            except Exception as plum_err:
-                                logging.warning(f"pdfplumber fallback error on page {page_idx}: {plum_err}")
-                        text_lines = []
-                        if mode == "all_content":
-                            blocks = fitz_page.get_text("blocks")
-                            for b in blocks:
-                                if len(b) > 4 and b[6] == 0:
-                                    cleaned_block = b[4].strip()
-                                    if cleaned_block:
-                                        text_lines.extend(cleaned_block.split('\n'))
-                        return tables_data, text_lines
+                def get_page_tables_and_text(page_idx):
+                    nonlocal plum_doc
+                    fitz_page = doc[page_idx]
+                    tables_data = []
+                    if hasattr(fitz_page, 'find_tables'):
+                        try:
+                            tabs = fitz_page.find_tables()
+                            for tab in tabs:
+                                extracted = tab.extract()
+                                if extracted and len(extracted) > 0:
+                                    tables_data.append(extracted)
+                        except Exception as tab_err:
+                            logging.warning(f"fitz find_tables error on page {page_idx}: {tab_err}")
+                    if not tables_data:
+                        try:
+                            if plum_doc is None:
+                                plum_doc = pdfplumber.open(tmp_pdf_path)
+                            if plum_doc and page_idx < len(plum_doc.pages):
+                                plum_tabs = plum_doc.pages[page_idx].extract_tables()
+                                for pt in plum_tabs:
+                                    if pt and len(pt) > 0:
+                                        tables_data.append(pt)
+                        except Exception as plum_err:
+                            logging.warning(f"pdfplumber fallback error on page {page_idx}: {plum_err}")
+                    text_lines = []
+                    if mode == "all_content":
+                        blocks = fitz_page.get_text("blocks")
+                        for b in blocks:
+                            if len(b) > 4 and b[6] == 0:
+                                cleaned_block = b[4].strip()
+                                if cleaned_block:
+                                    text_lines.extend(cleaned_block.split('\n'))
+                    return tables_data, text_lines
 
                 update_job(job_id, progress=30, message="Mendeteksi dan mengekstrak tabel...")
 
@@ -251,7 +252,11 @@ async def convert_pdf_to_excel(
                     for page_idx in range(num_pages):
                         tables, text_lines = get_page_tables_and_text(page_idx)
                         sheet_name = f"Hal {page_idx + 1}"
-                        ws = wb.create_sheet(title=sheet_name)
+                        if page_idx == 0 and default_sheet is not None:
+                            ws = default_sheet
+                            ws.title = sheet_name
+                        else:
+                            ws = wb.create_sheet(title=sheet_name)
                         cur_row = 1
                         any_table_found = False
                         for tbl in tables:
@@ -276,7 +281,8 @@ async def convert_pdf_to_excel(
                             ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di halaman ini.")
                         autofit(ws)
                 else:
-                    ws = wb.create_sheet(title="Hasil Ekstraksi")
+                    ws = default_sheet if default_sheet is not None else wb.create_sheet(title="Hasil Ekstraksi")
+                    ws.title = "Hasil Ekstraksi"
                     cur_row = 1
                     any_table_found = False
                     for page_idx in range(num_pages):
@@ -306,8 +312,7 @@ async def convert_pdf_to_excel(
                         ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di dokumen ini. Coba gunakan opsi 'Tabel & Teks Dokumen'.")
                     autofit(ws)
 
-                if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
-                    del wb["Sheet"]
+                wb.save(tmp_xlsx_path)
 
             finally:
                 if plum_doc:

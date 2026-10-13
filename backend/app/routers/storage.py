@@ -295,22 +295,22 @@ async def _process_excel(job_id: str, pdf_bytes: bytes, base_name: str, opts: di
         doc = fitz.open(tmp_pdf)
         try:
             num_pages = len(doc)
-            with pd.ExcelWriter(tmp_xlsx, engine='openpyxl') as writer:
-                wb = writer.book
-                ws = wb.create_sheet(title="Hasil Ekstraksi")
-                cur_row = 1
-                for page_idx in range(num_pages):
-                    page = doc[page_idx]
-                    if hasattr(page, 'find_tables'):
-                        tabs = page.find_tables()
-                        for tab in tabs:
-                            for row in tab.extract():
-                                for c_idx, val in enumerate(row, 1):
-                                    ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
-                                cur_row += 1
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Hasil Ekstraksi"
+            cur_row = 1
+            for page_idx in range(num_pages):
+                page = doc[page_idx]
+                if hasattr(page, 'find_tables'):
+                    tabs = page.find_tables()
+                    for tab in tabs:
+                        for row in tab.extract():
+                            for c_idx, val in enumerate(row, 1):
+                                ws.cell(row=cur_row, column=c_idx, value=str(val or ""))
                             cur_row += 1
-                if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
-                    del wb["Sheet"]
+                        cur_row += 1
+            wb.save(tmp_xlsx)
         finally:
             if doc and not doc.is_closed:
                 doc.close()
