@@ -120,6 +120,9 @@ export interface ToolUsageLog {
   is_guest?: boolean;
   user_email?: string;
   file_size_bytes: number;
+  output_size_bytes?: number;
+  duration_ms?: number;
+  error_message?: string | null;
   status: string;
   [key: string]: any;
 }

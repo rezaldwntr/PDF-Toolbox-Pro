@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Cpu, Check, Loader2 } from 'lucide-react';
+import { markTelemetryProcessStartIfUnset } from '../../lib/telemetry';
 
 interface ProcessingStepperProps {
   toolName?: string;
   isLocalRam?: boolean;
   onCancel?: () => void;
+  currentStep?: number;
+  steps?: Array<{ label: string }>;
 }
 
 const ProcessingStepper: React.FC<ProcessingStepperProps> = ({ 
@@ -16,6 +19,7 @@ const ProcessingStepper: React.FC<ProcessingStepperProps> = ({
   const [progress, setProgress] = useState(15);
 
   useEffect(() => {
+    markTelemetryProcessStartIfUnset();
     // Simulasi tahapan progres mikro-interaksi taktil
     const t1 = setTimeout(() => {
       setCurrentStage(2);

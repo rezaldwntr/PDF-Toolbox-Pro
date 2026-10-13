@@ -18,6 +18,8 @@ class ToolUsageRequest(BaseModel):
     user_email: Optional[str] = None
     session_id: Optional[str] = None
     file_size_bytes: int = 0
+    output_size_bytes: Optional[int] = None
+    duration_ms: Optional[int] = None
     page_count: int = 1
     status: str = "success"
     error_message: Optional[str] = None
@@ -37,8 +39,11 @@ async def log_tool_usage(req: ToolUsageRequest, background_tasks: BackgroundTask
         user_email=req.user_email,
         session_id=req.session_id,
         file_size_bytes=req.file_size_bytes,
+        output_size_bytes=req.output_size_bytes,
+        duration_ms=req.duration_ms,
         page_count=req.page_count,
         status=req.status,
         error_message=req.error_message,
     )
     return {"status": "ok", "recorded": True}
+

@@ -159,7 +159,7 @@ const RedactPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setResultSize(blob.size);
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
-      consumeQuota();
+      consumeQuota('Sensor Data Sensitif', file.size, blob.size);
 
       if (totalRedacted > 0) {
         addToast(`Berhasil menyensor ${totalRedacted} data sensitif secara permanen (True Redaction).`, 'success');

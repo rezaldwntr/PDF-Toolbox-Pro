@@ -2,14 +2,30 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { EnvironmentMode, UserTier, PaywallVariant } from '../types';
 import { useAuth, TIER_CONFIGS } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { recordToolUsage } from '../lib/telemetry';
+import {
+  recordToolUsage,
+  markTelemetryProcessStart,
+  scheduleToolUsageLog,
+} from '../lib/telemetry';
 
 interface QuotaContextType {
   quota: number | null;                    // null = unlimited (pro tier)
   maxQuota: number | null;                 // null = unlimited
   quotaUsed: number;
-  consumeQuota: (toolName?: string, fileSizeBytes?: number) => boolean;
-  logToolUsage: (params: { toolName?: string; fileSizeBytes?: number; isSuccess?: boolean; errorMessage?: string }) => void;
+  consumeQuota: (
+    toolName?: string,
+    fileSizeBytes?: number,
+    outputSizeBytes?: number,
+    durationMs?: number
+  ) => boolean;
+  logToolUsage: (params: {
+    toolName?: string;
+    fileSizeBytes?: number;
+    outputSizeBytes?: number;
+    durationMs?: number;
+    isSuccess?: boolean;
+    errorMessage?: string;
+  }) => void;
   activeTool: string;
   setActiveTool: (tool: string) => void;
   // Paywall
@@ -201,6 +217,7 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const checkQuotaBeforeAction = (): boolean => {
+    markTelemetryProcessStart();
     // Mode Preview & Tier Pro: 100% Bebas Kuota tanpa batasan
     if (isUnlimited) return true;
 
@@ -221,13 +238,20 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  const consumeQuota = (toolName?: string, fileSizeBytes?: number): boolean => {
+  const consumeQuota = (
+    toolName?: string,
+    fileSizeBytes?: number,
+    outputSizeBytes?: number,
+    durationMs?: number
+  ): boolean => {
     const effectiveTool = toolName || activeTool || 'General PDF Tool';
 
-    // Rekam telemetri penggunaan alat secara asinkron (fire-and-forget)
-    recordToolUsage({
+    // Jadwalkan perekaman telemetri (dengan jeda singkat agar DownloadResultCard sempat mengisi outputSizeBytes)
+    scheduleToolUsageLog({
       toolName: effectiveTool,
       fileSizeBytes: fileSizeBytes || 0,
+      outputSizeBytes: outputSizeBytes || 0,
+      durationMs,
       isSuccess: true,
       userId: user?.id,
       userEmail: user?.email,
@@ -269,10 +293,19 @@ export const QuotaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  const logToolUsage = (params: { toolName?: string; fileSizeBytes?: number; isSuccess?: boolean; errorMessage?: string }) => {
+  const logToolUsage = (params: {
+    toolName?: string;
+    fileSizeBytes?: number;
+    outputSizeBytes?: number;
+    durationMs?: number;
+    isSuccess?: boolean;
+    errorMessage?: string;
+  }) => {
     recordToolUsage({
       toolName: params.toolName || activeTool || 'General PDF Tool',
       fileSizeBytes: params.fileSizeBytes || 0,
+      outputSizeBytes: params.outputSizeBytes || 0,
+      durationMs: params.durationMs,
       isSuccess: params.isSuccess ?? true,
       errorMessage: params.errorMessage,
       userId: user?.id,

@@ -20,6 +20,11 @@ import {
   handoffUrlToTool,
   RecommendedToolItem,
 } from '../../lib/pipelineHandoff';
+import {
+  getTelemetryInputSize,
+  setTelemetryInputSize,
+  setTelemetryOutputSize,
+} from '../../lib/telemetry';
 
 interface DownloadResultCardProps {
   fileName: string;
@@ -60,6 +65,32 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
   // Countdown Timer 60 menit (3600 detik)
   const [secondsRemaining, setSecondsRemaining] = useState(3600);
   const [handoffLoadingId, setHandoffLoadingId] = useState<string | null>(null);
+  const [detectedResultSize, setDetectedResultSize] = useState<number>(0);
+
+  const effectiveOrigSize = originalSize || getTelemetryInputSize() || 0;
+  const effectiveResultSize = resultSize || detectedResultSize || 0;
+
+  // Sinkronisasi ukuran berkas masuk & keluar ke sistem telemetri secara otomatis
+  useEffect(() => {
+    if (originalSize && originalSize > 0) {
+      setTelemetryInputSize(originalSize);
+    }
+    if (resultSize && resultSize > 0) {
+      setTelemetryOutputSize(resultSize);
+    } else if (effectiveUrl) {
+      fetch(effectiveUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          if (blob && blob.size > 0) {
+            setDetectedResultSize(blob.size);
+            setTelemetryOutputSize(blob.size);
+          }
+        })
+        .catch(() => {
+          // ignore
+        });
+    }
+  }, [originalSize, resultSize, effectiveUrl]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -74,16 +105,16 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
     return `${minutes}m:${seconds < 10 ? '0' : ''}${seconds}s`;
   };
 
-  const origKb = originalSize ? originalSize / 1024 : 0;
-  const newKb = resultSize ? resultSize / 1024 : 0;
+  const origKb = effectiveOrigSize ? effectiveOrigSize / 1024 : 0;
+  const newKb = effectiveResultSize ? effectiveResultSize / 1024 : 0;
   const savedPercent =
     origKb > 0 && newKb > 0
       ? Math.max(0, Math.round(((origKb - newKb) / origKb) * 100))
       : 0;
 
   const nextTools = useMemo(
-    () => getSmartNextTools(originalSize, resultSize, fileName),
-    [originalSize, resultSize, fileName]
+    () => getSmartNextTools(effectiveOrigSize, effectiveResultSize, fileName),
+    [effectiveOrigSize, effectiveResultSize, fileName]
   );
 
   const highlightedTool = useMemo(
@@ -145,7 +176,7 @@ const DownloadResultCard: React.FC<DownloadResultCardProps> = ({
       </p>
 
       {/* Informasi Perbandingan Ukuran Berkas */}
-      {originalSize && resultSize ? (
+      {effectiveOrigSize && effectiveResultSize ? (
         <div className="bg-elevated p-4 rounded-2xl border border-border-subtle flex items-center justify-around mb-6 font-mono text-xs shadow-2xs">
           <div className="text-center">
             <span className="text-[10px] text-text-secondary block font-sans">Ukuran Awal</span>

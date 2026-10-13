@@ -356,6 +356,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
         const { data: sbTxs } = await supabase
           .from('payment_transactions')
           .select('*')
+          .in('status', ['settlement', 'capture', 'paid', 'success'])
           .order('transaction_time', { ascending: false })
           .limit(100);
         if (sbTxs) finalTxs = sbTxs;
@@ -398,7 +399,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, presence
 
       if (statsRes) setStats(statsRes);
       if (finalUsers) setUserList(finalUsers);
-      if (finalTxs) setTransactions(finalTxs);
+      if (finalTxs) {
+        const settledOnly = finalTxs.filter((tx: any) =>
+          ['settlement', 'capture', 'paid', 'success'].includes(
+            (tx?.status || '').toLowerCase().trim()
+          )
+        );
+        setTransactions(settledOnly);
+      }
       if (finalLogs) setToolLogs(finalLogs);
 
       await loadPromos();

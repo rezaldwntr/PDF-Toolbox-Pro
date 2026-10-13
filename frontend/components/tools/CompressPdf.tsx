@@ -122,7 +122,7 @@ const CompressPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const blob = await response.blob();
       setResultSize(blob.size);
       setResultUrl(URL.createObjectURL(blob));
-      consumeQuota(); // Pemotongan kuota tamu saat proses selesai
+      consumeQuota('Compress PDF', file.size, blob.size); // Pemotongan kuota & rekam ukuran masuk/hasil
       addToast('Kompresi berhasil diselesaikan!', 'success');
     } catch (error: any) {
       clearTimeout(timeoutId);

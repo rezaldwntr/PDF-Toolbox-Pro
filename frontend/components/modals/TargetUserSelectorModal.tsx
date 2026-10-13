@@ -4,15 +4,10 @@ import {
   X,
   Search,
   Check,
-  Filter,
   Users,
-  Sparkles,
   Zap,
-  Crown,
   Mail,
   Globe,
-  CheckSquare,
-  Square,
   Trash2,
   UserCheck,
 } from 'lucide-react';
@@ -41,6 +36,15 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [marketingFilter, setMarketingFilter] = useState<'all' | 'opted_in' | 'opted_out'>('all');
 
+  const getEffectiveTier = (u: any): string => {
+    const rawTier = (u?.tier || 'free').toLowerCase();
+    const isProRaw = ['flash', 'monthly', 'annual'].includes(rawTier);
+    const isExpired =
+      Boolean(u?.is_expired) ||
+      (isProRaw && Boolean(u?.subscription_expiry) && new Date(u.subscription_expiry) < new Date());
+    return isExpired ? 'free' : rawTier;
+  };
+
   // Sinkronisasi saat modal dibuka
   useEffect(() => {
     if (isOpen) {
@@ -57,15 +61,13 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
     }
   }, [isOpen, selectedEmails]);
 
-  if (!isOpen) return null;
-
   // Filter daftar pengguna
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return userList.filter((u) => {
       const email = (u.email || '').toLowerCase();
       const name = (u.full_name || '').toLowerCase();
-      const tier = (u.tier || 'free').toLowerCase();
+      const tier = getEffectiveTier(u);
       const acceptsMarketing = u.accepts_marketing_emails !== false;
 
       const matchesSearch = !q || email.includes(q) || name.includes(q);
@@ -78,6 +80,8 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
       return matchesSearch && matchesTier && matchesMarketing;
     });
   }, [userList, searchQuery, tierFilter, marketingFilter]);
+
+  if (!isOpen) return null;
 
   // Toggle satu email
   const toggleUserEmail = (email: string) => {
@@ -97,7 +101,7 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
   // Preset: Pilih Semua User Free
   const handleSelectAllFree = () => {
     const freeEmails = userList
-      .filter((u) => (u.tier || 'free').toLowerCase() === 'free' && u.email)
+      .filter((u) => getEffectiveTier(u) === 'free' && u.email)
       .map((u) => u.email.trim().toLowerCase());
 
     setSelectedSet((prev) => {
@@ -123,7 +127,7 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
   // Preset: Pilih Semua User Flash
   const handleSelectAllFlash = () => {
     const flashEmails = userList
-      .filter((u) => (u.tier || '').toLowerCase() === 'flash' && u.email)
+      .filter((u) => getEffectiveTier(u) === 'flash' && u.email)
       .map((u) => u.email.trim().toLowerCase());
 
     setSelectedSet((prev) => {
@@ -170,98 +174,108 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
     filteredUsers.every((u) => u.email && selectedSet.has(u.email.trim().toLowerCase()));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-[#151921] rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-fade-in">
+      <div className="bg-surface rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-paper-float border border-border-subtle overflow-hidden">
         {/* Header Modal */}
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+        <div className="p-5 sm:px-6 border-b border-border-subtle flex items-center justify-between gap-3 bg-elevated/60">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-[#9B4819]/12 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/25 flex items-center justify-center shrink-0 shadow-2xs">
               <UserCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Pilih Target Pengguna: <span className="text-indigo-600 dark:text-indigo-400 capitalize">{planTitle || planId}</span>
+            <div className="min-w-0">
+              <h3 className="font-serif text-base sm:text-lg font-bold text-text-primary truncate">
+                Pilih Target Pengguna:{' '}
+                <span className="text-[#9B4819] dark:text-[#E06D3B] capitalize">
+                  {planTitle || planId}
+                </span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-text-secondary mt-0.5">
                 Pilih pengguna yang berhak melihat dan mendapatkan harga promo diskon ini
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="w-8 h-8 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface border border-transparent hover:border-border-subtle flex items-center justify-center transition-all cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Konten Utama */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
           {/* Preset Bar (1-Click Shortcuts) */}
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
-              <span>Pintasan Segmentasi Cepat (1-Klik):</span>
-              <span className="text-[10px] text-slate-400 font-normal">Klik untuk memilih massal</span>
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">
+                Pintasan Segmentasi Cepat (1-Klik):
+              </span>
+              {selectedSet.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 text-[11px] font-semibold transition border border-rose-500/25 cursor-pointer active:scale-95"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Reset / Jadikan Global ({selectedSet.size} Dihapus)</span>
+                </button>
+              ) : (
+                <span className="text-[10px] text-text-secondary uppercase tracking-wider">
+                  Klik untuk memilih massal
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={handleSelectAllFree}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-400 text-xs font-semibold transition border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-elevated hover:bg-surface text-text-primary hover:text-[#9B4819] dark:hover:text-[#E06D3B] text-xs font-semibold transition-all border border-border-subtle hover:border-[#9B4819]/40 cursor-pointer active:scale-[0.98] shadow-2xs"
               >
-                <Users className="w-3.5 h-3.5 text-blue-500" />
-                <span>+ Semua User Free (Target Konversi)</span>
+                <Users className="w-3.5 h-3.5 text-[#9B4819] dark:text-[#E06D3B] shrink-0" />
+                <span className="truncate">+ Semua User Free</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleSelectAllMarketingOptIn}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 text-xs font-semibold transition border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-elevated hover:bg-surface text-text-primary hover:text-[#314028] dark:hover:text-[#34D399] text-xs font-semibold transition-all border border-border-subtle hover:border-[#314028]/40 cursor-pointer active:scale-[0.98] shadow-2xs"
               >
-                <Mail className="w-3.5 h-3.5 text-emerald-500" />
-                <span>+ Semua User Opt-in Email Promo</span>
+                <Mail className="w-3.5 h-3.5 text-[#314028] dark:text-[#34D399] shrink-0" />
+                <span className="truncate">+ Semua Opt-in Promo</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleSelectAllFlash}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400 text-xs font-semibold transition border border-transparent hover:border-amber-200 dark:hover:border-amber-800"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-elevated hover:bg-surface text-text-primary hover:text-amber-600 dark:hover:text-amber-400 text-xs font-semibold transition-all border border-border-subtle hover:border-amber-500/40 cursor-pointer active:scale-[0.98] shadow-2xs"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                <span>+ Semua User Flash</span>
+                <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="truncate">+ Semua User Flash</span>
               </button>
-
-              {selectedSet.size > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold transition border border-rose-200 dark:border-rose-800/60 ml-auto"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Reset / Jadikan Global ({selectedSet.size} Dihapus)</span>
-                </button>
-              )}
             </div>
           </div>
 
           {/* Bar Filter & Pencarian */}
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="p-3.5 rounded-2xl bg-elevated border border-border-subtle space-y-3">
+            <div className="flex flex-col sm:flex-row items-center gap-2.5">
               {/* Kolom Pencarian */}
               <div className="relative flex-1 w-full">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Cari nama atau email pengguna..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary placeholder:text-text-secondary/70 focus:outline-none focus:border-[#9B4819]"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary text-xs cursor-pointer"
                   >
                     ✕
                   </button>
@@ -270,11 +284,11 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
 
               {/* Filter Tier */}
               <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                <span className="text-[11px] text-slate-500 whitespace-nowrap">Tier:</span>
+                <span className="text-[11px] font-medium text-text-secondary whitespace-nowrap">Tier:</span>
                 <select
                   value={tierFilter}
                   onChange={(e) => setTierFilter(e.target.value)}
-                  className="w-full sm:w-auto px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-[#9B4819] cursor-pointer"
                 >
                   <option value="all">Semua Tier</option>
                   <option value="free">Free</option>
@@ -286,11 +300,11 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
 
               {/* Filter Email Promo */}
               <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                <span className="text-[11px] text-slate-500 whitespace-nowrap">Promo:</span>
+                <span className="text-[11px] font-medium text-text-secondary whitespace-nowrap">Promo:</span>
                 <select
                   value={marketingFilter}
                   onChange={(e: any) => setMarketingFilter(e.target.value)}
-                  className="w-full sm:w-auto px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-[#9B4819] cursor-pointer"
                 >
                   <option value="all">Semua</option>
                   <option value="opted_in">✉️ Opt-in</option>
@@ -300,90 +314,93 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
             </div>
 
             {/* Aksi Massal Baris Tampil */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800 text-[11px] text-slate-500">
+            <div className="flex items-center justify-between pt-2.5 border-t border-border-subtle/70 text-[11px] text-text-secondary">
               <div>
-                Menampilkan <strong>{filteredUsers.length}</strong> dari {userList.length} pengguna
+                Menampilkan <strong className="text-text-primary">{filteredUsers.length}</strong> dari{' '}
+                <strong className="text-text-primary">{userList.length}</strong> pengguna
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={isAllFilteredSelected ? handleDeselectAllFiltered : handleSelectAllFiltered}
-                  disabled={filteredUsers.length === 0}
-                  className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 py-1.5 px-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none text-xs sm:text-sm"
-                >
-                  {isAllFilteredSelected
-                    ? `Batal Pilih ${filteredUsers.length} Akun Ini`
-                    : `Pilih Semua ${filteredUsers.length} Akun Ini`}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={isAllFilteredSelected ? handleDeselectAllFiltered : handleSelectAllFiltered}
+                disabled={filteredUsers.length === 0}
+                className="font-semibold text-[#9B4819] dark:text-[#E06D3B] hover:bg-[#9B4819]/10 py-1 px-3 rounded-full border border-[#9B4819]/25 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-xs cursor-pointer"
+              >
+                {isAllFilteredSelected
+                  ? `Batal Pilih ${filteredUsers.length} Akun Ini`
+                  : `Pilih Semua ${filteredUsers.length} Akun Ini`}
+              </button>
             </div>
           </div>
 
           {/* Daftar Pengguna */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[360px] overflow-y-auto">
+          <div className="border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle/60 max-h-[340px] overflow-y-auto bg-surface">
             {filteredUsers.length > 0 ? (
               filteredUsers.map((u) => {
                 const email = (u.email || '').trim().toLowerCase();
                 const isSelected = email ? selectedSet.has(email) : false;
-                const tier = (u.tier || 'free').toLowerCase();
+                const tier = getEffectiveTier(u);
                 const initial = (u.full_name?.[0] || u.email?.[0] || 'U').toUpperCase();
                 const isOptIn = u.accepts_marketing_emails !== false;
 
                 const tierBadgeColor =
                   tier === 'annual'
-                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                    ? 'bg-[#9B4819]/15 text-[#7E3812] dark:text-[#F29F67] border-[#9B4819]/30'
                     : tier === 'monthly'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                    ? 'bg-[#9B4819]/10 text-[#9B4819] dark:text-[#E06D3B] border-[#9B4819]/25'
                     : tier === 'flash'
-                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400';
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25'
+                    : 'bg-elevated text-text-secondary border-border-subtle';
 
                 return (
                   <div
                     key={u.id || email}
                     onClick={() => toggleUserEmail(email)}
-                    className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition select-none ${
+                    className={`p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none ${
                       isSelected
-                        ? 'bg-indigo-50/60 dark:bg-indigo-950/20'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                        ? 'bg-[#9B4819]/10 dark:bg-[#9B4819]/15'
+                        : 'hover:bg-elevated/60'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Checkbox */}
-                      <div className="text-indigo-600 flex-shrink-0">
-                        {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-indigo-600" />
-                        ) : (
-                          <Square className="w-5 h-5 text-slate-300 dark:text-slate-600" />
-                        )}
+                      {/* Custom Warm Checkbox */}
+                      <div
+                        className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all border ${
+                          isSelected
+                            ? 'bg-[#9B4819] border-[#9B4819] text-white shadow-2xs'
+                            : 'bg-surface border-border-strong text-transparent'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.8]" />
                       </div>
 
                       {/* Avatar */}
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#9B4819]/12 text-[#9B4819] dark:text-[#E06D3B] border border-[#9B4819]/20 flex items-center justify-center font-serif font-bold text-xs shrink-0">
                         {initial}
                       </div>
 
                       {/* Info Akun */}
                       <div className="min-w-0">
-                        <div className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                        <div className="font-semibold text-xs text-text-primary truncate">
                           {u.full_name || 'Tanpa Nama'}
                         </div>
-                        <div className="font-mono text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <div className="font-mono text-[11px] text-text-secondary truncate">
                           {u.email}
                         </div>
                       </div>
                     </div>
 
                     {/* Badges */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tierBadgeColor} capitalize`}>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${tierBadgeColor} capitalize`}
+                      >
                         {tier}
                       </span>
                       <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
                           isOptIn
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400'
-                            : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                            ? 'bg-[#314028]/10 text-[#314028] dark:text-[#34D399] border-[#314028]/25'
+                            : 'bg-elevated text-text-secondary border-border-subtle'
                         }`}
                       >
                         {isOptIn ? '✉️ Opt-in' : '🚫 No Promo'}
@@ -393,7 +410,7 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
                 );
               })
             ) : (
-              <div className="p-8 text-center text-slate-400 text-xs">
+              <div className="p-8 text-center text-text-secondary text-xs">
                 Tidak ada pengguna yang cocok dengan kriteria pencarian atau filter di atas.
               </div>
             )}
@@ -401,22 +418,22 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
         </div>
 
         {/* Footer Modal */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 sm:px-6 border-t border-border-subtle bg-elevated/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs">
             {selectedSet.size > 0 ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9B4819]/12 text-[#9B4819] dark:text-[#E06D3B] font-bold border border-[#9B4819]/25">
                 🎯 {selectedSet.size} Pengguna Terpilih
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#314028]/10 text-[#314028] dark:text-[#34D399] font-bold border border-[#314028]/25">
                 <Globe className="w-3.5 h-3.5" />
                 Mode Global (Semua Pengunjung & User)
               </span>
             )}
-            <span className="text-slate-400 hidden sm:inline">
+            <span className="text-text-secondary hidden sm:inline text-[11px]">
               {selectedSet.size > 0
                 ? 'Promo HANYA akan aktif untuk akun di atas.'
-                : 'Promo akan terlihat dan berlaku untuk seluruh orang.'}
+                : 'Promo akan terlihat dan berlaku untuk seluruh pengguna.'}
             </span>
           </div>
 
@@ -424,14 +441,14 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold transition"
+              className="px-4 py-2 rounded-full bg-surface hover:bg-elevated text-text-primary border border-border-subtle text-xs font-semibold transition-all cursor-pointer active:scale-95"
             >
               Batal
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-md shadow-indigo-500/20 flex items-center gap-1.5"
+              className="px-5 py-2 rounded-full bg-[#9B4819] hover:bg-[#7E3812] text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Check className="w-3.5 h-3.5" />
               <span>
@@ -446,3 +463,4 @@ export const TargetUserSelectorModal: React.FC<TargetUserSelectorModalProps> = (
     </div>
   );
 };
+

@@ -96,6 +96,8 @@ async def record_tool_usage(
     user_email: Optional[str] = None,
     session_id: Optional[str] = None,
     file_size_bytes: int = 0,
+    output_size_bytes: Optional[int] = None,
+    duration_ms: Optional[int] = None,
     page_count: int = 1,
     status: str = "success",
     error_message: Optional[str] = None,
@@ -103,6 +105,15 @@ async def record_tool_usage(
     """Mencatat setiap eksekusi alat PDF (baik tamu maupun pengguna login)."""
     if not SUPABASE_URL:
         return False
+
+    effective_error_message = error_message
+    if status == "success" and not effective_error_message and (output_size_bytes or duration_ms or file_size_bytes):
+        import json
+        effective_error_message = json.dumps({
+            "input_bytes": file_size_bytes or 0,
+            "output_bytes": output_size_bytes or file_size_bytes or 0,
+            "duration_ms": duration_ms or 0,
+        })
 
     payload = {
         "tool_name": tool_name.lower().strip(),
@@ -113,7 +124,7 @@ async def record_tool_usage(
         "file_size_bytes": file_size_bytes,
         "page_count": page_count,
         "status": status,
-        "error_message": error_message,
+        "error_message": effective_error_message,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -213,11 +224,14 @@ async def fetch_user_profiles(limit: int = 100, offset: int = 0, search: Optiona
 
 
 async def fetch_payment_transactions(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-    """Mengambil daftar transaksi pembayaran dari Supabase."""
+    """Mengambil daftar transaksi pembayaran yang berhasil (settlement/capture) dari Supabase."""
     if not SUPABASE_URL:
         return []
 
-    endpoint = f"{SUPABASE_URL.rstrip('/')}/rest/v1/payment_transactions?select=*&order=created_at.desc&limit={limit}&offset={offset}"
+    endpoint = (
+        f"{SUPABASE_URL.rstrip('/')}/rest/v1/payment_transactions"
+        f"?select=*&status=in.(settlement,capture,paid,success)&order=created_at.desc&limit={limit}&offset={offset}"
+    )
     headers = get_supabase_headers()
     try:
         client = get_supabase_client()

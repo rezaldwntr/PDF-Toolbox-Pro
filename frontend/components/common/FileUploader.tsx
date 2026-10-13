@@ -4,6 +4,7 @@ import { useQuota } from "../../contexts/QuotaContext";
 import { useToast } from "../../contexts/ToastContext";
 import { pickFileFromGoogleDrive, pickFileFromDropbox } from "../../lib/cloudStorage";
 import { consumePendingHandoffFile } from "../../lib/pipelineHandoff";
+import { setTelemetryInputSize } from "../../lib/telemetry";
 
 interface FileUploaderProps {
   onFileSelect: (files: FileList | null) => void;
@@ -41,6 +42,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     const handoffFile = consumePendingHandoffFile();
     if (handoffFile) {
       try {
+        setTelemetryInputSize(handoffFile.size);
         const dt = new DataTransfer();
         dt.items.add(handoffFile);
         onFileSelect(dt.files);
@@ -58,6 +60,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     try {
       const file = await pickFileFromGoogleDrive();
       if (checkFileSizeLimit(file.size)) {
+        setTelemetryInputSize(file.size);
         const dt = new DataTransfer();
         dt.items.add(file);
         onFileSelect(dt.files);
@@ -78,6 +81,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     try {
       const file = await pickFileFromDropbox();
       if (checkFileSizeLimit(file.size)) {
+        setTelemetryInputSize(file.size);
         const dt = new DataTransfer();
         dt.items.add(file);
         onFileSelect(dt.files);
@@ -94,9 +98,12 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   const validateAndSelect = useCallback(
     (files: FileList | null) => {
       if (!files || files.length === 0) return;
+      let totalSize = 0;
       for (let i = 0; i < files.length; i++) {
         if (!checkFileSizeLimit(files[i].size)) return;
+        totalSize += files[i].size;
       }
+      setTelemetryInputSize(totalSize);
       onFileSelect(files);
     },
     [onFileSelect, checkFileSizeLimit]
