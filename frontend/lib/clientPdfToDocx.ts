@@ -42,18 +42,16 @@ const escapeXml = (str: string): string =>
     .replace(/'/g, '&apos;');
 
 /**
- * Konverter PDF ke Word (.docx OpenXML):
- * - Mode Default (forceVisualMode = false): Menghasilkan dokumen Word (.docx) yang 100% DAPAT DIEDIT
- *   (teks, paragraf, perataan judul, serta tabel tanpa garis otomatis untuk kolom sejajar/titik dua/tanda tangan).
- *   Hanya merender gambar halaman jika halaman tersebut murni hasil scan kosong (< 10 karakter teks digital).
- * - Mode Visual (forceVisualMode = true): Menyematkan foto halaman utuh beresolusi tinggi (margin 0) di dalam Word.
+ * Konverter PDF ke Word (.docx OpenXML) — 100% Dapat Diedit:
+ * Menghasilkan dokumen Word (.docx) yang sepenuhnya dapat diedit di Microsoft Word
+ * (teks, paragraf, perataan judul tengah, indentasi, serta tabel otomatis dengan lebar kolom
+ * proporsional untuk bagian titik dua dan blok tanda tangan multi-kolom).
  */
 export async function convertPdfToDocxClientSide(
   pdfBuffer: ArrayBuffer,
   options?: {
     startPage?: number;
     endPage?: number;
-    forceVisualMode?: boolean;
     onProgress?: (pct: number, msg: string) => void;
   }
 ): Promise<Blob> {
@@ -69,14 +67,13 @@ export async function convertPdfToDocxClientSide(
   const relEntries: string[] = [
     `<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`,
   ];
-  let imageCounter = 0;
-  let allPagesVisual = true;
+
   let docWidthTwips = 11906; // Default A4 width (595.28pt * 20)
   let docHeightTwips = 16838; // Default A4 height (841.89pt * 20)
 
   for (let pNum = sPage; pNum <= ePage; pNum++) {
     const progressPct = Math.round(20 + ((pNum - sPage) / Math.max(1, ePage - sPage + 1)) * 72);
-    options?.onProgress?.(progressPct, `Menyusun halaman ${pNum} ke format Word (.docx)...`);
+    options?.onProgress?.(progressPct, `Menyusun halaman ${pNum} ke format Word (.docx) yang dapat diedit...`);
 
     const page = await pdfDoc.getPage(pNum);
     const viewport = page.getViewport({ scale: 1.0 });
@@ -116,7 +113,7 @@ export async function convertPdfToDocxClientSide(
       const lastLine = lines[lines.length - 1];
       if (lastLine && Math.abs(lastLine.y - item.y) <= Math.max(4, lastLine.fontSize * 0.45)) {
         const gap = item.x - lastLine.maxX;
-        const isColumnGap = gap > Math.max(22, lastLine.fontSize * 1.6);
+        const isColumnGap = gap > Math.max(18, lastLine.fontSize * 1.4);
         const separator = isColumnGap ? '    ' : gap > 1.5 ? ' ' : '';
         lastLine.text += separator + item.text;
         lastLine.minX = Math.min(lastLine.minX, item.x);
@@ -165,99 +162,15 @@ export async function convertPdfToDocxClientSide(
       }
     }
 
-    const totalChars = lines.reduce((acc, l) => acc + l.text.replace(/\s+/g, '').length, 0);
     const isSubsequentPage = pNum > sPage;
-
-    // Hanya gunakan foto halaman utuh jika forceVisualMode === true ATAU halaman murni scan tanpa teks (< 10 karakter)
-    const usePhotoMode = Boolean(options?.forceVisualMode || totalChars < 10);
-
-    if (usePhotoMode && typeof document !== 'undefined') {
-      const renderScale = 2.4;
-      const renderVp = page.getViewport({ scale: renderScale });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.ceil(renderVp.width);
-      canvas.height = Math.ceil(renderVp.height);
-      const ctx = canvas.getContext('2d');
-
-      if (ctx) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvasContext: ctx, viewport: renderVp }).promise;
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        const base64Data = dataUrl.split(',')[1] || '';
-
-        if (base64Data) {
-          imageCounter++;
-          const rId = `rIdImg${imageCounter}`;
-          const imgFilename = `page_${pNum}.jpg`;
-          zip.file(`word/media/${imgFilename}`, base64Data, { base64: true });
-          relEntries.push(
-            `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgFilename}"/>`
-          );
-
-          const cx = Math.round(pageWidthPt * 0.994 * 12700);
-          const cy = Math.round(pageHeightPt * 0.990 * 12700);
-
-          bodyParts.push(`
-            <w:p>
-              <w:pPr>
-                ${isSubsequentPage ? '<w:pageBreakBefore/>' : ''}
-                <w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>
-                <w:jc w:val="center"/>
-                <w:rPr>
-                  <w:sz w:val="2"/>
-                  <w:szCs w:val="2"/>
-                </w:rPr>
-              </w:pPr>
-              <w:r>
-                <w:rPr>
-                  <w:sz w:val="2"/>
-                  <w:szCs w:val="2"/>
-                </w:rPr>
-                <w:drawing>
-                  <wp:inline distT="0" distB="0" distL="0" distR="0">
-                    <wp:extent cx="${cx}" cy="${cy}"/>
-                    <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                    <wp:docPr id="${imageCounter}" name="Halaman ${pNum}"/>
-                    <wp:cNvGraphicFramePr>
-                      <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
-                    </wp:cNvGraphicFramePr>
-                    <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-                      <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                        <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                          <pic:nvPicPr>
-                            <pic:cNvPr id="${imageCounter}" name="${imgFilename}"/>
-                            <pic:cNvPicPr/>
-                          </pic:nvPicPr>
-                          <pic:blipFill>
-                            <a:blip r:embed="${rId}"/>
-                            <a:stretch><a:fillRect/></a:stretch>
-                          </pic:blipFill>
-                          <pic:spPr>
-                            <a:xfrm>
-                              <a:off x="0" y="0"/>
-                              <a:ext cx="${cx}" cy="${cy}"/>
-                            </a:xfrm>
-                            <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-                          </pic:spPr>
-                        </pic:pic>
-                      </a:graphicData>
-                    </a:graphic>
-                  </wp:inline>
-                </w:drawing>
-              </w:r>
-            </w:p>
-          `);
-          continue;
-        }
-      }
-    }
-
-    // Mode Teks & Tabel yang Dapat Diedit Penuh di Word
-    allPagesVisual = false;
     let prevY: number | null = null;
     let isFirstLineOnPage = true;
-    const usablePageWidthTwips = Math.max(4000, docWidthTwips - 2268); // Kurangi margin kiri-kanan (2 x 1134 twips)
+    const marginTwips = 1000; // Margin kiri/kanan ~1.76cm
+    const usablePageWidthTwips = Math.max(4000, docWidthTwips - marginTwips * 2);
+
+    if (lines.length === 0 && isSubsequentPage) {
+      bodyParts.push(`<w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>`);
+    }
 
     for (const line of lines) {
       const cleanText = escapeXml(line.text.trim());
@@ -265,22 +178,31 @@ export async function convertPdfToDocxClientSide(
 
       const verticalGap = prevY !== null ? Math.max(0, prevY - line.y) : 14;
       prevY = line.y;
-      const spaceAfterTwips = verticalGap > line.fontSize * 1.8 ? 180 : 80;
+      const spaceAfterTwips = verticalGap > line.fontSize * 1.9 ? 140 : 40;
       const halfPtSize = Math.round(line.fontSize * 2);
 
-      // Jika baris memiliki multi-kolom horizontal (misal: blok tanda tangan kiri-kanan atau Nama : Nilai),
-      // susun sebagai tabel Word tanpa garis (borderless table) agar 100% bisa diedit sekaligus sejajar rapi!
-      if (line.segments.length >= 2 && line.segments.length <= 4) {
+      // Jika baris memiliki multi-kolom horizontal (misal: blok tanda tangan kiri-kanan atau Label : Nilai),
+      // susun sebagai tabel Word tanpa garis (borderless table) dengan lebar kolom proporsional sesuai posisi X PDF
+      if (line.segments.length >= 2 && line.segments.length <= 5) {
         if (isSubsequentPage && isFirstLineOnPage) {
           bodyParts.push(`<w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>`);
           isFirstLineOnPage = false;
         }
-        const colCount = line.segments.length;
-        const cellWidthTwips = Math.floor(usablePageWidthTwips / colCount);
+
+        const leftMarginPt = marginTwips / 20;
+        const usableWidthPt = usablePageWidthTwips / 20;
         const cellsXml = line.segments
-          .map((seg) => {
+          .map((seg, idx) => {
             const segText = escapeXml(seg.text.trim());
             const segHalfPt = Math.round(seg.fontSize * 2);
+            const nextSegX =
+              idx < line.segments.length - 1
+                ? line.segments[idx + 1].x
+                : Math.max(seg.maxX + 20, leftMarginPt + usableWidthPt);
+            const startPt = idx === 0 ? Math.min(seg.x, leftMarginPt + 10) : seg.x;
+            const rawWidthPt = Math.max(36, nextSegX - startPt);
+            const cellWidthTwips = Math.max(720, Math.round(rawWidthPt * 20));
+
             return `
               <w:tc>
                 <w:tcPr>
@@ -288,11 +210,11 @@ export async function convertPdfToDocxClientSide(
                 </w:tcPr>
                 <w:p>
                   <w:pPr>
-                    <w:spacing w:after="${spaceAfterTwips}" w:line="260" w:lineRule="auto"/>
+                    <w:spacing w:before="0" w:after="${spaceAfterTwips}" w:line="240" w:lineRule="auto"/>
                   </w:pPr>
                   <w:r>
                     <w:rPr>
-                      <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+                      <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
                       ${seg.bold ? '<w:b/>' : ''}
                       ${seg.italic ? '<w:i/>' : ''}
                       <w:sz w:val="${segHalfPt}"/>
@@ -330,12 +252,12 @@ export async function convertPdfToDocxClientSide(
       const pageCenter = pageWidthPt / 2;
       const lineWidth = line.maxX - line.minX;
       const isCentered =
-        lineWidth < pageWidthPt * 0.75 &&
-        line.minX > pageWidthPt * 0.14 &&
-        Math.abs(lineCenter - pageCenter) < pageWidthPt * 0.08;
+        lineWidth < pageWidthPt * 0.78 &&
+        line.minX > pageWidthPt * 0.12 &&
+        Math.abs(lineCenter - pageCenter) < pageWidthPt * 0.09;
 
       const leftIndentTwips =
-        !isCentered && line.minX > 90 ? Math.min(5000, Math.round((line.minX - 72) * 20)) : 0;
+        !isCentered && line.minX > 85 ? Math.min(5500, Math.round((line.minX - 50) * 20)) : 0;
 
       bodyParts.push(`
         <w:p>
@@ -343,11 +265,11 @@ export async function convertPdfToDocxClientSide(
             ${isSubsequentPage && isFirstLineOnPage ? '<w:pageBreakBefore/>' : ''}
             ${isCentered ? '<w:jc w:val="center"/>' : '<w:jc w:val="left"/>'}
             ${leftIndentTwips > 0 ? `<w:ind w:left="${leftIndentTwips}"/>` : ''}
-            <w:spacing w:after="${spaceAfterTwips}" w:line="276" w:lineRule="auto"/>
+            <w:spacing w:before="0" w:after="${spaceAfterTwips}" w:line="250" w:lineRule="auto"/>
           </w:pPr>
           <w:r>
             <w:rPr>
-              <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+              <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
               ${line.bold ? '<w:b/>' : ''}
               ${line.italic ? '<w:i/>' : ''}
               <w:sz w:val="${halfPtSize}"/>
@@ -365,8 +287,6 @@ export async function convertPdfToDocxClientSide(
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
-  <Default Extension="jpg" ContentType="image/jpeg"/>
-  <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>`;
@@ -386,7 +306,7 @@ export async function convertPdfToDocxClientSide(
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+        <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>
         <w:sz w:val="22"/>
         <w:szCs w:val="22"/>
       </w:rPr>
@@ -398,10 +318,6 @@ export async function convertPdfToDocxClientSide(
   </w:style>
 </w:styles>`;
 
-  const marginAttr = allPagesVisual
-    ? `w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"`
-    : `w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"`;
-
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document
   xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -411,7 +327,7 @@ export async function convertPdfToDocxClientSide(
     ${bodyParts.join('\n')}
     <w:sectPr>
       <w:pgSz w:w="${docWidthTwips}" w:h="${docHeightTwips}"/>
-      <w:pgMar ${marginAttr}/>
+      <w:pgMar w:top="1000" w:right="1000" w:bottom="1000" w:left="1000" w:header="560" w:footer="560" w:gutter="0"/>
     </w:sectPr>
   </w:body>
 </w:document>`;
@@ -428,3 +344,4 @@ export async function convertPdfToDocxClientSide(
     compression: 'DEFLATE',
   });
 }
+

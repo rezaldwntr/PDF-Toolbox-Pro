@@ -59,9 +59,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
   const [startPage, setStartPage] = useState<number>(1);
   const [endPage, setEndPage] = useState<number>(1);
 
-  // Opsi Khusus Word (Default: 'editable' agar hasil teks & tabel dapat diedit penuh di MS Word)
-  const [wordLayoutMode, setWordLayoutMode] = useState<'editable' | 'visual'>('editable');
-
   // Opsi Khusus Excel
   const [excelExtractionMode, setExcelExtractionMode] = useState<'tables_only' | 'all_content'>('tables_only');
   const [excelSheetStructure, setExcelSheetStructure] = useState<'combined' | 'per_page'>('combined');
@@ -99,7 +96,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fileWithBuffer, isProcessing, outputUrl, pageRangeMode, startPage, endPage, wordLayoutMode, excelExtractionMode, excelSheetStructure, pptLayoutMode, selectedImageFormat, imageDpi, imageExtractMode]);
+  }, [fileWithBuffer, isProcessing, outputUrl, pageRangeMode, startPage, endPage, excelExtractionMode, excelSheetStructure, pptLayoutMode, selectedImageFormat, imageDpi, imageExtractMode]);
 
   const resetState = useCallback(() => {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
@@ -111,7 +108,6 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     setPageRangeMode('all');
     setStartPage(1);
     setEndPage(1);
-    setWordLayoutMode('editable');
     setExcelExtractionMode('tables_only');
     setExcelSheetStructure('combined');
     setPptLayoutMode('editable');
@@ -176,7 +172,7 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     formData.append('file', fileToSend, sendFilename);
 
     if (mode === 'word') {
-      formData.append('layout_mode', wordLayoutMode);
+      formData.append('layout_mode', 'editable');
       if (pageRangeMode === 'custom' && !didClientSlice) {
         formData.append('start_page', String(Math.max(1, startPage)));
         formData.append('end_page', String(Math.min(pageCount, endPage)));
@@ -207,59 +203,43 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
 
       let jobResult: { blob: Blob; filename: string };
 
-      if (mode === 'word' && wordLayoutMode === 'visual') {
-        const visualBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
-          startPage: s,
-          endPage: e,
-          forceVisualMode: true,
+      try {
+        jobResult = await smartUploadAndProcess({
+          file: effectiveFile,
+          action: mode,
+          directEndpoint: config.endpoint,
+          formData,
+          actionOptions: {
+            mode: excelExtractionMode,
+            sheet_per_page: excelSheetStructure === 'per_page',
+            layout_mode: mode === 'word' ? 'editable' : pptLayoutMode,
+            output_format: selectedImageFormat,
+            dpi: imageDpi,
+            extract_mode: imageExtractMode,
+          },
+          userTier: user?.tier || 'free',
           onProgress: (pct) => {
             if (pct > 60) setProcessingStep(3);
           },
         });
-        jobResult = {
-          blob: visualBlob,
-          filename: `${base}${rangeSuffix}.docx`,
-        };
-      } else {
-        try {
-          jobResult = await smartUploadAndProcess({
-            file: effectiveFile,
-            action: mode,
-            directEndpoint: config.endpoint,
-            formData,
-            actionOptions: {
-              mode: excelExtractionMode,
-              sheet_per_page: excelSheetStructure === 'per_page',
-              layout_mode: mode === 'word' ? wordLayoutMode : pptLayoutMode,
-              output_format: selectedImageFormat,
-              dpi: imageDpi,
-              extract_mode: imageExtractMode,
-            },
-            userTier: user?.tier || 'free',
+      } catch (serverErr: any) {
+        if (serverErr?.name === 'AbortError') throw serverErr;
+        if (mode === 'word') {
+          console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal (editable):', serverErr);
+          setProcessingStep(2);
+          const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
+            startPage: s,
+            endPage: e,
             onProgress: (pct) => {
               if (pct > 60) setProcessingStep(3);
             },
           });
-        } catch (serverErr: any) {
-          if (serverErr?.name === 'AbortError') throw serverErr;
-          if (mode === 'word') {
-            console.warn('[ConvertPdf] Server PDF-to-Word gagal, menjalankan fallback engine Word lokal (editable):', serverErr);
-            setProcessingStep(2);
-            const fallbackBlob = await convertPdfToDocxClientSide(fileWithBuffer.buffer, {
-              startPage: s,
-              endPage: e,
-              forceVisualMode: false,
-              onProgress: (pct) => {
-                if (pct > 60) setProcessingStep(3);
-              },
-            });
-            jobResult = {
-              blob: fallbackBlob,
-              filename: `${base}${rangeSuffix}.docx`,
-            };
-          } else {
-            throw serverErr;
-          }
+          jobResult = {
+            blob: fallbackBlob,
+            filename: `${base}${rangeSuffix}.docx`,
+          };
+        } else {
+          throw serverErr;
         }
       }
 
@@ -287,6 +267,9 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
     }
   };
 
+  const effectiveStartPage = pageRangeMode === 'all' ? 1 : Math.max(1, startPage);
+  const effectiveEndPage = pageRangeMode === 'all' ? pageCount : Math.min(pageCount, Math.max(effectiveStartPage, endPage));
+
   return (
     <ToolContainer
       title={config.title}
@@ -295,27 +278,34 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
       currentStep={!fileWithBuffer ? 1 : (outputUrl ? 3 : 2)}
       canvasSlot={
         fileWithBuffer && !isProcessing && !outputUrl ? (
-          <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
+          <div className="h-full flex flex-col items-center justify-between p-4 sm:p-6 bg-canvas overflow-y-auto">
             {/* Top Toolbar */}
-            <div className="w-full max-w-xl p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center justify-between shadow-xs mb-4">
+            <div className="w-full max-w-2xl p-3.5 rounded-xl bg-surface border border-border-subtle flex flex-wrap items-center justify-between gap-2 shadow-xs mb-3">
               <div className="flex items-center gap-2.5 truncate">
                 <IconComponent className="w-5 h-5 shrink-0" />
                 <span className="text-xs font-semibold text-text-primary truncate">
-                  Target Konversi: {config.title} (.{config.ext})
+                  Pratinjau Dokumen ({pageCount} Halaman)
                 </span>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-accent-primary/10 text-accent-primary uppercase tracking-wider shrink-0">
-                Akselerasi Tinggi
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-accent-primary/10 text-accent-primary tracking-wider shrink-0">
+                {pageRangeMode === 'all'
+                  ? `Semua Halaman Dipilih (1 - ${pageCount})`
+                  : `Rentang Aktif: Hal ${effectiveStartPage} s/d ${effectiveEndPage}`}
               </span>
             </div>
 
-            {/* Document Paper Preview */}
-            <div className="w-full max-w-xl max-h-[560px] overflow-auto rounded-xl border border-border-subtle bg-white shadow-lg p-3 my-auto">
-              <PdfPreview buffer={fileWithBuffer.buffer} />
+            {/* Document All-Pages Preview */}
+            <div className="w-full max-w-2xl max-h-[560px] overflow-y-auto rounded-xl border border-border-subtle bg-surface/60 shadow-inner p-3.5 my-auto">
+              <PdfPreview
+                buffer={fileWithBuffer.buffer}
+                showAllPages={true}
+                activeStartPage={effectiveStartPage}
+                activeEndPage={effectiveEndPage}
+              />
             </div>
 
             {/* Bottom Info Bar */}
-            <div className="mt-4 flex items-center justify-between w-full max-w-xl text-xs text-text-secondary">
+            <div className="mt-3 flex items-center justify-between w-full max-w-2xl text-xs text-text-secondary">
               <button
                 onClick={resetState}
                 className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
@@ -375,25 +365,37 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
               </div>
 
               {pageRangeMode === 'custom' && (
-                <div className="flex items-center gap-2 p-2.5 bg-canvas rounded-xl border border-border-subtle">
-                  <span className="text-[11px] text-text-muted">Hal:</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={pageCount}
-                    value={startPage}
-                    onChange={(e) => setStartPage(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-14 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-border-subtle bg-surface text-center text-text-primary"
-                  />
-                  <span className="text-[11px] text-text-muted">s/d</span>
-                  <input
-                    type="number"
-                    min={startPage}
-                    max={pageCount}
-                    value={endPage}
-                    onChange={(e) => setEndPage(Math.min(pageCount, Math.max(startPage, parseInt(e.target.value) || startPage)))}
-                    className="w-14 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-border-subtle bg-surface text-center text-text-primary"
-                  />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2.5 bg-canvas rounded-xl border border-border-subtle">
+                    <span className="text-[11px] text-text-muted">Hal:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={pageCount}
+                      value={startPage}
+                      onChange={(e) => {
+                        const val = Math.min(pageCount, Math.max(1, parseInt(e.target.value) || 1));
+                        setStartPage(val);
+                        if (val > endPage) setEndPage(val);
+                      }}
+                      className="w-16 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-border-subtle bg-surface text-center text-text-primary"
+                    />
+                    <span className="text-[11px] text-text-muted">s/d</span>
+                    <input
+                      type="number"
+                      min={startPage}
+                      max={pageCount}
+                      value={endPage}
+                      onChange={(e) => {
+                        const val = Math.min(pageCount, Math.max(startPage, parseInt(e.target.value) || startPage));
+                        setEndPage(val);
+                      }}
+                      className="w-16 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-border-subtle bg-surface text-center text-text-primary"
+                    />
+                  </div>
+                  <p className="text-[11px] text-text-muted leading-snug">
+                    Halaman <strong>{effectiveStartPage} s/d {effectiveEndPage}</strong> tampil terang pada pratinjau, sedangkan halaman lainnya diredupkan.
+                  </p>
                 </div>
               )}
             </div>
@@ -401,45 +403,14 @@ const ConvertPdf: React.FC<ConvertPdfProps> = ({ onBack, mode }) => {
             {/* Mode-Specific Settings */}
             {mode === 'word' && (
               <div className="space-y-3 pt-2 border-t border-border-subtle">
-                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block">
-                  Mode Hasil Dokumen Word
-                </label>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setWordLayoutMode('editable')}
-                    className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all ${
-                      wordLayoutMode === 'editable'
-                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
-                        : 'border-border-subtle bg-canvas text-text-secondary'
-                    }`}
-                  >
-                    Dapat Diedit (Teks, Paragraf & Tabel)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWordLayoutMode('visual')}
-                    className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all ${
-                      wordLayoutMode === 'visual'
-                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
-                        : 'border-border-subtle bg-canvas text-text-secondary'
-                    }`}
-                  >
-                    Presisi Visual 100% (Gambar Halaman Utuh)
-                  </button>
-                </div>
                 <div className="p-3 rounded-xl bg-canvas border border-border-subtle flex items-start gap-2.5">
                   <Cpu className="w-4 h-4 text-accent-primary shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-xs font-bold text-text-primary">
-                      {wordLayoutMode === 'editable'
-                        ? 'Mode Teks & Tabel Dapat Diedit Aktif'
-                        : 'Mode Foto Halaman Utuh Aktif'}
+                      Mode Dokumen Word Dapat Diedit
                     </h4>
-                    <p className="text-[11px] text-text-secondary leading-relaxed">
-                      {wordLayoutMode === 'editable'
-                        ? 'Mengekstrak seluruh kalimat, tabel, dan kolom menjadi teks Microsoft Word asli yang dapat diketik dan diedit.'
-                        : 'Menjaga kemiripan visual 100% dengan menyematkan halaman sebagai citra resolusi tinggi di dalam Word.'}
+                    <p className="text-[11px] text-text-secondary leading-relaxed mt-0.5">
+                      Mengekstrak teks, paragraf, tabel, serta kolom menjadi dokumen Microsoft Word (.docx) asli yang dapat langsung diketik dan diedit.
                     </p>
                   </div>
                 </div>

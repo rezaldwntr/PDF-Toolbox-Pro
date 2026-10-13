@@ -290,18 +290,20 @@ const SplitPdf: React.FC<SplitPdfProps> = ({ onBack }) => {
           <div className="bg-canvas rounded-2xl p-4 max-h-[640px] overflow-y-auto border border-border-subtle">
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {pagePreviews.map((page) => {
-                const isSelected = 
-                  (mode === 'selected' && page.selected) || 
+                const isSelected =
+                  mode === 'all' ||
+                  mode === 'fixed' ||
+                  (mode === 'selected' && page.selected) ||
                   (mode === 'range' && page.pageNumber >= rangeStart && page.pageNumber <= rangeEnd);
 
                 return (
-                  <div 
+                  <div
                     key={page.pageNumber}
                     onClick={() => togglePageSelection(page.pageNumber)}
-                    className={`relative group cursor-pointer rounded-xl overflow-hidden transition-all duration-200 border-2 bg-surface shadow-paper ${
+                    className={`relative group cursor-pointer rounded-xl overflow-hidden transition-all duration-300 border-2 bg-surface ${
                       isSelected
-                        ? 'border-accent-primary ring-2 ring-accent-primary/20' 
-                        : 'border-border-subtle hover:border-border-strong'
+                        ? 'opacity-100 brightness-100 grayscale-0 scale-100 border-accent-primary ring-2 ring-accent-primary/20 shadow-paper'
+                        : 'opacity-35 brightness-75 grayscale-[60%] scale-[0.97] border-border-subtle hover:border-border-strong shadow-none'
                     }`}
                   >
                     <img src={page.url} alt={`Halaman ${page.pageNumber}`} className="w-full h-auto object-contain" />
