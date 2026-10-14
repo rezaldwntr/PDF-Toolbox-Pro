@@ -16,6 +16,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
 import { triggerFileDownload } from '../../lib/download';
 import { ensurePdfjsReady } from '../../lib/pdfWorker';
@@ -25,7 +28,12 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageViewport, setPageViewport] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+  const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [viewportScale, setViewportScale] = useState<number>(1);
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [docDimensions, setDocDimensions] = useState<{ width: number; height: number; isLandscape: boolean } | null>(null);
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Konfigurasi Watermark
   const [config, setConfig] = useState<WatermarkConfig>({
@@ -101,49 +109,90 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  const renderPage = useCallback(async (pageNum: number) => {
-    if (!pdfDoc || !canvasRef.current) return;
+  const renderPage = useCallback(
+    async (pageNum: number) => {
+      if (!pdfDoc || !canvasRef.current) return;
 
-    try {
-      if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
+      try {
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        const page = await pdfDoc.getPage(pageNum);
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const isLandscape = unscaledViewport.width > unscaledViewport.height;
+
+        setDocDimensions({
+          width: unscaledViewport.width,
+          height: unscaledViewport.height,
+          isLandscape,
+        });
+
+        // Ukuran kontainer pratinjau yang fleksibel dan luas
+        const containerEl = previewContainerRef.current;
+        const rawContainerWidth = containerEl?.clientWidth || 850;
+        const availableWidth = Math.max(340, rawContainerWidth - 32);
+
+        // Dokumen landscape dapat menggunakan lebar penuh kontainer (hingga 1100px)
+        // Dokumen portrait disesuaikan agar proporsional di layar (hingga 780px)
+        const defaultTargetWidth = isLandscape
+          ? Math.min(availableWidth, 1100)
+          : Math.min(availableWidth, 780);
+
+        const baseScale = defaultTargetWidth / unscaledViewport.width;
+        const scale = baseScale * zoom;
+        setViewportScale(scale);
+
+        const viewport = page.getViewport({ scale });
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.round(viewport.width * dpr);
+        canvas.height = Math.round(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+
+        ctx.scale(dpr, dpr);
+        const renderContext = { canvasContext: ctx, viewport };
+        const task = page.render(renderContext);
+        renderTaskRef.current = task;
+        await task.promise;
+
+        setCanvasDimensions({ width: viewport.width, height: viewport.height });
+      } catch (err: any) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.error('Error rendering page:', err);
+        }
       }
-
-      const page = await pdfDoc.getPage(pageNum);
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
-      setPageViewport({ width: unscaledViewport.width, height: unscaledViewport.height });
-
-      const containerWidth = canvas.parentElement?.clientWidth || 450;
-      const scale = Math.min((containerWidth - 32) / unscaledViewport.width, 1.0);
-      const viewport = page.getViewport({ scale });
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = viewport.width * dpr;
-      canvas.height = viewport.height * dpr;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      ctx.scale(dpr, dpr);
-      const renderContext = { canvasContext: ctx, viewport };
-      const task = page.render(renderContext);
-      renderTaskRef.current = task;
-      await task.promise;
-    } catch (err: any) {
-      if (err?.name !== 'RenderingCancelledException') {
-        console.error('Error rendering page:', err);
-      }
-    }
-  }, [pdfDoc]);
+    },
+    [pdfDoc, zoom]
+  );
 
   useEffect(() => {
     if (pdfDoc) {
       renderPage(currentPage);
     }
   }, [pdfDoc, currentPage, renderPage]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (pdfDoc) renderPage(currentPage);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [pdfDoc, currentPage, renderPage]);
+
+  const handleZoomChange = (newZoom: number) => {
+    const clamped = Math.round(Math.max(0.5, Math.min(2.5, newZoom)) * 100) / 100;
+    setZoom(clamped);
+  };
+
+  const handleResetZoom = () => {
+    setZoom(1.0);
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -240,19 +289,48 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultSize(null);
     setTotalPages(0);
     setCurrentPage(1);
+    setZoom(1.0);
+    setDocDimensions(null);
+    setCanvasDimensions({ width: 0, height: 0 });
   };
 
-  const getAnchorCss = (anchor: PositionAnchor) => {
+  const getFontFamilyCss = (fontFamily: string) => {
+    switch ((fontFamily || '').toLowerCase()) {
+      case 'times':
+      case 'tiro':
+        return 'serif';
+      case 'courier':
+      case 'cour':
+        return 'monospace';
+      default:
+        return 'sans-serif';
+    }
+  };
+
+  const getPositionStyles = (anchor: PositionAnchor, scale: number): React.CSSProperties => {
+    // Margin proporsional terhadap skala kanvas (seperti 36pt di PyMuPDF)
+    const margin = Math.round(36 * scale);
     switch (anchor) {
-      case 'top-left': return 'top-8 left-8';
-      case 'top-center': return 'top-8 left-1/2 -translate-x-1/2';
-      case 'top-right': return 'top-8 right-8';
-      case 'middle-left': return 'top-1/2 left-8 -translate-y-1/2';
-      case 'center': return 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2';
-      case 'middle-right': return 'top-1/2 right-8 -translate-y-1/2';
-      case 'bottom-left': return 'bottom-8 left-8';
-      case 'bottom-center': return 'bottom-8 left-1/2 -translate-x-1/2';
-      case 'bottom-right': return 'bottom-8 right-8';
+      case 'top-left':
+        return { top: `${margin}px`, left: `${margin}px` };
+      case 'top-center':
+        return { top: `${margin}px`, left: '50%', transform: 'translateX(-50%)' };
+      case 'top-right':
+        return { top: `${margin}px`, right: `${margin}px` };
+      case 'middle-left':
+        return { top: '50%', left: `${margin}px`, transform: 'translateY(-50%)' };
+      case 'center':
+        return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+      case 'middle-right':
+        return { top: '50%', right: `${margin}px`, transform: 'translateY(-50%)' };
+      case 'bottom-left':
+        return { bottom: `${margin}px`, left: `${margin}px` };
+      case 'bottom-center':
+        return { bottom: `${margin}px`, left: '50%', transform: 'translateX(-50%)' };
+      case 'bottom-right':
+        return { bottom: `${margin}px`, right: `${margin}px` };
+      default:
+        return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
     }
   };
 
@@ -262,113 +340,197 @@ const WatermarkPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       description="Tambahkan watermark teks atau logo dengan presisi tinggi ke setiap halaman dokumen PDF Anda."
       onBack={onBack}
       currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
-      canvasSlot={
+      toolbarSlot={
         file && !isProcessing && !resultUrl ? (
-          <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
-            {/* Top Toolbar: Page Pagination */}
-            <div className="flex items-center justify-between w-full max-w-lg mb-4">
-              <span className="text-xs font-semibold text-text-secondary">
-                Pratinjau Halaman
+          <div className="flex items-center justify-between w-full gap-3 flex-wrap">
+            {/* Navigasi Halaman */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-text-secondary hidden sm:inline">
+                Halaman:
               </span>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
-                  <button
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-mono text-text-primary">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Document Paper Preview with Live Watermark Overlay */}
-            <div className="relative border border-border-subtle rounded-xl shadow-lg bg-white overflow-hidden my-auto max-w-full">
-              <canvas ref={canvasRef} className="block mx-auto" />
-
-              {/* Watermark Overlay Layer */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-                {config.isMosaic ? (
-                  <div
-                    className="grid grid-cols-3 grid-rows-3 w-full h-full p-4"
-                    style={{ opacity: config.opacity }}
-                  >
-                    {Array.from({ length: 9 }).map((_, idx) => (
-                      <div key={idx} className="flex items-center justify-center overflow-hidden">
-                        <span
-                          style={{
-                            color: config.color,
-                            transform: `rotate(${config.rotation}deg)`,
-                            fontSize: `${Math.max(14, config.fontSize * 0.45)}px`,
-                            fontWeight: config.isBold ? 'bold' : 'normal',
-                            fontStyle: config.isItalic ? 'italic' : 'normal',
-                          }}
-                          className="select-none font-sans whitespace-nowrap"
-                        >
-                          {config.type === 'text' ? config.text : 'LOGO'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div
-                    className={`absolute ${getAnchorCss(config.position)}`}
-                    style={{
-                      opacity: config.opacity,
-                      transform: `${config.position.includes('center') ? '' : ''} rotate(${config.rotation}deg)`,
-                    }}
-                  >
-                    {config.type === 'text' ? (
-                      <span
-                        style={{
-                          color: config.color,
-                          fontSize: `${config.fontSize * 0.6}px`,
-                          fontWeight: config.isBold ? 'bold' : 'normal',
-                          fontStyle: config.isItalic ? 'italic' : 'normal',
-                        }}
-                        className="select-none whitespace-nowrap block"
-                      >
-                        {config.text || 'WATERMARK'}
-                      </span>
-                    ) : config.imagePreviewUrl ? (
-                      <img
-                        src={config.imagePreviewUrl}
-                        alt="Watermark preview"
-                        style={{
-                          maxWidth: `${Math.max(60, config.imageScale * 250)}px`,
-                        }}
-                        className="select-none object-contain pointer-events-none"
-                      />
-                    ) : (
-                      <div className="border border-dashed border-text-muted px-3 py-1.5 rounded text-xs text-text-muted">
-                        Pilih Gambar
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary transition-colors"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono font-medium text-text-primary px-1">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary transition-colors"
+                  title="Halaman Berikutnya"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            {/* Bottom Info Bar */}
-            <div className="mt-4 flex items-center justify-between w-full max-w-lg text-xs text-text-secondary">
+            {/* Mode Tag / Status Badge */}
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-text-muted">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-primary/10 text-accent-primary font-medium text-[11px]">
+                <Stamp className="w-3.5 h-3.5" />
+                Format: {config.type === 'text' ? 'Teks Cap Air' : 'Logo / Gambar'} · {config.isMosaic ? 'Mosaik Berulang' : `Posisi: ${config.position}`}
+              </span>
+            </div>
+
+            {/* Kontrol Zoom Pratinjau */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 bg-surface px-2 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  onClick={() => handleZoomChange(zoom - 0.15)}
+                  disabled={zoom <= 0.5}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30"
+                  title="Perkecil (-)"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className="text-xs font-mono font-bold text-text-primary px-2 hover:bg-canvas rounded py-0.5 transition-colors"
+                  title="Klik untuk reset zoom (Pas Lebar 100%)"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  onClick={() => handleZoomChange(zoom + 0.15)}
+                  disabled={zoom >= 2.5}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30"
+                  title="Perbesar (+)"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <button
+                onClick={handleResetZoom}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-canvas text-text-secondary hover:text-text-primary text-xs font-medium shadow-xs transition-colors"
+                title="Sesuaikan dengan lebar kontainer"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-accent-primary" />
+                <span>Pas Lebar</span>
+              </button>
+            </div>
+          </div>
+        ) : undefined
+      }
+      canvasSlot={
+        file && !isProcessing && !resultUrl ? (
+          <div
+            ref={previewContainerRef}
+            className="w-full h-full flex flex-col items-center justify-between min-h-[560px] max-h-[calc(100vh-230px)] overflow-hidden"
+          >
+            {/* Area Kanvas Scrollable (Horizontal & Vertikal) */}
+            <div className="w-full flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4">
+              <div
+                className="relative border border-border-subtle rounded-xl shadow-lg bg-white select-none transition-all my-auto"
+                style={{
+                  width: `${canvasDimensions.width}px`,
+                  height: `${canvasDimensions.height}px`,
+                  minWidth: `${canvasDimensions.width}px`,
+                  minHeight: `${canvasDimensions.height}px`,
+                }}
+              >
+                <canvas ref={canvasRef} className="block mx-auto" />
+
+                {/* Watermark Overlay Layer - Mengikuti dimensi kanvas persis */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  {config.isMosaic ? (
+                    <div
+                      className="grid grid-cols-3 grid-rows-3 w-full h-full p-4 pointer-events-none select-none"
+                      style={{ opacity: config.opacity }}
+                    >
+                      {Array.from({ length: 9 }).map((_, idx) => (
+                        <div key={idx} className="flex items-center justify-center overflow-hidden">
+                          <span
+                            style={{
+                              color: config.color,
+                              transform: `rotate(${config.rotation}deg)`,
+                              fontSize: `${Math.max(12, Math.round(config.fontSize * viewportScale * 0.7))}px`,
+                              fontFamily: getFontFamilyCss(config.fontFamily),
+                              fontWeight: config.isBold ? 'bold' : 'normal',
+                              fontStyle: config.isItalic ? 'italic' : 'normal',
+                            }}
+                            className="select-none whitespace-nowrap block"
+                          >
+                            {config.type === 'text' ? (config.text || 'WATERMARK') : 'LOGO'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      className="absolute pointer-events-none select-none transition-all duration-150"
+                      style={getPositionStyles(config.position, viewportScale)}
+                    >
+                      <div
+                        style={{
+                          transform: `rotate(${config.rotation}deg)`,
+                          transformOrigin: 'center center',
+                          opacity: config.opacity,
+                        }}
+                        className="transition-transform duration-150 inline-block"
+                      >
+                        {config.type === 'text' ? (
+                          <span
+                            style={{
+                              color: config.color,
+                              fontSize: `${Math.max(10, Math.round(config.fontSize * viewportScale))}px`,
+                              fontFamily: getFontFamilyCss(config.fontFamily),
+                              fontWeight: config.isBold ? 'bold' : 'normal',
+                              fontStyle: config.isItalic ? 'italic' : 'normal',
+                              lineHeight: 1.1,
+                            }}
+                            className="select-none whitespace-nowrap block drop-shadow-2xs"
+                          >
+                            {config.text || 'WATERMARK'}
+                          </span>
+                        ) : config.imagePreviewUrl ? (
+                          <img
+                            src={config.imagePreviewUrl}
+                            alt="Watermark preview"
+                            style={{
+                              width: `${Math.max(40, Math.round(canvasDimensions.width * config.imageScale))}px`,
+                              height: 'auto',
+                              maxWidth: 'none',
+                            }}
+                            className="select-none object-contain pointer-events-none block drop-shadow-2xs"
+                          />
+                        ) : (
+                          <div className="border border-dashed border-text-muted px-3 py-1.5 rounded text-xs text-text-muted">
+                            Pilih Gambar
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Baris Status Metadata Dokumen */}
+            <div className="w-full pt-3 pb-1 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-text-secondary select-none">
               <button
                 onClick={handleReset}
-                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
+                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors font-medium"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Ganti Dokumen
               </button>
-              <span>{file.name}</span>
+              <div className="flex items-center gap-3">
+                {docDimensions && (
+                  <span className="font-mono text-[11px] text-text-muted bg-surface px-2 py-0.5 rounded border border-border-subtle">
+                    {docDimensions.isLandscape ? 'Landscape' : 'Portrait'} · {Math.round(docDimensions.width)} × {Math.round(docDimensions.height)} pt
+                  </span>
+                )}
+                <span className="font-medium truncate max-w-[200px] sm:max-w-[320px]" title={file.name}>
+                  {file.name}
+                </span>
+              </div>
             </div>
           </div>
         ) : undefined
