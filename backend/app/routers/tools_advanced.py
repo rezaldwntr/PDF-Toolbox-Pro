@@ -205,7 +205,8 @@ def edit_pdf(
     page_selection: str = Form("all"),
     current_page: int = Form(1),
     custom_pages: Optional[str] = Form(None),
-    edits_json: Optional[str] = Form(None)
+    edits_json: Optional[str] = Form(None),
+    auto_match_font: bool = Form(True)
 ):
     """Menyunting teks yang ada di dalam dokumen PDF (Find & Replace atau Block Edits)."""
     filename = file.filename or "dokumen.pdf"
@@ -237,9 +238,9 @@ def edit_pdf(
 
         mode = (edit_mode or "find_replace").lower().strip()
         if mode == "find_replace":
-            apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages)
+            apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages, auto_match_font)
         elif mode == "block_edits":
-            apply_block_edits(doc, doc_len, edits_json)
+            apply_block_edits(doc, doc_len, edits_json, auto_match_font)
         else:
             raise HTTPException(status_code=400, detail=f"Mode sunting '{mode}' tidak dikenal.")
 

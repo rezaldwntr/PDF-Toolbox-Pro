@@ -35,7 +35,7 @@ def get_fontname(font_family: str, is_bold: bool, is_italic: bool) -> str:
             return "tibo"
         elif is_italic:
             return "tiit"
-        return "times"
+        return "tiro"
     elif "courier" in fam:
         if is_bold and is_italic:
             return "cobi"
@@ -43,7 +43,7 @@ def get_fontname(font_family: str, is_bold: bool, is_italic: bool) -> str:
             return "cobo"
         elif is_italic:
             return "coit"
-        return "couri"
+        return "cour"
     else:  # Helvetica / Arial default
         if is_bold and is_italic:
             return "hebi"
@@ -196,8 +196,79 @@ def build_pdfa_xmp(part: int, conf: str, doc_title: str, doc_author: str, now_is
 <?xpacket end="w"?>"""
 
 
-def apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages):
-    """Mencari dan mengganti kata/kalimat di dokumen PDF."""
+def int_to_rgb(color_int: Optional[int]) -> tuple:
+    """Mengonversi integer sRGB PyMuPDF ke tuple float (r, g, b) skala 0.0 - 1.0."""
+    if color_int is None or color_int < 0:
+        return (0.0, 0.0, 0.0)
+    r = ((color_int >> 16) & 255) / 255.0
+    g = ((color_int >> 8) & 255) / 255.0
+    b = (color_int & 255) / 255.0
+    return (r, g, b)
+
+
+def resolve_matching_font(font_raw: str, flags: int = 0) -> str:
+    """
+    Memetakan font dan flags teks asli ke salah satu Base-14 standard fonts di PyMuPDF:
+    - Serif: tiro (regular), tibo (bold), tiit (italic), tibi (bold-italic)
+    - Mono: cour (regular), cobo (bold), coit (italic), cobi (bold-italic)
+    - Sans: helv (regular), hebo (bold), heit (italic), hebi (bold-italic)
+    """
+    f_lower = (font_raw or "").lower()
+    is_bold = bool(flags & 64) or bool(flags & 262144) or any(k in f_lower for k in ["bold", "black", "heavy", "semibold", "medium", "w6", "w7", "w8", "w9"])
+    is_italic = bool(flags & 2) or any(k in f_lower for k in ["italic", "oblique", "slanted"])
+    is_serif = bool(flags & 4) or any(k in f_lower for k in ["times", "serif", "roman", "garamond", "georgia", "cambria", "minion", "baskerville", "palatino"])
+    is_mono = bool(flags & 16) or any(k in f_lower for k in ["courier", "mono", "consolas", "menlo", "inconsolata", "typewriter"])
+
+    if is_serif:
+        if is_bold and is_italic:
+            return "tibi"
+        if is_bold:
+            return "tibo"
+        if is_italic:
+            return "tiit"
+        return "tiro"
+    elif is_mono:
+        if is_bold and is_italic:
+            return "cobi"
+        if is_bold:
+            return "cobo"
+        if is_italic:
+            return "coit"
+        return "cour"
+    else:
+        if is_bold and is_italic:
+            return "hebi"
+        if is_bold:
+            return "hebo"
+        if is_italic:
+            return "heit"
+        return "helv"
+
+
+def find_best_matching_span(page_text_dict, target_rect):
+    """
+    Mencari span teks asli di dalam halaman yang beririsan terbesar dengan target_rect
+    untuk mengekstrak ukuran font asli, jenis font, warna, dan posisi baseline.
+    """
+    if not page_text_dict:
+        return None
+    best_span = None
+    max_intersect = 0.0
+    r = fitz.Rect(target_rect)
+    for b in page_text_dict.get("blocks", []):
+        if b.get("type") == 0:  # text block
+            for l in b.get("lines", []):
+                for s in l.get("spans", []):
+                    sb = fitz.Rect(s["bbox"])
+                    intersect = (r & sb).get_area()
+                    if intersect > max_intersect:
+                        max_intersect = intersect
+                        best_span = s
+    return best_span
+
+
+def apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensitive, page_selection, current_page, custom_pages, auto_match_font=True):
+    """Mencari dan mengganti kata/kalimat di dokumen PDF dengan menjaga font, ukuran, dan warna asli."""
     search_str = (search_text or "").strip()
     replace_str = replace_text or ""
     if not search_str:
@@ -217,23 +288,54 @@ def apply_find_and_replace(doc, doc_len, search_text, replace_text, case_sensiti
             matches += [m for m in page.search_for(search_str.capitalize()) if m not in matches]
             matches += [m for m in page.search_for(search_str.upper()) if m not in matches]
 
+        if not matches:
+            continue
+
+        page_text_dict = page.get_text("dict") if auto_match_font else None
+
         for rect in matches:
+            orig_span = find_best_matching_span(page_text_dict, rect) if page_text_dict else None
+
+            if orig_span and auto_match_font:
+                detected_size = float(orig_span.get("size", 0.0))
+                font_size = detected_size if detected_size > 0 else max(7.0, min(24.0, rect.height * 0.8))
+                font_name = resolve_matching_font(orig_span.get("font", "helv"), orig_span.get("flags", 0))
+                font_color = int_to_rgb(orig_span.get("color", 0))
+                orig_point = orig_span.get("origin")
+                baseline_y = orig_point[1] if orig_point else (rect.y1 - max(1.5, font_size * 0.2))
+            else:
+                font_size = max(7.0, min(24.0, rect.height * 0.8))
+                font_name = "helv"
+                font_color = (0.0, 0.0, 0.0)
+                baseline_y = rect.y1 - max(1.5, font_size * 0.2)
+
             page.add_redact_annot(rect, fill=(1, 1, 1))
             page.apply_redactions()
+
             if replace_str:
-                font_size = max(7.0, min(24.0, rect.height * 0.8))
-                avail_w = max(40.0, page.rect.width - rect.x0 - 20)
-                text_w = fitz.get_text_length(replace_str, fontname="helv", fontsize=font_size)
+                avail_w = max(30.0, page.rect.width - rect.x0 - 15)
+                text_w = fitz.get_text_length(replace_str, fontname=font_name, fontsize=font_size)
                 if text_w > avail_w and text_w > 0:
-                    font_size = max(7.0, font_size * (avail_w / text_w))
-                target_rect = fitz.Rect(rect.x0, rect.y0, min(page.rect.width - 10, rect.x0 + text_w + 30), rect.y1 + font_size + 4)
-                rc = page.insert_textbox(target_rect, replace_str, fontsize=font_size, fontname="helv", color=(0, 0, 0), align=0)
-                if rc < 0:
-                    page.insert_text(fitz.Point(rect.x0, rect.y1 - 2), replace_str, fontsize=font_size, fontname="helv", color=(0, 0, 0))
+                    font_size = max(6.0, font_size * (avail_w / text_w))
+                    text_w = fitz.get_text_length(replace_str, fontname=font_name, fontsize=font_size)
+
+                if "\n" not in replace_str and baseline_y:
+                    page.insert_text(
+                        fitz.Point(rect.x0, baseline_y),
+                        replace_str,
+                        fontsize=font_size,
+                        fontname=font_name,
+                        color=font_color
+                    )
+                else:
+                    target_rect = fitz.Rect(rect.x0, rect.y0, min(page.rect.width - 10, rect.x0 + text_w + 30), rect.y1 + font_size + 4)
+                    rc = page.insert_textbox(target_rect, replace_str, fontsize=font_size, fontname=font_name, color=font_color, align=0)
+                    if rc < 0:
+                        page.insert_text(fitz.Point(rect.x0, baseline_y), replace_str, fontsize=font_size, fontname=font_name, color=font_color)
 
 
-def apply_block_edits(doc, doc_len, edits_json):
-    """Menyunting blok teks visual dengan redaksi bersih dan penulisan teks baru."""
+def apply_block_edits(doc, doc_len, edits_json, auto_match_font=True):
+    """Menyunting blok teks visual dengan deteksi font dan ukuran otomatis."""
     if not edits_json:
         raise HTTPException(status_code=400, detail="Tidak ada data perubahan teks yang dikirimkan.")
 
@@ -245,6 +347,8 @@ def apply_block_edits(doc, doc_len, edits_json):
     if not isinstance(edits, list) or len(edits) == 0:
         raise HTTPException(status_code=400, detail="Daftar suntingan teks kosong.")
 
+    pages_dict_cache = {}
+
     for item in edits:
         p_num = int(item.get("page", 1))
         p_idx = max(0, min(p_num - 1, doc_len - 1))
@@ -254,16 +358,55 @@ def apply_block_edits(doc, doc_len, edits_json):
         if len(raw_rect) == 4:
             rect = fitz.Rect(raw_rect[0], raw_rect[1], raw_rect[2], raw_rect[3])
             bg_color = hex_to_rgb(item.get("bg_color", "#ffffff"))
-            fg_color = hex_to_rgb(item.get("color", "#000000"))
-            font_size = float(item.get("font_size", 12.0))
+            custom_fg = item.get("color", "#000000")
             new_text = str(item.get("new_text", ""))
+
+            if p_idx not in pages_dict_cache and auto_match_font:
+                pages_dict_cache[p_idx] = page.get_text("dict")
+
+            orig_span = find_best_matching_span(pages_dict_cache.get(p_idx), rect) if auto_match_font else None
+
+            if orig_span and auto_match_font:
+                detected_size = float(orig_span.get("size", 0.0))
+                item_size = float(item.get("font_size", 0.0))
+                font_size = detected_size if detected_size > 0 else (item_size if item_size > 0 else 12.0)
+
+                font_name = resolve_matching_font(orig_span.get("font", "helv"), orig_span.get("flags", 0))
+
+                if custom_fg and custom_fg.lower() != "#000000":
+                    fg_color = hex_to_rgb(custom_fg)
+                else:
+                    orig_col = orig_span.get("color", 0)
+                    fg_color = int_to_rgb(orig_col) if orig_col else (0.0, 0.0, 0.0)
+
+                orig_point = orig_span.get("origin")
+                baseline_y = orig_point[1] if orig_point else (rect.y1 - max(1.5, font_size * 0.2))
+            else:
+                font_size = float(item.get("font_size", 12.0))
+                font_name = "helv"
+                fg_color = hex_to_rgb(custom_fg)
+                baseline_y = rect.y1 - max(1.5, font_size * 0.2)
 
             page.add_redact_annot(rect, fill=bg_color)
             page.apply_redactions()
 
             if new_text.strip():
-                text_w = fitz.get_text_length(new_text, fontname="helv", fontsize=font_size)
-                target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 10), rect.y1 + 6)
-                rc = page.insert_textbox(target_rect, new_text, fontsize=font_size, fontname="helv", color=fg_color, align=0)
-                if rc < 0:
-                    page.insert_text(fitz.Point(rect.x0, rect.y1 - 2), new_text, fontsize=font_size, fontname="helv", color=fg_color)
+                avail_w = max(30.0, page.rect.width - rect.x0 - 15)
+                text_w = fitz.get_text_length(new_text, fontname=font_name, fontsize=font_size)
+                if text_w > avail_w and text_w > 0:
+                    font_size = max(6.0, font_size * (avail_w / text_w))
+                    text_w = fitz.get_text_length(new_text, fontname=font_name, fontsize=font_size)
+
+                if "\n" not in new_text and baseline_y:
+                    page.insert_text(
+                        fitz.Point(rect.x0, baseline_y),
+                        new_text,
+                        fontsize=font_size,
+                        fontname=font_name,
+                        color=fg_color
+                    )
+                else:
+                    target_rect = fitz.Rect(rect.x0, rect.y0, max(rect.x1, rect.x0 + text_w + 10), rect.y1 + 6)
+                    rc = page.insert_textbox(target_rect, new_text, fontsize=font_size, fontname=font_name, color=fg_color, align=0)
+                    if rc < 0:
+                        page.insert_text(fitz.Point(rect.x0, baseline_y), new_text, fontsize=font_size, fontname=font_name, color=fg_color)

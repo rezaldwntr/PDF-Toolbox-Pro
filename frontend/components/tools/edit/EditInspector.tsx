@@ -24,6 +24,8 @@ interface EditInspectorProps {
   setReplaceText: (s: string) => void;
   caseSensitive: boolean;
   setCaseSensitive: (b: boolean) => void;
+  autoMatchFont: boolean;
+  setAutoMatchFont: (b: boolean) => void;
   pageSelection: PageSelection;
   setPageSelection: (p: PageSelection) => void;
   customPages: string;
@@ -48,6 +50,8 @@ const EditInspector: React.FC<EditInspectorProps> = ({
   setReplaceText,
   caseSensitive,
   setCaseSensitive,
+  autoMatchFont,
+  setAutoMatchFont,
   pageSelection,
   setPageSelection,
   customPages,
@@ -147,6 +151,19 @@ const EditInspector: React.FC<EditInspectorProps> = ({
             <span>Peka Huruf Besar/Kecil (Case Sensitive)</span>
           </label>
 
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-text-secondary">
+            <input
+              type="checkbox"
+              checked={autoMatchFont}
+              onChange={(e) => setAutoMatchFont(e.target.checked)}
+              className="w-4 h-4 rounded border-border-subtle text-accent-primary focus:ring-accent-primary"
+            />
+            <span className="flex items-center gap-1.5 font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>Samakan font, ukuran, & warna asli (Auto-Match)</span>
+            </span>
+          </label>
+
           {/* Target Halaman */}
           <div className="pt-2 border-t border-border-subtle space-y-2">
             <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block">
@@ -206,6 +223,32 @@ const EditInspector: React.FC<EditInspectorProps> = ({
                 "{selectedBlock.str}"
               </div>
 
+              {/* Detected Font & Size Badges */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent-primary/10 text-accent-primary font-semibold text-[11px]">
+                  <Type className="w-3 h-3" />
+                  {selectedBlock.fontSize} pt
+                </span>
+                {selectedBlock.fontFamily && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface border border-border-subtle text-text-secondary text-[11px] truncate max-w-[170px]"
+                    title={selectedBlock.fontFamily}
+                  >
+                    {selectedBlock.fontFamily}
+                  </span>
+                )}
+                {selectedBlock.isBold && (
+                  <span className="px-1.5 py-0.5 rounded bg-surface border border-border-subtle text-[10px] font-bold text-text-primary">
+                    Bold
+                  </span>
+                )}
+                {selectedBlock.isItalic && (
+                  <span className="px-1.5 py-0.5 rounded bg-surface border border-border-subtle text-[10px] italic text-text-primary">
+                    Italic
+                  </span>
+                )}
+              </div>
+
               <div>
                 <label className="text-[11px] font-semibold text-text-secondary block mb-1">
                   Ubah Menjadi:
@@ -217,6 +260,10 @@ const EditInspector: React.FC<EditInspectorProps> = ({
                   placeholder="Ketik teks pengganti..."
                   className="w-full px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-xs text-text-primary outline-none focus:border-accent-primary"
                 />
+                <span className="text-[10px] text-text-muted mt-1 block flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span>Font & ukuran pengganti otomatis diselaraskan dengan teks asli.</span>
+                </span>
               </div>
 
               <button
@@ -247,11 +294,16 @@ const EditInspector: React.FC<EditInspectorProps> = ({
                     className="p-2 rounded-lg bg-canvas border border-border-subtle flex items-center justify-between text-xs"
                   >
                     <div className="truncate mr-2">
-                      <span className="line-through text-text-muted text-[11px] mr-1 truncate">
-                        {edit.old_text}
-                      </span>
-                      <span className="text-accent-primary font-bold text-[11px] truncate">
-                        → {edit.new_text}
+                      <div className="flex items-center gap-1.5 text-[11px] truncate">
+                        <span className="line-through text-text-muted truncate">
+                          {edit.old_text}
+                        </span>
+                        <span className="text-accent-primary font-bold truncate">
+                          → {edit.new_text}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-text-muted font-mono">
+                        Hal {edit.page} · {edit.font_size} pt {edit.font_family ? `· ${edit.font_family}` : ''}
                       </span>
                     </div>
                     <button

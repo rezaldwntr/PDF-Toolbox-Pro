@@ -9,6 +9,9 @@ export interface TextBlockItem {
   width: number;
   height: number;
   fontSize: number;
+  fontFamily?: string;
+  isBold?: boolean;
+  isItalic?: boolean;
   pageIndex: number;
 }
 
@@ -19,6 +22,9 @@ export interface PendingEdit {
   old_text: string;
   new_text: string;
   font_size: number;
+  font_family?: string;
+  is_bold?: boolean;
+  is_italic?: boolean;
   color: string;
   bg_color: string;
 }

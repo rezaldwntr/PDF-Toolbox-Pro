@@ -37,6 +37,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [searchText, setSearchText] = useState<string>('');
   const [replaceText, setReplaceText] = useState<string>('');
   const [caseSensitive, setCaseSensitive] = useState<boolean>(false);
+  const [autoMatchFont, setAutoMatchFont] = useState<boolean>(true);
   const [pageSelection, setPageSelection] = useState<PageSelection>('all');
   const [customPages, setCustomPages] = useState<string>('');
   const [foundMatchesCount, setFoundMatchesCount] = useState<number>(0);
@@ -131,6 +132,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         // Ekstraksi teks block untuk visual edit
         try {
           const textContent = await page.getTextContent();
+          const styles = textContent.styles || {};
           const blocks: TextBlockItem[] = textContent.items
             .filter((item: any) => item.str && item.str.trim().length > 0)
             .map((item: any, idx: number) => {
@@ -140,6 +142,14 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               const width = (item.width || item.str.length * 7) * scale;
               const height = (item.height || 12) * scale;
 
+              // Hitung ukuran font asli unscaled dalam satuan PDF points
+              const rawFontSize = Math.hypot(tx[0], tx[1]) || item.height || 12;
+              const fontStyle = styles[item.fontName] || {};
+              const rawFontFamily = fontStyle.fontFamily || '';
+
+              const isBold = /bold|black|heavy/i.test(item.fontName) || /bold|black|heavy/i.test(rawFontFamily);
+              const isItalic = /italic|oblique/i.test(item.fontName) || /italic|oblique/i.test(rawFontFamily);
+
               return {
                 id: `block-${pageNum}-${idx}`,
                 str: item.str,
@@ -147,7 +157,10 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 y: y - height,
                 width,
                 height,
-                fontSize: Math.round(item.height || 12),
+                fontSize: Math.round(rawFontSize * 10) / 10,
+                fontFamily: rawFontFamily || fontStyle.name || undefined,
+                isBold,
+                isItalic,
                 pageIndex: pageNum - 1,
               };
             });
@@ -181,6 +194,9 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       old_text: selectedBlock.str,
       new_text: activeNewText,
       font_size: selectedBlock.fontSize,
+      font_family: selectedBlock.fontFamily,
+      is_bold: selectedBlock.isBold,
+      is_italic: selectedBlock.isItalic,
       color: '#000000',
       bg_color: '#FFFFFF',
     };
@@ -216,6 +232,7 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } else {
       formData.append('edits_json', JSON.stringify(pendingEdits));
     }
+    formData.append('auto_match_font', autoMatchFont ? 'true' : 'false');
 
     try {
       setProcessingStep(2);
@@ -354,6 +371,8 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setReplaceText={setReplaceText}
             caseSensitive={caseSensitive}
             setCaseSensitive={setCaseSensitive}
+            autoMatchFont={autoMatchFont}
+            setAutoMatchFont={setAutoMatchFont}
             pageSelection={pageSelection}
             setPageSelection={setPageSelection}
             customPages={customPages}
