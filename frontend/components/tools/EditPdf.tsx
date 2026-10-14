@@ -18,6 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
 import { triggerFileDownload } from '../../lib/download';
 import { loadPdfDocument } from '../../lib/pdfWorker';
@@ -29,6 +32,10 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [viewportScale, setViewportScale] = useState<number>(1);
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [docDimensions, setDocDimensions] = useState<{ width: number; height: number; isLandscape: boolean } | null>(null);
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Mode Tab: Cari & Ganti vs Sunting Visual
   const [editMode, setEditMode] = useState<EditMode>('find_replace');
@@ -111,14 +118,33 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!ctx) return;
 
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const containerWidth = Math.min(canvas.parentElement?.clientWidth || 450, 480);
-        const scale = containerWidth / unscaledViewport.width;
+        const isLandscape = unscaledViewport.width > unscaledViewport.height;
+
+        setDocDimensions({
+          width: unscaledViewport.width,
+          height: unscaledViewport.height,
+          isLandscape,
+        });
+
+        // Ukuran kontainer pratinjau yang fleksibel dan luas
+        const containerEl = previewContainerRef.current;
+        const rawContainerWidth = containerEl?.clientWidth || 850;
+        const availableWidth = Math.max(340, rawContainerWidth - 32);
+
+        // Dokumen landscape dapat menggunakan lebar penuh kontainer (hingga 1100px)
+        // Dokumen portrait disesuaikan agar proporsional di layar (hingga 780px)
+        const defaultTargetWidth = isLandscape
+          ? Math.min(availableWidth, 1100)
+          : Math.min(availableWidth, 780);
+
+        const baseScale = defaultTargetWidth / unscaledViewport.width;
+        const scale = baseScale * zoom;
         setViewportScale(scale);
         const viewport = page.getViewport({ scale });
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = viewport.width * dpr;
-        canvas.height = viewport.height * dpr;
+        canvas.width = Math.round(viewport.width * dpr);
+        canvas.height = Math.round(viewport.height * dpr);
         canvas.style.width = `${viewport.width}px`;
         canvas.style.height = `${viewport.height}px`;
 
@@ -165,6 +191,10 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               };
             });
           setTextBlocks(blocks);
+          setSelectedBlock((prev) => {
+            if (!prev) return null;
+            return blocks.find((b) => b.id === prev.id) || null;
+          });
         } catch {}
       } catch (err: any) {
         if (err?.name !== 'RenderingCancelledException') {
@@ -172,12 +202,29 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
       }
     },
-    [pdfDoc]
+    [pdfDoc, zoom]
   );
 
   useEffect(() => {
     if (pdfDoc) renderPage(currentPage);
   }, [pdfDoc, currentPage, renderPage]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (pdfDoc) renderPage(currentPage);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [pdfDoc, currentPage, renderPage]);
+
+  const handleZoomChange = (newZoom: number) => {
+    const clamped = Math.round(Math.max(0.5, Math.min(2.5, newZoom)) * 100) / 100;
+    setZoom(clamped);
+  };
+
+  const handleResetZoom = () => {
+    setZoom(1.0);
+  };
 
   const handleApplyBlockEdit = () => {
     if (!selectedBlock || !activeNewText.trim()) return;
@@ -273,6 +320,8 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setResultSize(null);
     setTotalPages(0);
     setCurrentPage(1);
+    setZoom(1.0);
+    setDocDimensions(null);
     setPendingEdits([]);
     setSelectedBlock(null);
   };
@@ -283,79 +332,154 @@ const EditPdf: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       description="Cari & ganti kata atau kalimat secara massal, serta sunting blok teks langsung pada dokumen PDF Anda."
       onBack={onBack}
       currentStep={!file ? 1 : (resultUrl ? 3 : 2)}
-      canvasSlot={
+      toolbarSlot={
         file && !isProcessing && !resultUrl ? (
-          <div className="h-full flex flex-col items-center justify-between p-6 bg-canvas overflow-y-auto">
-            {/* Top Toolbar */}
-            <div className="flex items-center justify-between w-full max-w-lg mb-4">
-              <span className="text-xs font-semibold text-text-secondary">
-                Pratinjau Halaman
+          <div className="flex items-center justify-between w-full gap-3 flex-wrap">
+            {/* Navigasi Halaman */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-text-secondary hidden sm:inline">
+                Halaman:
               </span>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
-                  <button
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-mono text-text-primary">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary transition-colors"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono font-medium text-text-primary px-1">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-1 hover:bg-canvas rounded disabled:opacity-30 text-text-secondary transition-colors"
+                  title="Halaman Berikutnya"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Mode Tag / Status Badge */}
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-text-muted">
+              {editMode === 'block_edits' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-primary/10 text-accent-primary font-medium text-[11px]">
+                  <Edit3 className="w-3.5 h-3.5" /> Klik teks di pratinjau untuk menyunting
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface border border-border-subtle text-text-secondary text-[11px]">
+                  Mode Cari & Ganti Kata
+                </span>
               )}
             </div>
 
-            {/* Canvas with Text Highlight Overlays */}
-            <div
-              className="relative border border-border-subtle rounded-xl shadow-lg bg-white overflow-hidden my-auto select-none"
-              style={{ width: canvasDimensions.width || 'auto', height: canvasDimensions.height || 'auto' }}
-            >
-              <canvas ref={canvasRef} className="block mx-auto" />
+            {/* Kontrol Zoom Pratinjau */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 bg-surface px-2 py-1 rounded-xl border border-border-subtle shadow-xs">
+                <button
+                  onClick={() => handleZoomChange(zoom - 0.15)}
+                  disabled={zoom <= 0.5}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30"
+                  title="Perkecil (-)"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className="text-xs font-mono font-bold text-text-primary px-2 hover:bg-canvas rounded py-0.5 transition-colors"
+                  title="Klik untuk reset zoom (Pas Lebar 100%)"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  onClick={() => handleZoomChange(zoom + 0.15)}
+                  disabled={zoom >= 2.5}
+                  className="p-1 hover:bg-canvas rounded text-text-secondary hover:text-text-primary transition-colors disabled:opacity-30"
+                  title="Perbesar (+)"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-              {/* Block Edits Interactive Highlight */}
-              {editMode === 'block_edits' &&
-                textBlocks.map((b) => (
-                  <div
-                    key={b.id}
-                    onClick={() => {
-                      setSelectedBlock(b);
-                      setActiveNewText(b.str);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left: `${b.x}px`,
-                      top: `${b.y}px`,
-                      width: `${b.width}px`,
-                      height: `${b.height}px`,
-                    }}
-                    className={`cursor-pointer transition-colors ${
-                      selectedBlock?.id === b.id
-                        ? 'bg-accent-primary/30 border border-accent-primary ring-1 ring-accent-primary'
-                        : 'hover:bg-blue-400/20'
-                    }`}
-                    title={b.str}
-                  />
-                ))}
+              <button
+                onClick={handleResetZoom}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-canvas text-text-secondary hover:text-text-primary text-xs font-medium shadow-xs transition-colors"
+                title="Sesuaikan dengan lebar kontainer"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-accent-primary" />
+                <span>Pas Lebar</span>
+              </button>
+            </div>
+          </div>
+        ) : undefined
+      }
+      canvasSlot={
+        file && !isProcessing && !resultUrl ? (
+          <div
+            ref={previewContainerRef}
+            className="w-full h-full flex flex-col items-center justify-between min-h-[560px] max-h-[calc(100vh-230px)] overflow-hidden"
+          >
+            {/* Area Kanvas Scrollable (Horizontal & Vertikal) */}
+            <div className="w-full flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4">
+              <div
+                className="relative border border-border-subtle rounded-xl shadow-lg bg-white select-none transition-all my-auto"
+                style={{
+                  width: `${canvasDimensions.width}px`,
+                  height: `${canvasDimensions.height}px`,
+                  minWidth: `${canvasDimensions.width}px`,
+                  minHeight: `${canvasDimensions.height}px`,
+                }}
+              >
+                <canvas ref={canvasRef} className="block mx-auto" />
+
+                {/* Block Edits Interactive Highlight */}
+                {editMode === 'block_edits' &&
+                  textBlocks.map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setSelectedBlock(b);
+                        setActiveNewText(b.str);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: `${b.x}px`,
+                        top: `${b.y}px`,
+                        width: `${b.width}px`,
+                        height: `${b.height}px`,
+                      }}
+                      className={`cursor-pointer transition-colors ${
+                        selectedBlock?.id === b.id
+                          ? 'bg-accent-primary/30 border-2 border-accent-primary ring-2 ring-accent-primary/40'
+                          : 'hover:bg-blue-400/25 border border-transparent hover:border-blue-300'
+                      }`}
+                      title={`${b.str} (${b.fontSize} pt)`}
+                    />
+                  ))}
+              </div>
             </div>
 
-            {/* Bottom Info Bar */}
-            <div className="mt-4 flex items-center justify-between w-full max-w-lg text-xs text-text-secondary">
+            {/* Baris Status Metadata Dokumen */}
+            <div className="w-full pt-3 pb-1 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs text-text-secondary select-none">
               <button
                 onClick={handleReset}
-                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors"
+                className="inline-flex items-center gap-1.5 text-text-muted hover:text-text-primary transition-colors font-medium"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Ganti Dokumen
               </button>
-              <span>{file.name}</span>
+              <div className="flex items-center gap-3">
+                {docDimensions && (
+                  <span className="font-mono text-[11px] text-text-muted bg-surface px-2 py-0.5 rounded border border-border-subtle">
+                    {docDimensions.isLandscape ? 'Landscape' : 'Portrait'} · {Math.round(docDimensions.width)} × {Math.round(docDimensions.height)} pt
+                  </span>
+                )}
+                <span className="font-medium truncate max-w-[200px] sm:max-w-[320px]" title={file.name}>
+                  {file.name}
+                </span>
+              </div>
             </div>
           </div>
         ) : undefined
