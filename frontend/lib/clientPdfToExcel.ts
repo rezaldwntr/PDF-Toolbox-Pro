@@ -173,17 +173,18 @@ function groupItemsIntoVisualLines(items: RawTextItem[]): string[] {
 
 function getColumnIndexForItem(it: RawTextItem, bands: ColumnBand[]): number {
   const val = it.str.trim();
-  const isNum =
-    /[+-]?\d{1,3}(\.\d{3})*(,\d+)?/.test(val) ||
+  const isStrictNum =
+    /^[+-]?\d{1,3}(\.\d{3})*(,\d+)?$/.test(val) ||
     val.endsWith('%') ||
     /^[+-]?\d+([.,]\d+)?$/.test(val.replace(/\s/g, ''));
 
-  if (isNum && !val.startsWith('0') && val.length < 10) {
+  if (isStrictNum && !val.startsWith('0') && val.length < 15 && !/^\d{2}\.\d{2}$/.test(val)) {
     const rightX = it.x + it.width;
     let bestCol = 0;
     let minDiff = 999999;
     for (let i = 0; i < bands.length; i++) {
-      const diff = Math.abs(rightX - bands[i].maxX);
+      const targetRight = bands[i].avgX1 ?? bands[i].maxX;
+      const diff = Math.abs(rightX - targetRight);
       if (diff < minDiff) {
         minDiff = diff;
         bestCol = i;
@@ -194,10 +195,10 @@ function getColumnIndexForItem(it: RawTextItem, bands: ColumnBand[]): number {
 
   const midX = it.x + it.width / 2;
   for (let i = 0; i < bands.length; i++) {
-    if (it.x >= bands[i].minX && it.x < bands[i].maxX) {
+    if (midX >= bands[i].minX && midX < bands[i].maxX) {
       return i;
     }
-    if (midX >= bands[i].minX && midX < bands[i].maxX) {
+    if (it.x >= bands[i].minX && it.x < bands[i].maxX) {
       return i;
     }
   }
@@ -215,9 +216,16 @@ function reconstructPageTable(
   fallbackBands?: ColumnBand[],
   mode: 'tables_only' | 'all_content' = 'all_content'
 ): { rows: TableRow[]; detectedBands: ColumnBand[] } {
-  if (items.length === 0) return { rows: [], detectedBands: fallbackBands || [] };
+  // Filter running header (pojok kanan atas) dan running footer (bawah halaman)
+  const filteredItems = items.filter((it) => {
+    if (it.y > pageHeight - 52 && it.x > pageWidth * 0.35) return false;
+    if (it.y < 45) return false;
+    return true;
+  });
 
-  const sortedItems = [...items].sort((a, b) => b.y - a.y);
+  if (filteredItems.length === 0) return { rows: [], detectedBands: fallbackBands || [] };
+
+  const sortedItems = [...filteredItems].sort((a, b) => b.y - a.y);
   const detectionResult = detectColumnBands(sortedItems, pageWidth);
   const columnBands = fallbackBands && fallbackBands.length >= 2 ? fallbackBands : detectionResult.bands;
   const numCols = columnBands.length;
@@ -242,8 +250,11 @@ function reconstructPageTable(
   lineGroups.sort((a, b) => b.y - a.y);
 
   const resultRows: TableRow[] = [];
+  const DATE_START_RE = /^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$/;
+  const TIME_ONLY_RE = /^\d{2}\.\d{2}$/;
 
-  for (const group of lineGroups) {
+  for (let gIdx = 0; gIdx < lineGroups.length; gIdx++) {
+    const group = lineGroups[gIdx];
     const lineItems = group.items.sort((a, b) => a.x - b.x);
     if (lineItems.length === 0) continue;
 
@@ -269,16 +280,45 @@ function reconstructPageTable(
         : it.str.trim();
     }
 
+    // Konsolidasi sub-baris transaksi multi-baris ke dalam baris transaksi utama di atasnya
+    if (
+      resultRows.length > 0 &&
+      numCols >= 5 &&
+      !rowCells[numCols - 2] &&
+      !rowCells[numCols - 1]
+    ) {
+      const prevRow = resultRows[resultRows.length - 1];
+      const prevFirstLine = (prevRow.cells[0] || '').split('\n')[0].trim();
+      const curCol0 = (rowCells[0] || '').trim();
+      if (
+        !prevRow.isHeader &&
+        !prevRow.isMetadata &&
+        DATE_START_RE.test(prevFirstLine) &&
+        (!curCol0 || TIME_ONLY_RE.test(curCol0))
+      ) {
+        for (let c = 0; c < numCols; c++) {
+          if (rowCells[c]) {
+            prevRow.cells[c] = prevRow.cells[c]
+              ? `${prevRow.cells[c]}\n${rowCells[c]}`
+              : rowCells[c];
+          }
+        }
+        continue;
+      }
+    }
+
     // Evaluasi apakah baris ini adalah header tabel
-    const isHeaderRow = lineItems.some(
-      (it) => it.str.toLowerCase().includes('kantong') ||
-              it.str.toLowerCase().includes('tanggal') ||
-              it.str.toLowerCase().includes('nama') ||
-              it.str.toLowerCase().includes('saldo') ||
-              it.str.toLowerCase().includes('jumlah') ||
-              it.str.toLowerCase().includes('uraian') ||
-              it.str.toLowerCase().includes('keterangan')
-    ) && lineItems.length >= 3;
+    const isHeaderRow =
+      lineItems.some(
+        (it) =>
+          it.str.toLowerCase().includes('kantong') ||
+          it.str.toLowerCase().includes('tanggal') ||
+          it.str.toLowerCase().includes('nama') ||
+          it.str.toLowerCase().includes('saldo') ||
+          it.str.toLowerCase().includes('jumlah') ||
+          it.str.toLowerCase().includes('uraian') ||
+          it.str.toLowerCase().includes('keterangan')
+      ) && lineItems.length >= 3;
 
     if (rowCells.some((c) => c !== '')) {
       resultRows.push({
