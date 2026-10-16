@@ -31,6 +31,8 @@ interface ColumnBand {
   index: number;
   minX: number;
   maxX: number;
+  avgX0?: number;
+  avgX1?: number;
   headerText?: string;
 }
 
@@ -69,13 +71,16 @@ function detectColumnBands(items: RawTextItem[], pageWidth: number): ColumnDetec
     }
   }
 
-  // 2. Kumpulkan koordinat X awal dari baris yang memiliki 2 atau lebih kolom terpisah
+  // 2. Kumpulkan koordinat X awal dari baris tabel dominan (prioritas baris dengan >= 3 kolom)
+  let candidateLines = visualLines.filter((l) => l.length >= 3);
+  if (candidateLines.length === 0) {
+    candidateLines = visualLines.filter((l) => l.length >= 2);
+  }
+
   const xPositions: number[] = [];
-  for (const line of visualLines) {
-    if (line.length >= 2) {
-      for (const it of line) {
-        xPositions.push(it.x);
-      }
+  for (const line of candidateLines) {
+    for (const it of line) {
+      xPositions.push(it.x);
     }
   }
 
@@ -99,7 +104,7 @@ function detectColumnBands(items: RawTextItem[], pageWidth: number): ColumnDetec
     for (let i = 0; i < anchors.length; i++) {
       const minX = i === 0 ? 0 : (anchors[i - 1] + anchors[i]) / 2;
       const maxX = i === anchors.length - 1 ? pageWidth : (anchors[i] + anchors[i + 1]) / 2;
-      bands.push({ index: i, minX, maxX });
+      bands.push({ index: i, minX, maxX, avgX0: anchors[i], avgX1: maxX });
     }
     return { bands };
   }
@@ -166,13 +171,37 @@ function groupItemsIntoVisualLines(items: RawTextItem[]): string[] {
   return lines;
 }
 
-function getColumnIndexForX(x: number, bands: ColumnBand[]): number {
+function getColumnIndexForItem(it: RawTextItem, bands: ColumnBand[]): number {
+  const val = it.str.trim();
+  const isNum =
+    /[+-]?\d{1,3}(\.\d{3})*(,\d+)?/.test(val) ||
+    val.endsWith('%') ||
+    /^[+-]?\d+([.,]\d+)?$/.test(val.replace(/\s/g, ''));
+
+  if (isNum && !val.startsWith('0') && val.length < 10) {
+    const rightX = it.x + it.width;
+    let bestCol = 0;
+    let minDiff = 999999;
+    for (let i = 0; i < bands.length; i++) {
+      const diff = Math.abs(rightX - bands[i].maxX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestCol = i;
+      }
+    }
+    return bestCol;
+  }
+
+  const midX = it.x + it.width / 2;
   for (let i = 0; i < bands.length; i++) {
-    if (x >= bands[i].minX && x < bands[i].maxX) {
+    if (it.x >= bands[i].minX && it.x < bands[i].maxX) {
+      return i;
+    }
+    if (midX >= bands[i].minX && midX < bands[i].maxX) {
       return i;
     }
   }
-  if (x < bands[0].minX) return 0;
+  if (it.x < bands[0].minX) return 0;
   return bands.length - 1;
 }
 
@@ -234,7 +263,7 @@ function reconstructPageTable(
     // Pemetaan multi-kolom
     const rowCells = new Array(numCols).fill('');
     for (const it of lineItems) {
-      const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
+      const colIdx = getColumnIndexForItem(it, columnBands);
       rowCells[colIdx] = rowCells[colIdx]
         ? `${rowCells[colIdx]} ${it.str.trim()}`
         : it.str.trim();

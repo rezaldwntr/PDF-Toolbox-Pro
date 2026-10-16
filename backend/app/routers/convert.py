@@ -291,7 +291,8 @@ async def convert_pdf_to_excel(
 
                     valid_charts = []
                     for cl in chart_clusters:
-                        if cl.width >= 55 and cl.height >= 35 and (cl.width * cl.height < page_w * page_h * 0.75):
+                        # Area grafik valid (cukup besar tetapi bukan keseluruhan background halaman)
+                        if cl.width >= 50 and cl.height >= 30 and (cl.width * cl.height < page_w * page_h * 0.75):
                             valid_charts.append(cl)
 
                     # 2. Ekstraksi text spans dengan koordinat presisi, warna font asli, bold, italic
@@ -327,10 +328,10 @@ async def convert_pdf_to_excel(
                     # Urutkan secara deterministik dari atas ke bawah (y0), kiri ke kanan (x0)
                     raw_spans.sort(key=lambda s: (s["y0"], s["x0"]))
 
-                    # 3. Render potongan visual chart jika terdeteksi
+                    # 3. Render potongan visual chart SELALU aktif dan SUPRESI teks di dalam grafik
                     chart_images = []
                     chart_ignored_spans = set()
-                    if include_charts and valid_charts:
+                    if valid_charts:
                         for c_idx, ch_rect in enumerate(valid_charts):
                             try:
                                 pad_rect = fitz.Rect(
@@ -352,23 +353,31 @@ async def convert_pdf_to_excel(
                                     "width": pad_rect.width,
                                     "height": pad_rect.height
                                 })
+                                # Seluruh teks di dalam kotak grafik wajib diabaikan agar tidak tercecer menjadi baris-baris liar di Excel
                                 for s_i, sp in enumerate(raw_spans):
-                                    if pad_rect.contains(sp["bbox"]):
+                                    if pad_rect.contains(sp["bbox"]) or pad_rect.intersect(sp["bbox"]).get_area() > sp["bbox"].get_area() * 0.35:
                                         chart_ignored_spans.add(s_i)
                             except Exception as c_err:
-                                logging.warning(f"Gagal merender crop grafik: {c_err}")
+                                logging.warning(f"Gagal memproses visual grafik: {c_err}")
 
                     usable_spans = [sp for idx, sp in enumerate(raw_spans) if idx not in chart_ignored_spans]
 
-                    # 4. Pengelompokan Baris Visual (Visual Lines)
+                    # 4. Pengelompokan Baris Visual (Visual Lines) dengan Pemisahan Running Header Halaman
                     visual_lines = []
                     for sp in usable_spans:
                         mid_y = (sp["y0"] + sp["y1"]) / 2.0
+                        # Running header (misal: Laporan Keuangan Bulanan, Halaman 1 dari 7) di pojok kanan atas
+                        is_top_running_header = (sp["y0"] < 58.0 and sp["x0"] > page_w * 0.35)
+
                         placed = False
                         for line in visual_lines:
+                            line_is_top_header = line.get("is_top_header", False)
+                            if is_top_running_header != line_is_top_header:
+                                continue
+
                             line_mid_y = line["mid_y"]
                             line_h = line["avg_h"]
-                            tol = max(3.2, min(sp["bbox"].height, line_h) * 0.44)
+                            tol = max(3.0, min(sp["bbox"].height, line_h) * 0.42)
                             if abs(mid_y - line_mid_y) <= tol:
                                 line["spans"].append(sp)
                                 line["mid_y"] = sum((s["y0"] + s["y1"]) / 2.0 for s in line["spans"]) / len(line["spans"])
@@ -383,6 +392,7 @@ async def convert_pdf_to_excel(
                                 "avg_h": sp["bbox"].height,
                                 "min_y": sp["y0"],
                                 "max_y": sp["y1"],
+                                "is_top_header": is_top_running_header,
                                 "spans": [sp]
                             })
 
@@ -399,7 +409,7 @@ async def convert_pdf_to_excel(
                             else:
                                 last = merged_items[-1]
                                 gap = s["x0"] - last["x1"]
-                                if gap <= 3.8 and s["color"] == last["color"] and s["is_bold"] == last["is_bold"]:
+                                if gap <= 4.0 and s["color"] == last["color"] and s["is_bold"] == last["is_bold"]:
                                     sep = " " if gap > 0.5 and not last["text"].endswith(" ") and not s["text"].startswith(" ") else ""
                                     last["text"] += sep + s["text"]
                                     last["x1"] = max(last["x1"], s["x1"])
@@ -409,71 +419,118 @@ async def convert_pdf_to_excel(
                         processed_lines.append({
                             "min_y": line["min_y"],
                             "max_y": line["max_y"],
+                            "is_top_header": line.get("is_top_header", False),
                             "items": merged_items
                         })
 
-                    # 5. Deteksi Anchor Kolom Master Halaman
-                    x_positions = []
-                    for pl in processed_lines:
-                        items = pl["items"]
-                        if len(items) >= 2:
-                            for it in items:
-                                x_positions.append(it["x0"])
+                    # 5. Deteksi Anchor Kolom Master Halaman yang Kompak (Dominant Table Columns)
+                    # Hanya ambil baris-baris tabel terstruktur (yang memiliki >= 3 item dengan jarak yang jelas)
+                    candidate_table_lines = [pl for pl in processed_lines if len(pl["items"]) >= 3 and not pl.get("is_top_header", False)]
 
-                    x_positions.sort()
-                    col_clusters = []
-                    for x in x_positions:
-                        if not col_clusters or (x - col_clusters[-1]["avg"] > 22.0):
-                            col_clusters.append({"vals": [x], "avg": x})
-                        else:
-                            col_clusters[-1]["vals"].append(x)
-                            col_clusters[-1]["avg"] = sum(col_clusters[-1]["vals"]) / len(col_clusters[-1]["vals"])
+                    column_bands = []
+                    if candidate_table_lines:
+                        # Cari jumlah kolom maksimum tabel dominan (misal 5 atau 6 kolom)
+                        max_cols = max(len(pl["items"]) for pl in candidate_table_lines)
+                        dominant_lines = [pl for pl in candidate_table_lines if len(pl["items"]) >= max_cols - 1]
 
-                    if len(col_clusters) < 2:
-                        col_width = page_w / 6.0
-                        col_anchors = [i * col_width for i in range(6)]
-                    else:
-                        col_anchors = [c["avg"] for c in col_clusters]
+                        band_slots = [[] for _ in range(max_cols)]
+                        for pl in dominant_lines:
+                            items = pl["items"]
+                            if len(items) == max_cols:
+                                for c_i, it in enumerate(items):
+                                    band_slots[c_i].append(it)
+                            elif len(items) == max_cols - 1:
+                                for c_i, it in enumerate(items):
+                                    slot_target = 0 if c_i == 0 else (c_i + 1)
+                                    band_slots[slot_target].append(it)
+
+                        for slot in band_slots:
+                            if slot:
+                                min_x = min(it["x0"] for it in slot)
+                                max_x = max(it["x1"] for it in slot)
+                                avg_x0 = sum(it["x0"] for it in slot) / len(slot)
+                                avg_x1 = sum(it["x1"] for it in slot) / len(slot)
+                                column_bands.append({
+                                    "min_x": min_x,
+                                    "max_x": max_x,
+                                    "avg_x0": avg_x0,
+                                    "avg_x1": avg_x1,
+                                    "center": (avg_x0 + avg_x1) / 2.0
+                                })
+
+                    # Fallback jika tidak ada baris tabel multi-kolom yang konsisten
+                    if len(column_bands) < 2:
+                        col_w = page_w / 6.0
+                        column_bands = [{
+                            "min_x": i * col_w,
+                            "max_x": (i + 1) * col_w,
+                            "avg_x0": i * col_w + 10,
+                            "avg_x1": (i + 1) * col_w - 10,
+                            "center": (i + 0.5) * col_w
+                        } for i in range(6)]
 
                     return {
                         "page_width": page_w,
                         "page_height": page_h,
                         "processed_lines": processed_lines,
-                        "col_anchors": col_anchors,
+                        "column_bands": column_bands,
                         "filled_rects": filled_rects,
                         "chart_images": chart_images
                     }
 
                 def write_spatial_page_to_sheet(ws, page_data, start_row=1):
                     processed_lines = page_data["processed_lines"]
-                    col_anchors = page_data["col_anchors"]
+                    column_bands = page_data["column_bands"]
                     filled_rects = page_data["filled_rects"]
                     chart_images = page_data["chart_images"]
                     page_w = page_data["page_width"]
-                    total_cols = max(1, len(col_anchors))
+                    total_cols = max(1, len(column_bands))
 
-                    def find_col_idx(x_pos):
-                        best_i = 0
-                        min_dist = 999999
-                        for i, a in enumerate(col_anchors):
-                            dist = abs(x_pos - a)
-                            if dist < min_dist:
-                                min_dist = dist
-                                best_i = i
-                        return best_i + 1
+                    def find_col_idx(item):
+                        val = item["text"].strip()
+                        # Deteksi apakah sel ini berupa nominal numerik (angka, saldo, persentase)
+                        is_num_like = (
+                            bool(re.search(r'[+-]?\d{1,3}(\.\d{3})*(,\d+)?', val)) or
+                            val.endswith('%') or
+                            (val.replace(',', '').replace('.', '').replace('-', '').replace('+', '').isdigit())
+                        ) and not (val.startswith("0") and len(val) > 1 and len(val) > 7)
+
+                        # Untuk nilai angka, cocokkan berdasarkan ujung kanan (x1) agar 0,00 dan 34.865,21 selalu sejajar di kolom yang sama!
+                        if is_num_like:
+                            best_col = 0
+                            min_diff = 999999
+                            for i, band in enumerate(column_bands):
+                                diff = abs(item["x1"] - band["avg_x1"])
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    best_col = i
+                            return best_col + 1
+                        else:
+                            # Untuk teks biasa/nama, cocokkan berdasarkan awal teks (x0) atau interval kolom
+                            for i, band in enumerate(column_bands):
+                                if band["min_x"] <= item["x0"] <= band["max_x"] + 15:
+                                    return i + 1
+                            best_col = 0
+                            min_diff = 999999
+                            for i, band in enumerate(column_bands):
+                                diff = abs(item["x0"] - band["avg_x0"])
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    best_col = i
+                            return best_col + 1
 
                     cur_r = start_row
                     chart_idx = 0
 
                     for pl in processed_lines:
                         line_y = pl["min_y"]
-                        # Jika ada chart yang posisinya sebelum baris teks ini, sisipkan gambar chart lebih dulu
+                        # Jika ada gambar grafik sebelum baris ini, sisipkan gambar grafik
                         while chart_idx < len(chart_images) and chart_images[chart_idx]["y0"] <= line_y:
                             ch = chart_images[chart_idx]
                             try:
                                 img = OpenpyxlImage(ch["path"])
                                 ws.add_image(img, f"A{cur_r}")
-                                rows_span = max(3, int(round(ch["height"] / 19)))
+                                rows_span = max(4, int(round(ch["height"] / 18)))
                                 cur_r += rows_span
                             except Exception as img_err:
                                 logging.warning(f"Gagal menyisipkan chart image ke Excel: {img_err}")
@@ -483,8 +540,18 @@ async def convert_pdf_to_excel(
                         if not items:
                             continue
 
-                        # Kasus 1: Judul atau teks lebar membentang (misal Nama Nasabah / Header surat)
-                        if len(items) == 1 and (items[0]["x1"] - items[0]["x0"]) > page_w * 0.42:
+                        # Kasus A: Running Header di pojok kanan atas halaman
+                        if pl.get("is_top_header", False):
+                            for it in items:
+                                c_idx = find_col_idx(it)
+                                cell = ws.cell(row=cur_r, column=c_idx, value=it["text"].strip())
+                                cell.font = Font(name="Calibri", size=9, bold=it["is_bold"], italic=it["is_italic"], color="666666")
+                                cell.alignment = Alignment(horizontal="right", vertical="center")
+                            cur_r += 1
+                            continue
+
+                        # Kasus B: Judul/Kop lebar (seperti Nama Nasabah / Alamat)
+                        if len(items) == 1 and (items[0]["x1"] - items[0]["x0"]) > page_w * 0.38:
                             it = items[0]
                             val = it["text"].strip()
                             cell = ws.cell(row=cur_r, column=1, value=val)
@@ -496,9 +563,9 @@ async def convert_pdf_to_excel(
                             cur_r += 1
                             continue
 
-                        # Kasus 2: Multi-kolom (Tabel, Header, atau Key-Value)
+                        # Kasus C: Baris Data Multi-Kolom / Tabel
                         for it in items:
-                            c_idx = find_col_idx(it["x0"])
+                            c_idx = find_col_idx(it)
                             val = it["text"].strip()
                             parsed = parse_cell_value(val)
                             cell = ws.cell(row=cur_r, column=c_idx)
@@ -521,13 +588,13 @@ async def convert_pdf_to_excel(
                                     break
 
                             # Alignment cerdas
-                            is_num_like = (
+                            is_num = (
                                 isinstance(parsed, (int, float)) or
                                 bool(re.search(r'[+-]?\d{1,3}(\.\d{3})*(,\d+)?', val)) or
                                 val.endswith('%')
                             )
                             is_code = len(val) <= 4 and val.isupper()
-                            if is_num_like and not (val.startswith("0") and len(val) > 1) and len(re.sub(r'\D', '', val)) < 10:
+                            if is_num and not (val.startswith("0") and len(val) > 1) and len(re.sub(r'\D', '', val)) < 10:
                                 cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
                             elif is_code:
                                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -538,13 +605,13 @@ async def convert_pdf_to_excel(
 
                         cur_r += 1
 
-                    # Sisipkan sisa gambar chart jika berada di paling bawah halaman
+                    # Sisipkan sisa gambar grafik jika ada di bagian paling bawah
                     while chart_idx < len(chart_images):
                         ch = chart_images[chart_idx]
                         try:
                             img = OpenpyxlImage(ch["path"])
                             ws.add_image(img, f"A{cur_r}")
-                            rows_span = max(3, int(round(ch["height"] / 19)))
+                            rows_span = max(4, int(round(ch["height"] / 18)))
                             cur_r += rows_span
                         except Exception as img_err:
                             logging.warning(f"Gagal menyisipkan chart image ke Excel: {img_err}")
@@ -556,7 +623,7 @@ async def convert_pdf_to_excel(
 
                 if sheet_per_page:
                     for page_idx in range(num_pages):
-                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=(mode != "tables_only"))
+                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=True)
                         sheet_name = f"Table {page_idx + 1}"
                         if page_idx == 0 and default_sheet is not None:
                             ws = default_sheet
@@ -571,7 +638,7 @@ async def convert_pdf_to_excel(
                     ws.title = "Hasil Ekstraksi"
                     cur_row = 1
                     for page_idx in range(num_pages):
-                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=(mode != "tables_only"))
+                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=True)
                         cur_row = write_spatial_page_to_sheet(ws, page_data, start_row=cur_row)
                         cur_row += 1
                     autofit(ws)
