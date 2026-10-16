@@ -24,6 +24,7 @@ import pdfplumber
 import pandas as pd
 from openpyxl.styles import Border, Side, Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 from app.utils.file_utils import validate_file, cleanup_folder, get_safe_base_name, get_mime_type
 from app.utils.job_store import create_job, update_job
@@ -35,6 +36,15 @@ router = APIRouter(prefix="/convert", tags=["Conversion"])
 def sanitize_filename(name: str) -> str:
     """Membersihkan nama berkas dari karakter terlarang."""
     return get_safe_base_name(name, default="document")
+
+def int_color_to_hex(color_int: int) -> str:
+    """Mengonversi warna integer sRGB dari PyMuPDF ke string heksadesimal 6-karakter RRGGBB."""
+    if not isinstance(color_int, int) or color_int <= 0:
+        return "000000"
+    r = (color_int >> 16) & 255
+    g = (color_int >> 8) & 255
+    b = color_int & 255
+    return f"{r:02X}{g:02X}{b:02X}"
 
 def parse_cell_value(val):
     """
@@ -220,12 +230,7 @@ async def convert_pdf_to_excel(
                 top=Side(style='thin', color='D3D3D3'),
                 bottom=Side(style='thin', color='D3D3D3')
             )
-            header_fill = PatternFill(start_color='F0F4F8', end_color='F0F4F8', fill_type='solid')
-            header_font = Font(bold=True, name='Calibri')
-            header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            data_alignment = Alignment(vertical='top', wrap_text=True)
 
-            plum_doc = None
             try:
                 import openpyxl
                 wb = openpyxl.Workbook()
@@ -239,231 +244,341 @@ async def convert_pdf_to_excel(
                             if cell.value is not None:
                                 first_line = str(cell.value).split('\n')[0]
                                 max_len = max(max_len, len(first_line))
-                        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 50)
+                        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 11), 60)
 
-                def is_table_header(row):
-                    """Mendeteksi apakah sebuah baris adalah baris judul/header tabel."""
-                    if not row or not any(row):
-                        return False
-                    row_strs = [str(c or "").strip().lower() for c in row if c is not None and str(c).strip()]
-                    if not row_strs:
-                        return False
+                # =========================================================================
+                # UNIVERSAL SPATIAL GRID & VISUAL LAYOUT ENGINE (SOLID-GRADE PARADIGM)
+                # =========================================================================
+                def extract_page_spatial_elements(fitz_page, page_idx, include_charts=True):
+                    page_rect = fitz_page.rect
+                    page_w = page_rect.width
+                    page_h = page_rect.height
 
-                    first_val = row_strs[0]
-                    # Jika kolom pertama adalah nomor urut numerik (>0), ini adalah data baris, BUKAN header!
-                    if re.match(r'^\d+[\.\)]?$', first_val):
-                        num = int(re.sub(r'\D', '', first_val))
-                        if num > 0:
-                            return False
+                    # 1. Ekstraksi gambar latar belakang/fill rect dan diagram grafik vektor
+                    drawings = fitz_page.get_drawings()
+                    filled_rects = []
+                    dense_drawings = []
+                    for dw in drawings:
+                        r = dw.get("rect")
+                        if not r or r.is_empty:
+                            continue
+                        fill = dw.get("fill")
+                        if fill and isinstance(fill, (list, tuple)) and len(fill) >= 3:
+                            rf, gf, bf = fill[:3]
+                            r_int = int(round(rf * 255))
+                            g_int = int(round(gf * 255))
+                            b_int = int(round(bf * 255))
+                            if not (r_int >= 250 and g_int >= 250 and b_int >= 250):
+                                fill_hex = f"{r_int:02X}{g_int:02X}{b_int:02X}"
+                                filled_rects.append({"rect": r, "fill_hex": fill_hex})
+                        
+                        items = dw.get("items", [])
+                        has_curve = any(it[0] == "c" for it in items)
+                        if (has_curve or len(items) >= 4) and r.width >= 35 and r.height >= 25:
+                            dense_drawings.append(r)
 
-                    # Kata kunci umum judul kolom tabel Indonesia & Internasional
-                    header_keywords = {
-                        'no', 'no.', 'nomor', 'nip', 'nik', 'nama', 'nama lengkap', 'unit kerja', 'jabatan',
-                        'jadwal', 'tanggal', 'waktu', 'tempat', 'ruang', 'kegiatan', 'uraian', 'keterangan',
-                        'standar kompetensi', 'kompetensi', 'tujuan', 'strategi', 'metode', 'mata pelatihan',
-                        'jp', 'jumlah jp', 'hari', 'nilai', 'bobot', 'skor', 'status', 'hasil', 'predikat',
-                        'instansi', 'pelaksanaan', 'jenis penguatan', 'lokasi', 'sesi'
-                    }
-                    match_count = sum(1 for s in row_strs if any(kw in s for kw in header_keywords))
-                    if match_count >= 2 or (len(row_strs) <= 2 and match_count >= 1):
-                        return True
+                    # Cluster area grafik/diagram vektor (seperti Donut Chart & Line Graph)
+                    chart_clusters = []
+                    for dr in dense_drawings:
+                        merged = False
+                        for cl in chart_clusters:
+                            if cl.intersects(dr) or cl.distance_to(dr) < 15:
+                                cl.include_rect(dr)
+                                merged = True
+                                break
+                        if not merged:
+                            chart_clusters.append(fitz.Rect(dr))
 
-                    # Baris nomor kolom penanda resmi (1, 2, 3, 4, 5...)
-                    if all(re.match(r'^\d+$', s) for s in row_strs) and len(row_strs) >= 3:
-                        nums = [int(s) for s in row_strs]
-                        if nums == list(range(1, len(nums) + 1)):
-                            return True
+                    valid_charts = []
+                    for cl in chart_clusters:
+                        if cl.width >= 55 and cl.height >= 35 and (cl.width * cl.height < page_w * page_h * 0.75):
+                            valid_charts.append(cl)
 
-                    return False
+                    # 2. Ekstraksi text spans dengan koordinat presisi, warna font asli, bold, italic
+                    text_page = fitz_page.get_text("dict")
+                    raw_spans = []
+                    for block in text_page.get("blocks", []):
+                        if block.get("type") == 0:  # text block
+                            for line in block.get("lines", []):
+                                for span in line.get("spans", []):
+                                    text = span.get("text", "")
+                                    if not text.strip():
+                                        continue
+                                    bbox = fitz.Rect(span.get("bbox"))
+                                    color_int = span.get("color", 0)
+                                    color_hex = int_color_to_hex(color_int)
+                                    flags = span.get("flags", 0)
+                                    is_bold = bool(flags & 16) or "bold" in span.get("font", "").lower()
+                                    is_italic = bool(flags & 2) or "italic" in span.get("font", "").lower()
+                                    raw_spans.append({
+                                        "text": text,
+                                        "bbox": bbox,
+                                        "x0": bbox.x0,
+                                        "y0": bbox.y0,
+                                        "x1": bbox.x1,
+                                        "y1": bbox.y1,
+                                        "font": span.get("font", "Calibri"),
+                                        "size": span.get("size", 10.0),
+                                        "color": color_hex,
+                                        "is_bold": is_bold,
+                                        "is_italic": is_italic,
+                                    })
 
-                def is_same_header(header1, header2):
-                    """Mendeteksi apakah header2 adalah pengulangan dari header1 pada halaman lanjutan."""
-                    if not header1 or not header2:
-                        return False
-                    if len(header1) != len(header2):
-                        return False
-                    h1 = [str(c or "").strip().lower() for c in header1]
-                    h2 = [str(c or "").strip().lower() for c in header2]
-                    matches = sum(1 for a, b in zip(h1, h2) if a == b and a != "")
-                    return matches >= max(2, len(h1) // 2)
+                    # Urutkan secara deterministik dari atas ke bawah (y0), kiri ke kanan (x0)
+                    raw_spans.sort(key=lambda s: (s["y0"], s["x0"]))
 
-                def write_openpyxl_cell(cell, raw_val, is_header=False):
-                    parsed = parse_cell_value(raw_val)
-                    cell.border = thin_border
-                    if is_header:
-                        cell.fill = header_fill
-                        cell.font = header_font
-                        cell.alignment = header_alignment
-                        cell.value = str(parsed)
-                        cell.number_format = '@'
-                    else:
-                        cell.alignment = data_alignment
-                        if isinstance(parsed, str):
-                            cell.number_format = '@'
-                            cell.value = parsed
+                    # 3. Render potongan visual chart jika terdeteksi
+                    chart_images = []
+                    chart_ignored_spans = set()
+                    if include_charts and valid_charts:
+                        for c_idx, ch_rect in enumerate(valid_charts):
+                            try:
+                                pad_rect = fitz.Rect(
+                                    max(0, ch_rect.x0 - 4),
+                                    max(0, ch_rect.y0 - 4),
+                                    min(page_w, ch_rect.x1 + 4),
+                                    min(page_h, ch_rect.y1 + 4)
+                                )
+                                pix = fitz_page.get_pixmap(clip=pad_rect, dpi=150)
+                                chart_path = os.path.join(tmp_dir, f"chart_p{page_idx}_{c_idx}.png")
+                                pix.save(chart_path)
+                                chart_images.append({
+                                    "path": chart_path,
+                                    "rect": pad_rect,
+                                    "y0": pad_rect.y0,
+                                    "y1": pad_rect.y1,
+                                    "x0": pad_rect.x0,
+                                    "x1": pad_rect.x1,
+                                    "width": pad_rect.width,
+                                    "height": pad_rect.height
+                                })
+                                for s_i, sp in enumerate(raw_spans):
+                                    if pad_rect.contains(sp["bbox"]):
+                                        chart_ignored_spans.add(s_i)
+                            except Exception as c_err:
+                                logging.warning(f"Gagal merender crop grafik: {c_err}")
+
+                    usable_spans = [sp for idx, sp in enumerate(raw_spans) if idx not in chart_ignored_spans]
+
+                    # 4. Pengelompokan Baris Visual (Visual Lines)
+                    visual_lines = []
+                    for sp in usable_spans:
+                        mid_y = (sp["y0"] + sp["y1"]) / 2.0
+                        placed = False
+                        for line in visual_lines:
+                            line_mid_y = line["mid_y"]
+                            line_h = line["avg_h"]
+                            tol = max(3.2, min(sp["bbox"].height, line_h) * 0.44)
+                            if abs(mid_y - line_mid_y) <= tol:
+                                line["spans"].append(sp)
+                                line["mid_y"] = sum((s["y0"] + s["y1"]) / 2.0 for s in line["spans"]) / len(line["spans"])
+                                line["avg_h"] = sum(s["bbox"].height for s in line["spans"]) / len(line["spans"])
+                                line["min_y"] = min(line["min_y"], sp["y0"])
+                                line["max_y"] = max(line["max_y"], sp["y1"])
+                                placed = True
+                                break
+                        if not placed:
+                            visual_lines.append({
+                                "mid_y": mid_y,
+                                "avg_h": sp["bbox"].height,
+                                "min_y": sp["y0"],
+                                "max_y": sp["y1"],
+                                "spans": [sp]
+                            })
+
+                    visual_lines.sort(key=lambda l: l["min_y"])
+
+                    # Gabungkan potongan kata berdekatan dalam 1 baris
+                    processed_lines = []
+                    for line in visual_lines:
+                        spans_in_line = sorted(line["spans"], key=lambda s: s["x0"])
+                        merged_items = []
+                        for s in spans_in_line:
+                            if not merged_items:
+                                merged_items.append(dict(s))
+                            else:
+                                last = merged_items[-1]
+                                gap = s["x0"] - last["x1"]
+                                if gap <= 3.8 and s["color"] == last["color"] and s["is_bold"] == last["is_bold"]:
+                                    sep = " " if gap > 0.5 and not last["text"].endswith(" ") and not s["text"].startswith(" ") else ""
+                                    last["text"] += sep + s["text"]
+                                    last["x1"] = max(last["x1"], s["x1"])
+                                    last["bbox"] = fitz.Rect(last["x0"], min(last["y0"], s["y0"]), last["x1"], max(last["y1"], s["y1"]))
+                                else:
+                                    merged_items.append(dict(s))
+                        processed_lines.append({
+                            "min_y": line["min_y"],
+                            "max_y": line["max_y"],
+                            "items": merged_items
+                        })
+
+                    # 5. Deteksi Anchor Kolom Master Halaman
+                    x_positions = []
+                    for pl in processed_lines:
+                        items = pl["items"]
+                        if len(items) >= 2:
+                            for it in items:
+                                x_positions.append(it["x0"])
+
+                    x_positions.sort()
+                    col_clusters = []
+                    for x in x_positions:
+                        if not col_clusters or (x - col_clusters[-1]["avg"] > 22.0):
+                            col_clusters.append({"vals": [x], "avg": x})
                         else:
-                            cell.value = parsed
+                            col_clusters[-1]["vals"].append(x)
+                            col_clusters[-1]["avg"] = sum(col_clusters[-1]["vals"]) / len(col_clusters[-1]["vals"])
 
-                def get_page_tables_and_text(page_idx):
-                    nonlocal plum_doc
-                    fitz_page = doc[page_idx]
-                    tables_data = []
-                    if hasattr(fitz_page, 'find_tables'):
-                        try:
-                            tabs = fitz_page.find_tables()
-                            for tab in tabs:
-                                extracted = tab.extract()
-                                if extracted and len(extracted) > 0:
-                                    tables_data.append(extracted)
-                        except Exception as tab_err:
-                            logging.warning(f"fitz find_tables error on page {page_idx}: {tab_err}")
-                    if not tables_data:
-                        try:
-                            if plum_doc is None:
-                                plum_doc = pdfplumber.open(tmp_pdf_path)
-                            if plum_doc and page_idx < len(plum_doc.pages):
-                                plum_tabs = plum_doc.pages[page_idx].extract_tables()
-                                for pt in plum_tabs:
-                                    if pt and len(pt) > 0:
-                                        tables_data.append(pt)
-                        except Exception as plum_err:
-                            logging.warning(f"pdfplumber fallback error on page {page_idx}: {plum_err}")
-                    text_lines = []
-                    if mode == "all_content":
-                        blocks = fitz_page.get_text("blocks")
-                        for b in blocks:
-                            if len(b) > 4 and b[6] == 0:
-                                cleaned_block = b[4].strip()
-                                if cleaned_block:
-                                    text_lines.extend(cleaned_block.split('\n'))
-                    return tables_data, text_lines
+                    if len(col_clusters) < 2:
+                        col_width = page_w / 6.0
+                        col_anchors = [i * col_width for i in range(6)]
+                    else:
+                        col_anchors = [c["avg"] for c in col_clusters]
 
-                update_job(job_id, progress=30, message="Mendeteksi dan mengekstrak tabel...")
+                    return {
+                        "page_width": page_w,
+                        "page_height": page_h,
+                        "processed_lines": processed_lines,
+                        "col_anchors": col_anchors,
+                        "filled_rects": filled_rects,
+                        "chart_images": chart_images
+                    }
+
+                def write_spatial_page_to_sheet(ws, page_data, start_row=1):
+                    processed_lines = page_data["processed_lines"]
+                    col_anchors = page_data["col_anchors"]
+                    filled_rects = page_data["filled_rects"]
+                    chart_images = page_data["chart_images"]
+                    page_w = page_data["page_width"]
+                    total_cols = max(1, len(col_anchors))
+
+                    def find_col_idx(x_pos):
+                        best_i = 0
+                        min_dist = 999999
+                        for i, a in enumerate(col_anchors):
+                            dist = abs(x_pos - a)
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_i = i
+                        return best_i + 1
+
+                    cur_r = start_row
+                    chart_idx = 0
+
+                    for pl in processed_lines:
+                        line_y = pl["min_y"]
+                        # Jika ada chart yang posisinya sebelum baris teks ini, sisipkan gambar chart lebih dulu
+                        while chart_idx < len(chart_images) and chart_images[chart_idx]["y0"] <= line_y:
+                            ch = chart_images[chart_idx]
+                            try:
+                                img = OpenpyxlImage(ch["path"])
+                                ws.add_image(img, f"A{cur_r}")
+                                rows_span = max(3, int(round(ch["height"] / 19)))
+                                cur_r += rows_span
+                            except Exception as img_err:
+                                logging.warning(f"Gagal menyisipkan chart image ke Excel: {img_err}")
+                            chart_idx += 1
+
+                        items = pl["items"]
+                        if not items:
+                            continue
+
+                        # Kasus 1: Judul atau teks lebar membentang (misal Nama Nasabah / Header surat)
+                        if len(items) == 1 and (items[0]["x1"] - items[0]["x0"]) > page_w * 0.42:
+                            it = items[0]
+                            val = it["text"].strip()
+                            cell = ws.cell(row=cur_r, column=1, value=val)
+                            f_color = it["color"] if it["color"] != "000000" else None
+                            cell.font = Font(name="Calibri", size=10, bold=it["is_bold"], italic=it["is_italic"], color=f_color)
+                            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                            if total_cols > 1:
+                                ws.merge_cells(start_row=cur_r, start_column=1, end_row=cur_r, end_column=total_cols)
+                            cur_r += 1
+                            continue
+
+                        # Kasus 2: Multi-kolom (Tabel, Header, atau Key-Value)
+                        for it in items:
+                            c_idx = find_col_idx(it["x0"])
+                            val = it["text"].strip()
+                            parsed = parse_cell_value(val)
+                            cell = ws.cell(row=cur_r, column=c_idx)
+
+                            # Format Angka & Teks
+                            if isinstance(parsed, (int, float)):
+                                cell.value = parsed
+                            else:
+                                cell.value = str(parsed)
+                                cell.number_format = '@'
+
+                            # Font & True Colors (Ungu, Hijau, Merah, dsb.)
+                            f_color = it["color"] if it["color"] != "000000" else None
+                            cell.font = Font(name="Calibri", size=10, bold=it["is_bold"], italic=it["is_italic"], color=f_color)
+
+                            # Background Fill dari gambar vektor PDF
+                            for fr in filled_rects:
+                                if fr["rect"].contains(it["bbox"]) or fr["rect"].intersect(it["bbox"]).get_area() > it["bbox"].get_area() * 0.4:
+                                    cell.fill = PatternFill(fill_type="solid", start_color=fr["fill_hex"], end_color=fr["fill_hex"])
+                                    break
+
+                            # Alignment cerdas
+                            is_num_like = (
+                                isinstance(parsed, (int, float)) or
+                                bool(re.search(r'[+-]?\d{1,3}(\.\d{3})*(,\d+)?', val)) or
+                                val.endswith('%')
+                            )
+                            is_code = len(val) <= 4 and val.isupper()
+                            if is_num_like and not (val.startswith("0") and len(val) > 1) and len(re.sub(r'\D', '', val)) < 10:
+                                cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
+                            elif is_code:
+                                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                            else:
+                                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+                            cell.border = thin_border
+
+                        cur_r += 1
+
+                    # Sisipkan sisa gambar chart jika berada di paling bawah halaman
+                    while chart_idx < len(chart_images):
+                        ch = chart_images[chart_idx]
+                        try:
+                            img = OpenpyxlImage(ch["path"])
+                            ws.add_image(img, f"A{cur_r}")
+                            rows_span = max(3, int(round(ch["height"] / 19)))
+                            cur_r += rows_span
+                        except Exception as img_err:
+                            logging.warning(f"Gagal menyisipkan chart image ke Excel: {img_err}")
+                        chart_idx += 1
+
+                    return cur_r
+
+                update_job(job_id, progress=30, message="Mengekstrak tata letak spasial dan tabel...")
 
                 if sheet_per_page:
                     for page_idx in range(num_pages):
-                        tables, text_lines = get_page_tables_and_text(page_idx)
-                        sheet_name = f"Hal {page_idx + 1}"
+                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=(mode != "tables_only"))
+                        sheet_name = f"Table {page_idx + 1}"
                         if page_idx == 0 and default_sheet is not None:
                             ws = default_sheet
                             ws.title = sheet_name
                         else:
                             ws = wb.create_sheet(title=sheet_name)
-                        cur_row = 1
-                        any_table_found = False
-                        for tbl in tables:
-                            if not tbl or len(tbl) == 0:
-                                continue
-                            any_table_found = True
-                            first_row = tbl[0]
-                            first_row_is_header = is_table_header(first_row)
-                            if first_row_is_header:
-                                for c_idx, val in enumerate(first_row, start=1):
-                                    cell = ws.cell(row=cur_row, column=c_idx)
-                                    write_openpyxl_cell(cell, val, is_header=True)
-                                cur_row += 1
-                                data_start = 1
-                            else:
-                                data_start = 0
-
-                            for r_idx in range(data_start, len(tbl)):
-                                row_data = tbl[r_idx]
-                                for c_idx, val in enumerate(row_data, start=1):
-                                    cell = ws.cell(row=cur_row, column=c_idx)
-                                    write_openpyxl_cell(cell, val, is_header=False)
-                                cur_row += 1
-                            cur_row += 2
-                        if not any_table_found and mode == "tables_only":
-                            ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di halaman ini.")
+                        write_spatial_page_to_sheet(ws, page_data, start_row=1)
                         autofit(ws)
                 else:
-                    # Mode 1 Sheet Gabungan: Sambung tabel multi-halaman secara seamless
-                    page_tables = []
-                    pre_table_metadata = []
-                    for page_idx in range(num_pages):
-                        tables, text_lines = get_page_tables_and_text(page_idx)
-                        page_tables.append(tables)
-                        if page_idx == 0 and mode == "all_content" and text_lines:
-                            pre_table_metadata = text_lines[:6]
-
-                    ws = default_sheet if default_sheet is not None else wb.create_sheet(title="Hasil Ekstraksi")
+                    # Mode 1 Sheet Gabungan (Combined / Solid Framework Continuation)
+                    ws = default_sheet if default_sheet is not None else wb.create_sheet(title="Table 1")
                     ws.title = "Hasil Ekstraksi"
                     cur_row = 1
-
-                    # Tulis metadata dokumen di paling atas (hanya jika mode all_content)
-                    if mode == "all_content" and pre_table_metadata:
-                        for meta_line in pre_table_metadata:
-                            ws.cell(row=cur_row, column=1, value=meta_line)
-                            ws.cell(row=cur_row, column=1).font = Font(bold=True, name='Calibri')
-                            cur_row += 1
+                    for page_idx in range(num_pages):
+                        page_data = extract_page_spatial_elements(doc[page_idx], page_idx, include_charts=(mode != "tables_only"))
+                        cur_row = write_spatial_page_to_sheet(ws, page_data, start_row=cur_row)
                         cur_row += 1
-
-                    current_table_cols = 0
-                    current_table_header = None
-                    total_detected_tables = 0
-
-                    for page_idx, tables_on_page in enumerate(page_tables):
-                        for tbl in tables_on_page:
-                            if not tbl or len(tbl) == 0:
-                                continue
-
-                            first_row = tbl[0]
-                            first_row_is_header = is_table_header(first_row)
-
-                            # Evaluasi apakah tabel ini kelanjutan dari tabel aktif sebelumnya
-                            is_continuation = False
-                            if current_table_cols > 0 and len(first_row) == current_table_cols:
-                                if first_row_is_header and current_table_header and is_same_header(current_table_header, first_row):
-                                    is_continuation = True
-                                elif not first_row_is_header:
-                                    is_continuation = True
-
-                            if is_continuation:
-                                # Lanjutan tabel sebelumnya: sambung langsung baris data
-                                start_r = 1 if first_row_is_header else 0
-                                for r_idx in range(start_r, len(tbl)):
-                                    row_data = tbl[r_idx]
-                                    for c_idx, val in enumerate(row_data, start=1):
-                                        cell = ws.cell(row=cur_row, column=c_idx)
-                                        write_openpyxl_cell(cell, val, is_header=False)
-                                    cur_row += 1
-                            else:
-                                # Tabel baru
-                                total_detected_tables += 1
-                                if cur_row > 1 and (cur_row > len(pre_table_metadata) + 2 if pre_table_metadata else True):
-                                    cur_row += 2
-
-                                current_table_cols = len(first_row)
-                                if first_row_is_header:
-                                    current_table_header = first_row
-                                    for c_idx, val in enumerate(first_row, start=1):
-                                        cell = ws.cell(row=cur_row, column=c_idx)
-                                        write_openpyxl_cell(cell, val, is_header=True)
-                                    cur_row += 1
-                                    data_start = 1
-                                else:
-                                    current_table_header = None
-                                    data_start = 0
-
-                                for r_idx in range(data_start, len(tbl)):
-                                    row_data = tbl[r_idx]
-                                    for c_idx, val in enumerate(row_data, start=1):
-                                        cell = ws.cell(row=cur_row, column=c_idx)
-                                        write_openpyxl_cell(cell, val, is_header=False)
-                                    cur_row += 1
-
-                    if total_detected_tables == 0:
-                        ws.cell(row=1, column=1, value="Tidak ada tabel terdeteksi di dokumen ini.")
                     autofit(ws)
 
                 wb.save(tmp_xlsx_path)
 
             finally:
-                if plum_doc:
-                    try:
-                        plum_doc.close()
-                    except Exception:
-                        pass
                 try:
                     doc.close()
                 except Exception:

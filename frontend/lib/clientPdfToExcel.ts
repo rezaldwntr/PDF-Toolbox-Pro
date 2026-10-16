@@ -51,93 +51,56 @@ interface ColumnDetectionResult {
  * berdasarkan baris penomoran kolom resmi (1, 2, 3...) atau klaster spasial teks.
  */
 function detectColumnBands(items: RawTextItem[], pageWidth: number): ColumnDetectionResult {
-  // 1. Cari apakah ada baris penomoran kolom eksplisit (seperti 1, 2, 3, 4, 5, 6, 7, 8, 9 pada format resmi Indonesia)
-  const numbersRegex = /^[1-9]\d?$/;
-  const numberCandidates = items.filter((it) => numbersRegex.test(it.str.trim()));
+  // 1. Kelompokkan item teks ke dalam baris visual horizontal
+  const sortedY = [...items].sort((a, b) => b.y - a.y);
+  const visualLines: RawTextItem[][] = [];
 
-  const yGroups = new Map<number, RawTextItem[]>();
-  for (const numItem of numberCandidates) {
-    let matchedY: number | null = null;
-    for (const keyY of yGroups.keys()) {
-      if (Math.abs(keyY - numItem.y) <= 4.0) {
-        matchedY = keyY;
+  for (const it of sortedY) {
+    let placed = false;
+    for (const line of visualLines) {
+      if (Math.abs(line[0].y - it.y) <= 4.0) {
+        line.push(it);
+        placed = true;
         break;
       }
     }
-    if (matchedY !== null) {
-      yGroups.get(matchedY)!.push(numItem);
-    } else {
-      yGroups.set(numItem.y, [numItem]);
+    if (!placed) {
+      visualLines.push([it]);
     }
   }
 
-  let bestNumberRow: RawTextItem[] | null = null;
-  for (const group of yGroups.values()) {
-    if (group.length >= 3) {
-      group.sort((a, b) => a.x - b.x);
-      const vals = group.map((g) => parseInt(g.str.trim(), 10));
-      const isSequential = vals.every((v, i) => i === 0 || v > vals[i - 1]);
-      if (isSequential && (!bestNumberRow || group.length > bestNumberRow.length)) {
-        bestNumberRow = group;
+  // 2. Kumpulkan koordinat X awal dari baris yang memiliki 2 atau lebih kolom terpisah
+  const xPositions: number[] = [];
+  for (const line of visualLines) {
+    if (line.length >= 2) {
+      for (const it of line) {
+        xPositions.push(it.x);
       }
     }
   }
 
-  // Jika baris nomor kolom ditemukan, bangun partisi kolom [0..pageWidth] tanpa celah
-  if (bestNumberRow && bestNumberRow.length >= 3) {
-    const sorted = [...bestNumberRow].sort((a, b) => a.x - b.x);
-    const avgY = bestNumberRow.reduce((acc, it) => acc + it.y, 0) / bestNumberRow.length;
+  xPositions.sort((a, b) => a - b);
+  const clusters: Array<{ count: number; sum: number; avg: number }> = [];
+  for (const x of xPositions) {
+    if (clusters.length === 0 || x - clusters[clusters.length - 1].avg > 24) {
+      clusters.push({ count: 1, sum: x, avg: x });
+    } else {
+      const last = clusters[clusters.length - 1];
+      last.count++;
+      last.sum += x;
+      last.avg = last.sum / last.count;
+    }
+  }
+
+  // Jika terdeteksi minimal 2 kolom dominan
+  if (clusters.length >= 2) {
+    const anchors = clusters.map((c) => c.avg);
     const bands: ColumnBand[] = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const cur = sorted[i];
-      const next = sorted[i + 1];
-
-      const minX = i === 0 ? 0 : bands[i - 1].maxX;
-      const maxX = next ? (cur.x + cur.width + next.x) / 2 : pageWidth;
-
-      bands.push({
-        index: i,
-        minX,
-        maxX,
-      });
+    for (let i = 0; i < anchors.length; i++) {
+      const minX = i === 0 ? 0 : (anchors[i - 1] + anchors[i]) / 2;
+      const maxX = i === anchors.length - 1 ? pageWidth : (anchors[i] + anchors[i + 1]) / 2;
+      bands.push({ index: i, minX, maxX });
     }
-    return { bands, columnNumberRowY: avgY };
-  }
-
-  // 2. Fallback: Analisis klaster spasial horizontal teks tabel
-  const sortedX = [...items].sort((a, b) => a.x - b.x);
-  const xGaps: number[] = [];
-  for (let i = 0; i < sortedX.length - 1; i++) {
-    const gap = sortedX[i + 1].x - (sortedX[i].x + sortedX[i].width);
-    if (gap > 16) {
-      xGaps.push((sortedX[i].x + sortedX[i].width + sortedX[i + 1].x) / 2);
-    }
-  }
-
-  const cleanGaps: number[] = [];
-  xGaps.sort((a, b) => a - b);
-  for (const g of xGaps) {
-    if (cleanGaps.length === 0 || g - cleanGaps[cleanGaps.length - 1] > 28) {
-      cleanGaps.push(g);
-    }
-  }
-
-  if (cleanGaps.length >= 2) {
-    const bands: ColumnBand[] = [];
-    let startX = 0;
-    for (let i = 0; i < cleanGaps.length; i++) {
-      bands.push({
-        index: i,
-        minX: startX,
-        maxX: cleanGaps[i],
-      });
-      startX = cleanGaps[i];
-    }
-    bands.push({
-      index: cleanGaps.length,
-      minX: startX,
-      maxX: pageWidth,
-    });
     return { bands };
   }
 
@@ -227,251 +190,72 @@ function reconstructPageTable(
 
   const sortedItems = [...items].sort((a, b) => b.y - a.y);
   const detectionResult = detectColumnBands(sortedItems, pageWidth);
-  const columnBands = detectionResult.columnNumberRowY || !fallbackBands ? detectionResult.bands : fallbackBands;
+  const columnBands = fallbackBands && fallbackBands.length >= 2 ? fallbackBands : detectionResult.bands;
   const numCols = columnBands.length;
-  const col0Band = columnBands[0];
+
+  // 1. Kelompokkan seluruh item teks ke dalam Baris Visual vertikal (Y descending)
+  const lineGroups: Array<{ y: number; items: RawTextItem[] }> = [];
+  for (const it of sortedItems) {
+    let placed = false;
+    for (const group of lineGroups) {
+      if (Math.abs(group.y - it.y) <= 4.2) {
+        group.items.push(it);
+        group.y = group.items.reduce((acc, curr) => acc + curr.y, 0) / group.items.length;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      lineGroups.push({ y: it.y, items: [it] });
+    }
+  }
+
+  lineGroups.sort((a, b) => b.y - a.y);
 
   const resultRows: TableRow[] = [];
 
-  // 1. Tentukan titik awal tabel utama
-  let tableStartY = pageHeight;
-  if (detectionResult.columnNumberRowY !== undefined) {
-    tableStartY = detectionResult.columnNumberRowY + 45;
-  } else {
-    for (const it of sortedItems) {
-      const txt = it.str.trim().toLowerCase();
-      if (txt === 'no' || txt === 'no.' || (it.x <= col0Band.maxX && /^[1-9]$/.test(txt))) {
-        tableStartY = it.y + 15;
-        break;
-      }
-    }
-  }
+  for (const group of lineGroups) {
+    const lineItems = group.items.sort((a, b) => a.x - b.x);
+    if (lineItems.length === 0) continue;
 
-  const preTableItems = sortedItems.filter((it) => it.y > tableStartY);
-  const tableItems = sortedItems.filter((it) => it.y <= tableStartY);
-
-  // 2. Metadata di atas tabel (seperti Program : Pelatihan, NIP : ..., dll)
-  if (mode !== 'tables_only' && preTableItems.length > 0) {
-    const preRowsMap = new Map<number, RawTextItem[]>();
-    for (const it of preTableItems) {
-      let matchedY: number | null = null;
-      for (const keyY of preRowsMap.keys()) {
-        if (Math.abs(keyY - it.y) <= 5.0) {
-          matchedY = keyY;
-          break;
-        }
-      }
-      if (matchedY !== null) {
-        preRowsMap.get(matchedY)!.push(it);
-      } else {
-        preRowsMap.set(it.y, [it]);
-      }
-    }
-
-    const sortedPreY = Array.from(preRowsMap.keys()).sort((a, b) => b - a);
-    for (const y of sortedPreY) {
-      const lineItems = preRowsMap.get(y)!.sort((a, b) => a.x - b.x);
-      const fullText = lineItems.map((i) => i.str).join(' ').trim();
-      if (!fullText) continue;
-
-      if (fullText.includes(':')) {
-        const colonIdx = fullText.indexOf(':');
-        const label = fullText.substring(0, colonIdx).trim();
-        const value = fullText.substring(colonIdx + 1).trim();
-
-        const rowCells = new Array(numCols).fill('');
-        rowCells[0] = label;
-        rowCells[1] = ':';
-        rowCells[2] = value;
-        resultRows.push({
-          isMetadata: true,
-          cells: rowCells,
-        });
-      } else {
-        const rowCells = new Array(numCols).fill('');
-        // Jika baris lanjutan ter-indent di posisi value (x > 140 pt), letakkan di kolom 2
-        if (lineItems[0].x > 140 && numCols > 2) {
-          rowCells[2] = fullText;
-        } else {
-          rowCells[0] = fullText;
-        }
-        resultRows.push({
-          isMetadata: true,
-          cells: rowCells,
-        });
-      }
-    }
-  }
-
-  // 3. Pemisahan Header Tabel dan Data Tabel
-  let headerTitleItems: RawTextItem[] = [];
-  let columnNumberItems: RawTextItem[] = [];
-  let dataItems: RawTextItem[] = [];
-
-  if (detectionResult.columnNumberRowY !== undefined) {
-    const cY = detectionResult.columnNumberRowY;
-    headerTitleItems = tableItems.filter((it) => it.y > cY + 4);
-    columnNumberItems = tableItems.filter((it) => Math.abs(it.y - cY) <= 4);
-    dataItems = tableItems.filter((it) => it.y < cY - 4);
-  } else {
-    let firstDataY: number | null = null;
-    for (const it of tableItems) {
-      const trimmed = it.str.trim();
-      if (it.x <= col0Band.maxX + 10 && /^[1-9]\d?[\.\)]?$/.test(trimmed)) {
-        firstDataY = it.y;
-        break;
-      }
-    }
-
-    if (firstDataY !== null) {
-      headerTitleItems = tableItems.filter((it) => it.y > firstDataY! + 6);
-      dataItems = tableItems.filter((it) => it.y <= firstDataY! + 6);
-    } else {
-      dataItems = tableItems;
-    }
-  }
-
-  // Header Title Row (misal No | Standar Kompetensi | ...)
-  if (headerTitleItems.length > 0) {
-    const headerRowCells = new Array(numCols).fill('');
-    for (const it of headerTitleItems) {
-      const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
-      headerRowCells[colIdx] = headerRowCells[colIdx]
-        ? `${headerRowCells[colIdx]} ${it.str.trim()}`
-        : it.str.trim();
-    }
-    if (headerRowCells.some((c) => c !== '')) {
-      resultRows.push({
-        isHeader: true,
-        cells: headerRowCells,
-      });
-    }
-  }
-
-  // Column Number Row (misal 1 | 2 | 3 | 4...)
-  if (columnNumberItems.length > 0) {
-    const colNumCells = new Array(numCols).fill('');
-    for (const it of columnNumberItems) {
-      const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
-      colNumCells[colIdx] = it.str.trim();
-    }
-    if (colNumCells.some((c) => c !== '')) {
-      resultRows.push({
-        isHeader: true,
-        isNumbering: true,
-        cells: colNumCells,
-      });
-    }
-  }
-
-  // 4. Proses Baris Data Tabel
-  const rowMarkers: Array<{ index: number; y: number; text: string; item: RawTextItem }> = [];
-  for (const it of dataItems) {
-    const trimmed = it.str.trim();
-    if (it.x <= col0Band.maxX + 10 && /^\d+[\.\)]?$/.test(trimmed)) {
-      const numVal = parseInt(trimmed, 10);
-      if (numVal > 0 && numVal < 500) {
-        rowMarkers.push({
-          index: numVal,
-          y: it.y,
-          text: trimmed,
-          item: it,
-        });
-      }
-    }
-  }
-
-  rowMarkers.sort((a, b) => b.y - a.y);
-
-  if (rowMarkers.length > 0) {
-    // Tangani baris lanjutan (overflow dari halaman sebelumnya) sebelum marker pertama
-    const firstMarkerY = rowMarkers[0].y;
-    const overflowItems = dataItems.filter((it) => it.y > firstMarkerY + 6);
-    if (overflowItems.length > 0) {
-      const overflowCells = new Array(numCols).fill('');
-      const colItemsMap = new Map<number, RawTextItem[]>();
-      for (const it of overflowItems) {
-        const cIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
-        if (!colItemsMap.has(cIdx)) colItemsMap.set(cIdx, []);
-        colItemsMap.get(cIdx)!.push(it);
-      }
-      for (const [cIdx, itemsInCol] of colItemsMap.entries()) {
-        itemsInCol.sort((a, b) => b.y - a.y);
-        const lines = groupItemsIntoVisualLines(itemsInCol);
-        overflowCells[cIdx] = mergeCellLines(lines);
-      }
-      if (overflowCells.some((c) => c !== '')) {
-        resultRows.push({
-          cells: overflowCells,
-        });
-      }
-    }
-
-    // Ekstraksi tiap baris data
-    for (let r = 0; r < rowMarkers.length; r++) {
-      const curMarker = rowMarkers[r];
-      const nextMarker = rowMarkers[r + 1];
-
-      const topY = curMarker.y + 8;
-      const bottomY = nextMarker ? nextMarker.y + 8 : -1000;
-
-      const rowItems = dataItems.filter((it) => it.y <= topY && it.y > bottomY);
+    // Jika satu baris hanya berisi 1 item teks panjang membentang (Kop, Judul, atau Nama Nasabah)
+    const firstIt = lineItems[0];
+    const totalLineText = lineItems.map((i) => i.str.trim()).join(' ');
+    if (lineItems.length === 1 && firstIt.width > pageWidth * 0.42) {
       const rowCells = new Array(numCols).fill('');
-      rowCells[0] = curMarker.text;
-
-      const colItemsMap = new Map<number, RawTextItem[]>();
-      for (const it of rowItems) {
-        if (it === curMarker.item || (it.x <= col0Band.maxX + 10 && it.str.trim() === curMarker.text)) {
-          continue;
-        }
-        const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
-        if (!colItemsMap.has(colIdx)) colItemsMap.set(colIdx, []);
-        colItemsMap.get(colIdx)!.push(it);
-      }
-
-      for (const [colIdx, itemsInCol] of colItemsMap.entries()) {
-        itemsInCol.sort((a, b) => b.y - a.y);
-        const lines = groupItemsIntoVisualLines(itemsInCol);
-        rowCells[colIdx] = mergeCellLines(lines);
-      }
-
+      rowCells[0] = totalLineText;
       resultRows.push({
+        isMetadata: true,
         cells: rowCells,
       });
-    }
-  } else {
-    // Fallback: Line-clustering
-    const yGroups = new Map<number, RawTextItem[]>();
-    for (const it of dataItems) {
-      let matchedY: number | null = null;
-      for (const keyY of yGroups.keys()) {
-        if (Math.abs(keyY - it.y) <= 8.0) {
-          matchedY = keyY;
-          break;
-        }
-      }
-      if (matchedY !== null) {
-        yGroups.get(matchedY)!.push(it);
-      } else {
-        yGroups.set(it.y, [it]);
-      }
+      continue;
     }
 
-    const sortedY = Array.from(yGroups.keys()).sort((a, b) => b - a);
-    for (const y of sortedY) {
-      const itemsInRow = yGroups.get(y)!;
-      const rowCells = new Array(numCols).fill('');
-      for (const it of itemsInRow) {
-        const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
-        rowCells[colIdx] = rowCells[colIdx]
-          ? `${rowCells[colIdx]} ${it.str.trim()}`
-          : it.str.trim();
-      }
-      if (rowCells.some((c) => c !== '')) {
-        resultRows.push({
-          cells: rowCells,
-        });
-      }
+    // Pemetaan multi-kolom
+    const rowCells = new Array(numCols).fill('');
+    for (const it of lineItems) {
+      const colIdx = getColumnIndexForX(it.x + it.width / 2, columnBands);
+      rowCells[colIdx] = rowCells[colIdx]
+        ? `${rowCells[colIdx]} ${it.str.trim()}`
+        : it.str.trim();
+    }
+
+    // Evaluasi apakah baris ini adalah header tabel
+    const isHeaderRow = lineItems.some(
+      (it) => it.str.toLowerCase().includes('kantong') ||
+              it.str.toLowerCase().includes('tanggal') ||
+              it.str.toLowerCase().includes('nama') ||
+              it.str.toLowerCase().includes('saldo') ||
+              it.str.toLowerCase().includes('jumlah') ||
+              it.str.toLowerCase().includes('uraian') ||
+              it.str.toLowerCase().includes('keterangan')
+    ) && lineItems.length >= 3;
+
+    if (rowCells.some((c) => c !== '')) {
+      resultRows.push({
+        isHeader: isHeaderRow,
+        cells: rowCells,
+      });
     }
   }
 
