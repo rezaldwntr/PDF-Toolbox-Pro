@@ -24,9 +24,16 @@ from app.utils.file_utils import (
     create_file_response,
 )
 
+import fitz  # PyMuPDF
+
 router = APIRouter(tags=["Tools - Finance"])
 
 BANK_KEYWORDS = {
+    "jago": ["bank jago", "pt bank jago", "kantong utama", "id kantong", "jago"],
+    "seabank": ["seabank", "pt bank seabank"],
+    "blu": ["blu by bca", "bca digital", "blusaving"],
+    "jenius": ["jenius", "bank btpn", "smbc indonesia"],
+    "cimb": ["cimb niaga", "octo mobile", "octo clicks"],
     "kalsel": ["bank kalsel", "bpd kalsel", "kalsel syariah", "aksel"],
     "bsi": ["bank syariah indonesia", "bsi mobile", "byond by bsi", "bsi net", "wadiah", "bsi"],
     "bca": ["bank central asia", "bca", "klikbca", "mybca"],
@@ -41,6 +48,11 @@ BANK_KEYWORDS = {
 }
 
 BANK_LABELS = {
+    "jago": "Bank Jago (Reguler & Syariah)",
+    "seabank": "SeaBank Indonesia",
+    "blu": "blu by BCA Digital",
+    "jenius": "Jenius (Bank BTPN / SMBC)",
+    "cimb": "CIMB Niaga (OCTO)",
     "kalsel": "Bank Kalsel (Konvensional & Syariah)",
     "bsi": "Bank Syariah Indonesia (BSI)",
     "bca": "Bank Central Asia (BCA)",
@@ -66,56 +78,77 @@ def detect_bank_type(text_sample: str) -> str:
 
 
 def parse_idr_amount(raw_str: Any) -> float:
-    """Konversi teks nominal rupiah ke angka desimal (float)."""
+    """Konversi teks nominal rupiah ke angka desimal (float), mempertahankan tanda +/- atau DB/CR."""
     if raw_str is None:
         return 0.0
-    s = re.sub(r"[^\d,\.\-]", "", str(raw_str)).strip()
-    if not s or s in ("-", "--"):
+    raw_text = str(raw_str).strip()
+    if not raw_text:
+        return 0.0
+    first_line = raw_text.split("\n")[0].strip()
+    upper_line = first_line.upper()
+    is_neg = first_line.startswith("-") or (first_line.startswith("(") and first_line.endswith(")"))
+    if any(UpperTag in upper_line for UpperTag in (" DB", "\tDB", " DEBIT", " DEBET")):
+        is_neg = True
+
+    s = re.sub(r"[^\d,\.\-]", "", first_line).strip()
+    if not s or s in ("-", "--", "."):
         return 0.0
 
-    if "," in s and "." in s:
-        if s.rfind(",") > s.rfind("."):
-            s = s.replace(".", "").replace(",", ".")
+    s_unsigned = s.lstrip("+-")
+    if "," in s_unsigned and "." in s_unsigned:
+        if s_unsigned.rfind(",") > s_unsigned.rfind("."):
+            s_unsigned = s_unsigned.replace(".", "").replace(",", ".")
         else:
-            s = s.replace(",", "")
-    elif "," in s:
-        parts = s.split(",")
-        s = s.replace(",", ".") if len(parts[-1]) == 2 else s.replace(",", "")
-    elif "." in s:
-        parts = s.split(".")
+            s_unsigned = s_unsigned.replace(",", "")
+    elif "," in s_unsigned:
+        parts = s_unsigned.split(",")
+        s_unsigned = s_unsigned.replace(",", ".") if len(parts[-1]) <= 2 else s_unsigned.replace(",", "")
+    elif "." in s_unsigned:
+        parts = s_unsigned.split(".")
         if len(parts) > 2 or (len(parts) == 2 and len(parts[1]) == 3):
-            s = s.replace(".", "")
+            s_unsigned = s_unsigned.replace(".", "")
     try:
-        return float(s)
+        val = float(s_unsigned)
+        return -abs(val) if is_neg else abs(val)
     except (ValueError, TypeError):
         return 0.0
 
 
 def is_date_string(val: str) -> bool:
-    """Mengecek apakah suatu teks adalah tanggal transaksi."""
-    if not val or len(val.strip()) < 5:
+    """Mengecek apakah suatu teks diawali dengan tanggal transaksi yang sah (bukan jam saja)."""
+    if not val or len(val.strip()) < 4:
         return False
-    clean = val.strip()
+    first_line = val.strip().split("\n")[0].strip()
+    # Tolak jika hanya berupa jam seperti 09.40 atau 12:30
+    if re.fullmatch(r"\d{2}[.:]\d{2}([.:]\d{2})?", first_line):
+        return False
     patterns = [
-        r"^\d{1,2}[\/\-\.]\d{1,2}([\/\-\.]\d{2,4})?$",
-        r"^\d{1,2}\s+[A-Za-z]{3,9}(\s+\d{2,4})?$",
+        r"^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?$",
+        r"^\d{4}[\/\-]\d{2}[\/\-]\d{2}(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?$",
+        r"^\d{1,2}\s+[A-Za-z]{3,9}(\s+\d{2,4})?(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?$",
+        r"^PEND$",
     ]
-    return any(re.match(p, clean) for p in patterns)
+    return any(re.match(p, first_line, re.IGNORECASE) for p in patterns)
 
 
 def find_column_indices(header_row: List[str]) -> Dict[str, int]:
-    """Menemukan posisi index kolom berdasarkan teks header tabel."""
-    indices = {"date": -1, "desc": -1, "debit": -1, "credit": -1, "balance": -1, "ref": -1, "flag": -1, "mutasi": -1}
+    """Menemukan posisi index kolom berdasarkan teks header tabel lintas bank."""
+    indices = {"date": -1, "desc": -1, "debit": -1, "credit": -1, "balance": -1, "ref": -1, "flag": -1, "mutasi": -1, "note": -1}
     for idx, cell in enumerate(header_row):
-        txt = (cell or "").lower().strip()
+        txt = (cell or "").lower().replace("\n", " ").strip()
         if not txt:
             continue
-        if any(k in txt for k in ["tgl", "tanggal", "date"]) and indices["date"] == -1:
+        # Abaikan tabel ringkasan saldo (misal 'Rincian Saldo Personal' / 'Saldo sebelumnya')
+        if "saldo sebelumnya" in txt or "rincian saldo" in txt:
+            return {"date": -1, "desc": -1, "debit": -1, "credit": -1, "balance": -1, "ref": -1, "flag": -1, "mutasi": -1, "note": -1}
+        if any(k in txt for k in ["tgl", "tanggal", "date", "waktu"]) and indices["date"] == -1:
             indices["date"] = idx
-        elif any(k in txt for k in ["kd", "reff", "ref", "sandi", "bukti", "no trn"]) and indices["ref"] == -1:
+        elif any(k in txt for k in ["sumber/tujuan", "sumber", "tujuan", "kd", "reff", "ref", "sandi", "bukti", "no trn", "cbg"]) and indices["ref"] == -1:
             indices["ref"] = idx
-        elif any(k in txt for k in ["keterangan", "uraian", "deskripsi", "transaksi", "narration"]) and indices["desc"] == -1:
+        elif any(k in txt for k in ["rincian transaksi", "keterangan", "uraian", "deskripsi", "transaksi", "narration"]) and indices["desc"] == -1:
             indices["desc"] = idx
+        elif "catatan" in txt and indices["note"] == -1:
+            indices["note"] = idx
         elif any(k in txt for k in ["debet", "debit", "tarik", "keluar"]) and indices["debit"] == -1:
             indices["debit"] = idx
         elif any(k in txt for k in ["kredit", "credit", "masuk", "setoran"]) and indices["credit"] == -1:
@@ -124,56 +157,215 @@ def find_column_indices(header_row: List[str]) -> Dict[str, int]:
             indices["balance"] = idx
         elif any(k in txt for k in ["d/k", "cr/db", "c/d"]) and indices["flag"] == -1:
             indices["flag"] = idx
-        elif "mutasi" in txt and indices["mutasi"] == -1:
+        elif any(k in txt for k in ["mutasi", "jumlah", "nominal", "amount"]) and indices["mutasi"] == -1:
             indices["mutasi"] = idx
     return indices
 
 
 def _extract_row_data(row: List[str], idx_map: Dict[str, int], bank_code: str) -> Optional[Dict[str, Any]]:
-    """Mengekstrak 1 baris transaksi menjadi dictionary standar."""
+    """Mengekstrak 1 baris transaksi menjadi dictionary standar dengan pemisahan otomatis Debet & Kredit."""
     date_val = str(row[idx_map["date"]]).strip() if idx_map["date"] != -1 and idx_map["date"] < len(row) and row[idx_map["date"]] else ""
     if not is_date_string(date_val):
         return None
 
     desc_val = str(row[idx_map["desc"]]).strip() if idx_map["desc"] != -1 and idx_map["desc"] < len(row) and row[idx_map["desc"]] else ""
+    note_idx = idx_map.get("note", -1)
+    if note_idx != -1 and note_idx < len(row) and row[note_idx]:
+        note_str = str(row[note_idx]).strip()
+        if note_str:
+            desc_val = f"{desc_val} ({note_str})" if desc_val else note_str
+
     ref_val = str(row[idx_map["ref"]]).strip() if idx_map["ref"] != -1 and idx_map["ref"] < len(row) and row[idx_map["ref"]] else "-"
-    balance_val = parse_idr_amount(row[idx_map["balance"]]) if idx_map["balance"] != -1 and idx_map["balance"] < len(row) else 0.0
+    balance_raw = row[idx_map["balance"]] if idx_map["balance"] != -1 and idx_map["balance"] < len(row) else ""
+    balance_val = abs(parse_idr_amount(balance_raw))
 
     debit_val = 0.0
     credit_val = 0.0
 
-    # Model B (Single column mutasi + flag seperti BSI, BCA, BNI)
-    if idx_map["flag"] != -1 and idx_map["flag"] < len(row):
+    # Model B1: Single column mutasi + kolom flag terpisah (seperti BSI, BNI)
+    if idx_map["flag"] != -1 and idx_map["flag"] < len(row) and str(row[idx_map["flag"]]).strip():
         flag_val = str(row[idx_map["flag"]]).upper().strip()
-        raw_amount = parse_idr_amount(row[idx_map["mutasi"]]) if idx_map["mutasi"] != -1 and idx_map["mutasi"] < len(row) else 0.0
+        raw_amount = abs(parse_idr_amount(row[idx_map["mutasi"]])) if idx_map["mutasi"] != -1 and idx_map["mutasi"] < len(row) else 0.0
         if raw_amount == 0.0 and idx_map["debit"] != -1 and idx_map["debit"] < len(row):
-            raw_amount = parse_idr_amount(row[idx_map["debit"]])
+            raw_amount = abs(parse_idr_amount(row[idx_map["debit"]]))
         if flag_val in ("D", "DB", "DEBET", "DEBIT", "-"):
             debit_val = raw_amount
         else:
             credit_val = raw_amount
+    # Model B2: Single column mutasi/jumlah bertanda +/- atau DB/CR (seperti Bank Jago, BCA, SeaBank, Blu, Jenius)
+    elif idx_map["mutasi"] != -1 and idx_map["mutasi"] < len(row) and str(row[idx_map["mutasi"]]).strip():
+        signed_amt = parse_idr_amount(row[idx_map["mutasi"]])
+        if signed_amt < 0:
+            debit_val = abs(signed_amt)
+        elif signed_amt > 0:
+            credit_val = signed_amt
+    # Model A: Dual Column terpisah (Debet & Kredit masing-masing kolom, seperti Mandiri, BRI, Bank Kalsel, BJB)
     else:
-        # Model A (Dual Column terpisah seperti Mandiri, BRI, Bank Kalsel, BJB)
         if idx_map["debit"] != -1 and idx_map["debit"] < len(row):
-            debit_val = parse_idr_amount(row[idx_map["debit"]])
+            debit_val = abs(parse_idr_amount(row[idx_map["debit"]]))
         if idx_map["credit"] != -1 and idx_map["credit"] < len(row):
-            credit_val = parse_idr_amount(row[idx_map["credit"]])
+            credit_val = abs(parse_idr_amount(row[idx_map["credit"]]))
+
+    if debit_val == 0.0 and credit_val == 0.0 and balance_val == 0.0:
+        return None
 
     return {
-        "date": date_val,
-        "ref": ref_val,
-        "desc": desc_val.replace("\n", " ").strip(),
+        "date": date_val.replace("\n", " ").strip(),
+        "ref": ref_val.replace("\n", " | ").strip() or "-",
+        "desc": desc_val.replace("\n", " | ").strip(),
         "debit": debit_val,
         "credit": credit_val,
         "balance": balance_val,
     }
 
 
+def _extract_spatial_bank_transactions(pdf_bytes: bytes, target_bank: str) -> List[Dict[str, Any]]:
+    """Ekstraksi presisi berbasis Spatial Grid PyMuPDF & konsolidasi multi-baris untuk e-Statement modern (Jago, BCA, Mandiri, dll.)."""
+    txs: List[Dict[str, Any]] = []
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        prev_bands = []
+        active_idx_map = None
+        for page in doc:
+            page_h = page.rect.height
+            page_w = page.rect.width
+            # 1. Deteksi pita kolom dari FillRect / StrokedRect header tabel
+            rect_rows = []
+            for dw in page.get_drawings():
+                r = dw.get("rect")
+                if not r or r.is_empty or r.y1 <= 50.0 or r.y0 >= page_h - 42.0:
+                    continue
+                if 12.0 <= r.height <= 45.0 and r.width >= 28.0 and (dw.get("fill") or dw.get("color")):
+                    placed = False
+                    for rr in rect_rows:
+                        if abs(rr["y0"] - r.y0) <= 3.0 and abs(rr["y1"] - r.y1) <= 3.0:
+                            rr["rects"].append(fitz.Rect(r))
+                            placed = True
+                            break
+                    if not placed:
+                        rect_rows.append({"y0": r.y0, "y1": r.y1, "rects": [fitz.Rect(r)]})
+
+            multi_rr = [rr for rr in rect_rows if len(rr["rects"]) >= 3]
+            bands = []
+            if multi_rr:
+                best_rr = max(multi_rr, key=lambda rr: len(rr["rects"]))
+                for sr in sorted(best_rr["rects"], key=lambda r: r.x0):
+                    if not bands or abs(sr.x0 - bands[-1]["min_x"]) > 8.0:
+                        bands.append({"min_x": sr.x0, "max_x": sr.x1, "center": (sr.x0 + sr.x1) / 2.0})
+            if len(bands) < 3 and len(prev_bands) >= 3:
+                bands = prev_bands
+            if len(bands) < 3:
+                continue
+            prev_bands = bands
+            num_cols = len(bands)
+
+            # 2. Kumpulkan dan kelompokkan teks ke dalam baris visual
+            spans = []
+            for blk in page.get_text("dict").get("blocks", []):
+                if blk.get("type") == 0:
+                    for ln in blk.get("lines", []):
+                        for sp in ln.get("spans", []):
+                            txt = re.sub(r"[\uf000-\uf8ff\ufffd]", "•", sp.get("text", "")).strip()
+                            if not txt:
+                                continue
+                            bb = fitz.Rect(sp.get("bbox"))
+                            if (bb.y0 < 52.0 and bb.x0 > page_w * 0.35) or bb.y0 > page_h - 45.0:
+                                continue
+                            spans.append({"text": txt, "x0": bb.x0, "x1": bb.x1, "y0": bb.y0, "y1": bb.y1})
+            spans.sort(key=lambda s: (s["y0"], s["x0"]))
+
+            v_lines = []
+            for sp in spans:
+                mid_y = (sp["y0"] + sp["y1"]) / 2.0
+                placed = False
+                for vl in v_lines:
+                    if abs(mid_y - vl["mid_y"]) <= 3.8:
+                        vl["spans"].append(sp)
+                        vl["mid_y"] = sum((x["y0"] + x["y1"]) / 2.0 for x in vl["spans"]) / len(vl["spans"])
+                        vl["min_y"] = min(vl["min_y"], sp["y0"])
+                        vl["max_y"] = max(vl["max_y"], sp["y1"])
+                        placed = True
+                        break
+                if not placed:
+                    v_lines.append({"mid_y": mid_y, "min_y": sp["y0"], "max_y": sp["y1"], "spans": [sp]})
+            v_lines.sort(key=lambda l: l["min_y"])
+
+            def map_col(sp_item):
+                mx = (sp_item["x0"] + sp_item["x1"]) / 2.0
+                if sp_item["x0"] < bands[0]["max_x"] - 10.0:
+                    return 0
+                for idx_b, b in enumerate(bands):
+                    if b["min_x"] - 2.5 <= mx <= b["max_x"] + 2.5:
+                        return idx_b
+                return min(range(num_cols), key=lambda i: abs(mx - bands[i]["center"]))
+
+            # 3. Petakan setiap baris visual ke array kolom dan konsolidasikan sub-baris
+            mapped_rows = []
+            for vl in v_lines:
+                row_arr = [""] * num_cols
+                for sp in sorted(vl["spans"], key=lambda s: s["x0"]):
+                    c_i = map_col(sp)
+                    row_arr[c_i] = (row_arr[c_i] + " " + sp["text"]).strip() if row_arr[c_i] else sp["text"]
+                mapped_rows.append({"min_y": vl["min_y"], "max_y": vl["max_y"], "cells": row_arr})
+
+            i = 0
+            while i < len(mapped_rows):
+                cur_cells = list(mapped_rows[i]["cells"])
+                pot_map = find_column_indices(cur_cells)
+                if pot_map["date"] != -1 and (pot_map["mutasi"] != -1 or pot_map["debit"] != -1 or pot_map["balance"] != -1):
+                    active_idx_map = pot_map
+                    i += 1
+                    continue
+
+                if active_idx_map and is_date_string(cur_cells[active_idx_map["date"]]):
+                    has_amt = any(
+                        active_idx_map[k] != -1 and cur_cells[active_idx_map[k]].strip()
+                        for k in ("mutasi", "debit", "credit", "balance")
+                    )
+                    if has_amt:
+                        cur_max_y = mapped_rows[i]["max_y"]
+                        nxt = i + 1
+                        while nxt < len(mapped_rows):
+                            nxt_row = mapped_rows[nxt]
+                            if nxt_row["min_y"] - cur_max_y > 14.0:
+                                break
+                            nxt_cells = nxt_row["cells"]
+                            if is_date_string(nxt_cells[active_idx_map["date"]]):
+                                break
+                            if any(active_idx_map[k] != -1 and nxt_cells[active_idx_map[k]].strip() for k in ("mutasi", "debit", "credit", "balance")):
+                                break
+                            col0_txt = nxt_cells[active_idx_map["date"]].strip()
+                            if col0_txt and not re.fullmatch(r"\d{2}[.:]\d{2}([.:]\d{2})?(\s*(WIB|WITA|WIT))?", col0_txt, re.IGNORECASE):
+                                break
+                            for c_idx in range(num_cols):
+                                if nxt_cells[c_idx]:
+                                    cur_cells[c_idx] = (cur_cells[c_idx] + "\n" + nxt_cells[c_idx]).strip() if cur_cells[c_idx] else nxt_cells[c_idx]
+                            cur_max_y = max(cur_max_y, nxt_row["max_y"])
+                            nxt += 1
+                        tx_item = _extract_row_data(cur_cells, active_idx_map, target_bank)
+                        if tx_item:
+                            txs.append(tx_item)
+                        i = nxt
+                        continue
+                i += 1
+    finally:
+        doc.close()
+    return txs
+
+
 def extract_bank_transactions(pdf_bytes: bytes, target_bank: str) -> List[Dict[str, Any]]:
     """Mengekstrak seluruh transaksi dari dokumen PDF rekening koran."""
+    # Prioritas 1: Mesin Spatial Grid PyMuPDF (mendukung penuh Bank Jago, BCA, Mandiri, BRI, BNI, BSI, BPD)
+    try:
+        spatial_txs = _extract_spatial_bank_transactions(pdf_bytes, target_bank)
+        if spatial_txs and any(t["debit"] > 0 or t["credit"] > 0 for t in spatial_txs):
+            return spatial_txs
+    except Exception as sp_err:
+        logging.warning(f"Spatial bank parser fallback: {sp_err}")
+
     transactions: List[Dict[str, Any]] = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        idx_map = {"date": 0, "ref": 1, "desc": 2, "debit": 3, "credit": 4, "balance": 5, "flag": -1, "mutasi": -1}
+        idx_map = {"date": 0, "ref": 1, "desc": 2, "debit": 3, "credit": 4, "balance": 5, "flag": -1, "mutasi": -1, "note": -1}
         detected_map = False
 
         for page in pdf.pages:
@@ -190,7 +382,6 @@ def extract_bank_transactions(pdf_bytes: bytes, target_bank: str) -> List[Dict[s
                     if not clean_row or len(clean_row) < 3:
                         continue
 
-                    # Deteksi header tabel untuk penyesuaian index kolom
                     if not detected_map:
                         potential_map = find_column_indices(clean_row)
                         if potential_map["date"] != -1 and (potential_map["debit"] != -1 or potential_map["balance"] != -1 or potential_map["mutasi"] != -1):
