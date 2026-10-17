@@ -250,8 +250,8 @@ function reconstructPageTable(
   lineGroups.sort((a, b) => b.y - a.y);
 
   const resultRows: TableRow[] = [];
-  const DATE_START_RE = /^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$/;
-  const TIME_ONLY_RE = /^\d{2}\.\d{2}$/;
+  const DATE_START_RE = /^(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?|\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?|\d{4}[/-]\d{2}[/-]\d{2}(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?|PEND)$/i;
+  const TIME_ONLY_RE = /^\d{2}[.:]\d{2}([.:]\d{2})?(\s*(WIB|WITA|WIT|AM|PM))?$/i;
 
   for (let gIdx = 0; gIdx < lineGroups.length; gIdx++) {
     const group = lineGroups[gIdx];
@@ -283,7 +283,7 @@ function reconstructPageTable(
     // Konsolidasi sub-baris transaksi multi-baris ke dalam baris transaksi utama di atasnya
     if (
       resultRows.length > 0 &&
-      numCols >= 5 &&
+      numCols >= 3 &&
       !rowCells[numCols - 2] &&
       !rowCells[numCols - 1]
     ) {

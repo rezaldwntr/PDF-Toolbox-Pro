@@ -276,8 +276,11 @@ async def convert_pdf_to_excel(
                 def parse_financial_cell(val_str: str):
                     """
                     Mengonversi nilai string ke angka (float/int) beserta format angka Excel yang presisi.
-                    Mendukung format angka Indonesia (34.865,21 / +994.892,24 / -2.074.122,45)
-                    dan menjaga kode waktu (09.40, 12.29) serta nomor ID panjang tetap sebagai string teks ('@').
+                    Mendukung:
+                    - Format Indonesia: 34.865,21 | +994.892,24 | -2.074.122,45 | Rp 1.250.000,00
+                    - Format Internasional (BCA/Asing): 1,250,000.00 | 1,250,000.00 DB | 500,000.00 CR
+                    - Format Akuntansi Kurung Negatif: (1.250.000,00) | (1,250,000.00)
+                    - Menjaga kode waktu (09.40, 12:29:10) serta nomor ID panjang tetap sebagai string teks ('@').
                     """
                     if val_str is None:
                         return "", "@"
@@ -285,8 +288,8 @@ async def convert_pdf_to_excel(
                     if not s or "\n" in s:
                         return s, "@"
 
-                    # 1. Jam transaksi (misal 09.40, 12.29, 00.40) -> WAJIB STRING
-                    if re.fullmatch(r'\d{2}\.\d{2}', s):
+                    # 1. Jam transaksi (misal 09.40, 12:29, 09:40:15) -> WAJIB STRING
+                    if re.fullmatch(r'\d{2}[.:]\d{2}([.:]\d{2})?(\s*(WIB|WITA|WIT|AM|PM))?', s, re.IGNORECASE):
                         return s, "@"
 
                     # 2. Awalan '0' bukan desimal (No HP, kode, dsb.) atau angka >= 12 digit (No Rek, NIK, NIP) -> STRING
@@ -296,37 +299,75 @@ async def convert_pdf_to_excel(
                     if len(digits_only) >= 12:
                         return s, "@"
 
+                    # Normalisasi awalan mata uang (Rp, IDR, USD, $) & akhiran mutasi bank (DB, CR, D, K) atau kurung negatif akuntansi
+                    clean_s = s
+                    is_paren_neg = False
+                    if clean_s.startswith("(") and clean_s.endswith(")"):
+                        is_paren_neg = True
+                        clean_s = clean_s[1:-1].strip()
+
+                    # Cek awalan mata uang
+                    m_curr = re.match(r'^([+-]?)\s*(?:Rp\.?|IDR|USD|\$)\s*(.+)$', clean_s, re.IGNORECASE)
+                    if m_curr:
+                        sign_prefix = m_curr.group(1) or ""
+                        clean_s = sign_prefix + m_curr.group(2).strip()
+
+                    # Cek akhiran DB / CR (khas BCA / Mandiri / BNI)
+                    forced_sign = None
+                    m_dc = re.match(r'^([+-]?[\d.,]+)\s+(DB|CR|DEBIT|KREDIT|D|K)$', clean_s, re.IGNORECASE)
+                    if m_dc:
+                        clean_s = m_dc.group(1).strip()
+                        dc_tag = m_dc.group(2).upper()
+                        if dc_tag in ("DB", "DEBIT", "D"):
+                            forced_sign = -1
+                        elif dc_tag in ("CR", "KREDIT", "K"):
+                            forced_sign = 1
+
+                    def apply_sign(val_num):
+                        if is_paren_neg or forced_sign == -1:
+                            return -abs(val_num)
+                        return val_num
+
                     # 3. Format Angka / Nominal Indonesia: 34.865,21 | +994.892,24 | -20.015,27 | 0,46 | 0,00
-                    if re.fullmatch(r'[+-]?\d{1,3}(\.\d{3})*(,\d+)', s) or re.fullmatch(r'[+-]?\d+(,\d+)', s):
+                    if re.fullmatch(r'[+-]?\d{1,3}(\.\d{3})*(,\d+)', clean_s) or re.fullmatch(r'[+-]?\d+(,\d+)', clean_s):
                         try:
-                            num_val = float(s.replace(".", "").replace(",", "."))
-                            num_fmt = "+#,##0.00;-#,##0.00;0.00" if s.startswith("+") else "#,##0.00"
+                            num_val = apply_sign(float(clean_s.replace(".", "").replace(",", ".")))
+                            num_fmt = "+#,##0.00;-#,##0.00;0.00" if clean_s.startswith("+") else "#,##0.00"
                             return num_val, num_fmt
                         except ValueError:
                             return s, "@"
 
-                    # 4. Format Ribuan Indonesia bulat: +500.000 | -3.120.023
-                    if re.fullmatch(r'[+-]?\d{1,3}(\.\d{3})+', s):
+                    # 4. Format Ribuan Indonesia bulat: +500.000 | -3.120.023 | 1.250.000
+                    if re.fullmatch(r'[+-]?\d{1,3}(\.\d{3})+', clean_s):
                         try:
-                            num_val = int(s.replace(".", ""))
-                            num_fmt = "+#,##0;-#,##0;0" if s.startswith("+") else "#,##0"
+                            num_val = apply_sign(int(clean_s.replace(".", "")))
+                            num_fmt = "+#,##0;-#,##0;0" if clean_s.startswith("+") else "#,##0"
                             return num_val, num_fmt
                         except ValueError:
                             return s, "@"
 
-                    # 5. Format Angka Internasional: 1,234.56
-                    if re.fullmatch(r'[+-]?\d{1,3}(,\d{3})+(\.\d+)', s):
+                    # 5. Format Angka Internasional (BCA / Invoice): 1,234.56 | 1,250,000.00
+                    if re.fullmatch(r'[+-]?\d{1,3}(,\d{3})+(\.\d+)', clean_s):
                         try:
-                            num_val = float(s.replace(",", ""))
-                            num_fmt = "+#,##0.00;-#,##0.00;0.00" if s.startswith("+") else "#,##0.00"
+                            num_val = apply_sign(float(clean_s.replace(",", "")))
+                            num_fmt = "+#,##0.00;-#,##0.00;0.00" if clean_s.startswith("+") else "#,##0.00"
                             return num_val, num_fmt
                         except ValueError:
                             return s, "@"
 
-                    # 6. Bilangan bulat pendek (1 s/d 7 digit)
-                    if re.fullmatch(r'[+-]?\d{1,7}', s) and not s.startswith("0"):
+                    # 6. Format Ribuan Internasional bulat: 1,250,000
+                    if re.fullmatch(r'[+-]?\d{1,3}(,\d{3})+', clean_s):
                         try:
-                            return int(s), "0"
+                            num_val = apply_sign(int(clean_s.replace(",", "")))
+                            num_fmt = "+#,##0;-#,##0;0" if clean_s.startswith("+") else "#,##0"
+                            return num_val, num_fmt
+                        except ValueError:
+                            return s, "@"
+
+                    # 7. Bilangan bulat pendek (1 s/d 7 digit)
+                    if re.fullmatch(r'[+-]?\d{1,7}', clean_s) and not clean_s.startswith("0"):
+                        try:
+                            return apply_sign(int(clean_s)), "0"
                         except ValueError:
                             pass
 
@@ -340,9 +381,10 @@ async def convert_pdf_to_excel(
                     page_w = page_rect.width
                     page_h = page_rect.height
 
-                    # 1. Ekstraksi Fill Rects (Header/Summary Shaded Bands & Card Containers) serta Gambar/Vektor Grafik
+                    # 1. Ekstraksi Fill Rects (Header/Summary Shaded Bands), Stroked Table Cells (Tabel bergaris BCA/Mandiri/BRI/Umum), & Grafik
                     drawings = fitz_page.get_drawings()
                     filled_rects = []
+                    stroked_cell_rects = []
                     dense_drawings = []
                     large_card_rects = []
 
@@ -350,22 +392,29 @@ async def convert_pdf_to_excel(
                         r = dw.get("rect")
                         if not r or r.is_empty:
                             continue
-                        # Abaikan area header banner atas & footer bawah
-                        if r.y1 <= 68.0 or r.y0 >= page_h - 48.0:
+                        # Abaikan area header banner atas & footer bawah ekstrem
+                        if r.y1 <= 50.0 or r.y0 >= page_h - 42.0:
                             continue
 
                         fill = dw.get("fill")
+                        stroke_color = dw.get("color")
+                        has_valid_fill = False
                         if fill and isinstance(fill, (list, tuple)) and len(fill) >= 3:
                             rf, gf, bf = fill[:3]
                             r_int = int(round(rf * 255))
                             g_int = int(round(gf * 255))
                             b_int = int(round(bf * 255))
                             if not (r_int >= 250 and g_int >= 250 and b_int >= 250):
+                                has_valid_fill = True
                                 fill_hex = f"{r_int:02X}{g_int:02X}{b_int:02X}"
                                 if r.height >= 60.0 and r.width >= 100.0:
                                     large_card_rects.append(fitz.Rect(r))
                                 else:
                                     filled_rects.append({"rect": fitz.Rect(r), "fill_hex": fill_hex})
+
+                        # Simpan kotak sel bergaris (stroked table cells tanpa fill warna, khas tabel border garis standar)
+                        if not has_valid_fill and stroke_color is not None and 12.0 <= r.height <= 65.0 and r.width >= 25.0:
+                            stroked_cell_rects.append(fitz.Rect(r))
 
                         items = dw.get("items", [])
                         has_curve = any(it[0] == "c" for it in items)
@@ -385,8 +434,6 @@ async def convert_pdf_to_excel(
                         pass
 
                     # Tentukan kotak visual grafik (Chart Cards):
-                    # Jika ada large_card_rect (misal kartu abu-abu SOROTAN 245x143 dan 294x143) yang memuat gambar grafik atau kurva vektor,
-                    # gunakan rect kartu tersebut secara utuh agar legend + angka + grafik ter-render rapi dalam 1 gambar kartu!
                     valid_charts = []
                     if include_charts:
                         used_img_indices = set()
@@ -421,12 +468,11 @@ async def convert_pdf_to_excel(
 
                         valid_charts.sort(key=lambda r: (round(r.y0, 1), round(r.x0, 1)))
 
-                    # 2. Deteksi Presisi Batas Kolom Tabel dari Baris Persegi Header/Summary (Shaded FillRects)
-                    # Kelompokkan filled_rects berdasarkan posisi vertikal (y0, y1)
+                    # 2. Deteksi Presisi Batas Kolom Tabel dari Baris Persegi Header/Summary (Shaded FillRects ATAU Stroked Border Cells)
                     rect_rows = []
                     for fr in filled_rects:
                         r = fr["rect"]
-                        if 14.0 <= r.height <= 42.0 and r.width >= 35.0:
+                        if 14.0 <= r.height <= 42.0 and r.width >= 28.0:
                             placed = False
                             for rr in rect_rows:
                                 if abs(rr["y0"] - r.y0) <= 3.0 and abs(rr["y1"] - r.y1) <= 3.0:
@@ -437,13 +483,25 @@ async def convert_pdf_to_excel(
                             if not placed:
                                 rect_rows.append({"y0": r.y0, "y1": r.y1, "fill_hex": fr["fill_hex"], "rects": [r]})
 
+                    stroked_rows = []
+                    for sr_cell in stroked_cell_rects:
+                        placed = False
+                        for s_rr in stroked_rows:
+                            if abs(s_rr["y0"] - sr_cell.y0) <= 3.0 and abs(s_rr["y1"] - sr_cell.y1) <= 3.0:
+                                s_rr["rects"].append(sr_cell)
+                                placed = True
+                                break
+                        if not placed:
+                            stroked_rows.append({"y0": sr_cell.y0, "y1": sr_cell.y1, "fill_hex": None, "rects": [sr_cell]})
+
                     rect_column_bands = []
-                    multi_rect_rows = [rr for rr in rect_rows if len(rr["rects"]) >= 3]
-                    if multi_rect_rows:
-                        # Pilih baris rect dengan jumlah kolom terbanyak (misal 6 kolom header tabel)
-                        best_rr = max(multi_rect_rows, key=lambda rr: len(rr["rects"]))
+                    candidate_grid_rows = [rr for rr in rect_rows if len(rr["rects"]) >= 3]
+                    if not candidate_grid_rows:
+                        candidate_grid_rows = [s_rr for s_rr in stroked_rows if len(s_rr["rects"]) >= 3]
+
+                    if candidate_grid_rows:
+                        best_rr = max(candidate_grid_rows, key=lambda rr: len(rr["rects"]))
                         sorted_rects = sorted(best_rr["rects"], key=lambda r: r.x0)
-                        # Deduplikasi jika ada rect yang bertumpuk pada x0 yang sama
                         unique_rects = []
                         for sr in sorted_rects:
                             if not unique_rects or abs(sr.x0 - unique_rects[-1].x0) > 8.0:
@@ -458,7 +516,10 @@ async def convert_pdf_to_excel(
                                     "center": (u_r.x0 + u_r.x1) / 2.0
                                 })
 
-                    # 3. Ekstraksi Text Spans (dengan pembersihan Running Header & Footer serta karakter PUA)
+                    # 3. Ekstraksi Text Spans (dengan pembersihan Running Header/Footer cerdas & karakter PUA)
+                    RUNNING_HEADER_RE = re.compile(r'(halaman\s+\d+\s+dari\s+\d+|page\s+\d+\s+of\s+\d+|laporan\s+keuangan\s+bulanan)', re.IGNORECASE)
+                    RUNNING_FOOTER_RE = re.compile(r'(berizin\s+dan\s+diawasi\s+oleh\s+otoritas\s+jasa\s+keuangan|peserta\s+penjaminan\s+lps|halaman\s+\d+\s+dari\s+\d+|page\s+\d+\s+of\s+\d+)', re.IGNORECASE)
+
                     text_page = fitz_page.get_text("dict")
                     raw_spans = []
                     for block in text_page.get("blocks", []):
@@ -469,11 +530,11 @@ async def convert_pdf_to_excel(
                                     if not raw_txt.strip():
                                         continue
                                     bbox = fitz.Rect(span.get("bbox"))
-                                    # Eliminasi running header di pojok kanan atas (Laporan Keuangan Bulanan | Halaman X dari Y)
-                                    if bbox.y0 < 52.0 and bbox.x0 > page_w * 0.35:
+                                    # Eliminasi running header di pojok kanan atas pada dokumen multi-halaman atau jika cocok pola nomor halaman
+                                    if bbox.y0 < 52.0 and bbox.x0 > page_w * 0.35 and (num_pages > 1 or RUNNING_HEADER_RE.search(raw_txt)):
                                         continue
-                                    # Eliminasi running footer OJK/LPS di dasar halaman
-                                    if bbox.y0 > page_h - 45.0:
+                                    # Eliminasi running footer di dasar halaman pada dokumen multi-halaman atau disclaimer OJK/LPS
+                                    if bbox.y0 > page_h - 45.0 and (num_pages > 1 or RUNNING_FOOTER_RE.search(raw_txt)):
                                         continue
 
                                     color_int = span.get("color", 0)
@@ -701,8 +762,17 @@ async def convert_pdf_to_excel(
                                 return rr
                         return None
 
-                    DATE_START_RE = re.compile(r'^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$')
-                    TIME_ONLY_RE = re.compile(r'^\d{2}\.\d{2}$')
+                    # Pola Universal Tanggal & Jam Lintas Bank (Jago, BCA, Mandiri, BRI, BNI, BSI, CIMB, SeaBank) & Nomor Urut Tabel Umum
+                    DATE_START_RE = re.compile(
+                        r'^('
+                        r'\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?'
+                        r'|\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?'
+                        r'|\d{4}[/-]\d{2}[/-]\d{2}(\s+\d{2}[.:]\d{2}([.:]\d{2})?)?'
+                        r'|PEND'
+                        r')$',
+                        re.IGNORECASE
+                    )
+                    TIME_ONLY_RE = re.compile(r'^\d{2}[.:]\d{2}([.:]\d{2})?(\s*(WIB|WITA|WIT|AM|PM))?$', re.IGNORECASE)
 
                     # =====================================================================
                     # KONSOLIDASI BARIS MULTI-LINE CERDAS (SOLID-GRADE ROW CONSOLIDATION)
@@ -797,9 +867,9 @@ async def convert_pdf_to_excel(
                             idx = next_i
                             continue
 
-                        # C. Cek apakah baris ini adalah Baris Utama Mutasi Transaksi (Kolom 1 = Tanggal '02 Sep 2026' dan memiliki Nominal/Saldo di Kolom 5/6)
+                        # C. Cek apakah baris ini adalah Baris Utama Mutasi Transaksi Lintas Bank (Kolom 1 = Tanggal dan memiliki Nominal/Saldo di kolom kanan)
                         col1_txt = col_map.get(1, {}).get("text", "").strip()
-                        has_amount_or_bal = (total_cols >= 5 and ((total_cols - 1) in col_map or total_cols in col_map))
+                        has_amount_or_bal = (total_cols >= 3 and ((total_cols - 1) in col_map or total_cols in col_map))
                         if DATE_START_RE.match(col1_txt) and has_amount_or_bal:
                             cur_max_y = pl["max_y"]
                             next_i = idx + 1
@@ -814,7 +884,7 @@ async def convert_pdf_to_excel(
                                     c_i = find_col_idx(n_it)
                                     n_map[c_i] = n_map[c_i] + " " + n_it["text"].strip() if c_i in n_map else n_it["text"].strip()
 
-                                # Jika baris berikutnya sudah memiliki Tanggal baru di Kolom 1 atau memiliki Nominal/Saldo baru di Kolom 5/6 -> Berhenti!
+                                # Jika baris berikutnya sudah memiliki Tanggal baru di Kolom 1 atau memiliki Nominal/Saldo baru di kolom kanan -> Berhenti!
                                 n_col1 = n_map.get(1, "").strip()
                                 if DATE_START_RE.match(n_col1):
                                     break
